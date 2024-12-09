@@ -5,7 +5,7 @@ import { Map } from './components/Map';
 import { AddLocationModal } from './components/AddLocationModal'; // 모달 컴포넌트 불러오기
 import type { Region, Category, Location } from './types/location';
 import { MapPin, Plus } from 'lucide-react';
-import axios from 'axios';
+import apiClient from './utils/apiClient';
 
 export default function App() {
   const [locations, setLocations] = useState<Location[]>([]); // 전체 장소 데이터
@@ -38,7 +38,7 @@ export default function App() {
   // 데이터 가져오기
   const fetchLocations = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/api/locations'); // 데이터 API 호출
+      const response = await apiClient.get('/api/locations');
       setLocations(response.data);
     } catch (error) {
       console.error('Error fetching locations:', error);
@@ -57,7 +57,7 @@ export default function App() {
     lat: number;
   }) => {
     try {
-      const response = await axios.post('http://localhost:3001/api/locations', newLocation);
+      const response = await apiClient.post('/api/locations', newLocation);
       setLocations(prev => [...prev, response.data]); // 상태 업데이트
       alert('새로운 장소가 추가되었습니다.');
     } catch (error) {
@@ -69,7 +69,7 @@ export default function App() {
   // 장소 삭제
   const handleDelete = async (id: string) => {
     try {
-      await axios.delete(`http://localhost:3001/api/locations/${id}`);
+      await apiClient.delete(`/api/locations/${id}`);
       setLocations(prev => prev.filter(location => location.id !== id));
       alert('장소가 삭제되었습니다.');
     } catch (error) {
