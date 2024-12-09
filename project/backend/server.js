@@ -92,4 +92,10 @@ app.delete('/api/locations/:id', async (req, res) => {
 const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log('Database Config:', {
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+  });
 });
