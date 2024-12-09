@@ -6,6 +6,10 @@ const app = express();
 app.use(cors()); // CORS 허용
 app.use(express.json()); // JSON 요청 본문 파싱
 
+app.get('/', (req, res) => {
+  res.send('Server is running!'); // 간단한 응답 메시지
+});
+
 // GET: 모든 장소 가져오기
 app.get('/api/locations', async (req, res) => {
   try {
