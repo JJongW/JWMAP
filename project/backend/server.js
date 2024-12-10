@@ -3,7 +3,13 @@ const cors = require('cors');
 const pool = require('./db'); // MySQL 연결 설정
 
 const app = express();
-app.use(cors()); // CORS 허용
+app.use(
+  cors({
+    origin: ['https://jw-map-project.vercel.app', 'https://jwmap.site'], // 허용할 도메인
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // 허용할 HTTP 메서드
+    allowedHeaders: ['Content-Type', 'Authorization'], // 허용할 헤더
+  })
+);
 app.use(express.json()); // JSON 요청 본문 파싱
 
 app.get('/', (req, res) => {
