@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Location } from '../types/location';
 import { Star, MapPin, Edit2, Trash2 } from 'lucide-react';
-import axios from 'axios';
+import apiClient from '../utils/apiClient'; 
 
 interface LocationCardProps {
   location: Location;
@@ -24,7 +24,7 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
 
   const handleSave = async () => {
     try {
-      await axios.put(`http://localhost:3001/api/locations/${location.id}`, {
+      await apiClient.put(`/api/locations/${location.id}`, {
         rating: editedRating,
         imageUrl: editedImageUrl,
         category: editedCategory,
@@ -43,7 +43,7 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
       return;
     }
     try {
-      await axios.delete(`http://localhost:3001/api/locations/${location.id}`);
+      await apiClient.delete(`/api/locations/${location.id}`);
       alert('장소가 삭제되었습니다.');
       onDelete(location.id); // 부모 컴포넌트에 삭제 알림
     } catch (error) {
@@ -58,7 +58,7 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
     const kakaoSearchUrl = 'https://dapi.kakao.com/v2/local/search/keyword.json';
 
     try {
-      const response = await axios.get(kakaoSearchUrl, {
+      const response = await apiClient.get(kakaoSearchUrl, {
         headers: {
           Authorization: `KakaoAK ${KAKAO_API_KEY}`,
         },
