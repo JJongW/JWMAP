@@ -5,6 +5,7 @@ import { Map } from './components/Map';
 import { AddLocationModal } from './components/AddLocationModal'; // 모달 컴포넌트 불러오기
 import type { Region, Category, Location } from './types/location';
 import { MapPin, Plus } from 'lucide-react';
+import { Footer } from './components/Footer';
 import apiClient from './utils/apiClient';
 
 export default function App() {
@@ -211,6 +212,7 @@ export default function App() {
           </div>
         </div>
       </main>
+      <Footer /> {/* Footer 컴포넌트 추가 */}
     </div>
   );
 }
