@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Location } from '../types/location';
 import { Star, MapPin, Edit2, Trash2 } from 'lucide-react';
 import apiClient from '../utils/apiClient'; 
