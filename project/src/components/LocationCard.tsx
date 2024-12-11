@@ -148,9 +148,6 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
             {location.memo ? location.memo : '메모가 없습니다.'}
           </p>
         )}
-        <p className="text-gray-700 text-sm mt-2">
-          {location.memo ? location.memo : '메모가 없습니다.'}
-        </p>
         <div className="flex items-center text-yellow-500">
           <Star size={16} className="fill-current" />
           {isEditing ? (
