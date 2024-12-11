@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import type { Location } from '../types/location';
 import { Star, MapPin, Edit2, Trash2 } from 'lucide-react';
 import apiClient from '../utils/apiClient'; 
@@ -13,6 +13,7 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
   const [editedRating, setEditedRating] = useState(location.rating);
   const [editedImageUrl, setEditedImageUrl] = useState(location.imageUrl);
   const [editedCategory, setEditedCategory] = useState(location.category);
+  const [editedMemo, setEditedMemo] = useState(location.memo);
 
   // location prop이 변경될 때, 수정 모드를 종료하고 입력 필드 초기화
   useEffect(() => {
@@ -20,6 +21,7 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
     setEditedRating(location.rating);
     setEditedImageUrl(location.imageUrl);
     setEditedCategory(location.category);
+    setEditedMemo(location.memo);
   }, [location]);
 
   const handleSave = async () => {
@@ -28,6 +30,7 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
         rating: editedRating,
         imageUrl: editedImageUrl,
         category: editedCategory,
+        memo: editedMemo,
       });
       alert('수정된 내용이 저장되었습니다.');
       setIsEditing(false);
@@ -133,6 +136,18 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
           <MapPin size={14} />
           {location.address}
         </p>
+        {isEditing ? (
+          <textarea
+            value={editedMemo}
+            onChange={(e) => setEditedMemo(e.target.value)}
+            className="w-full mt-2 border rounded px-2 py-1 text-sm"
+            placeholder="메모를 입력하세요"
+          />
+        ) : (
+          <p className="text-gray-700 text-sm mt-2">
+            {location.memo ? location.memo : '메모가 없습니다.'}
+          </p>
+        )}
         <p className="text-gray-700 text-sm mt-2">
           {location.memo ? location.memo : '메모가 없습니다.'}
         </p>
