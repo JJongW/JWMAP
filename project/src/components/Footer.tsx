@@ -1,5 +1,5 @@
 import React from 'react';
-import { Instagram, Mail } from 'lucide-react';
+import { Globe, Mail } from 'lucide-react';
 
 export function Footer() {
   return (
@@ -13,7 +13,7 @@ export function Footer() {
             rel="noopener noreferrer"
             className="flex items-center space-x-2 hover:text-pink-500 transition-colors"
           >
-            <Instagram className="w-5 h-5" />
+            <Globe className="w-5 h-5" />
             <span>Instagram</span>
           </a>
           <a
