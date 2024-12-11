@@ -23,7 +23,7 @@ app.get('/api/locations', async (req, res) => {
 
 // POST: 새로운 장소 추가
 app.post('/api/locations', async (req, res) => {
-  const { name, region, category, address, lon, lat, rating, imageUrl } = req.body;
+  const { name, region, category, address, lon, lat, rating, imageUrl, memo } = req.body;
 
   if (!name || !region || !category || !address) {
     return res.status(400).json({ message: 'Required fields are missing' });
@@ -31,8 +31,8 @@ app.post('/api/locations', async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      'INSERT INTO locations (name, region, category, address, lon, lat, rating, imageUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, region, category, address, lon, lat, rating, imageUrl]
+      'INSERT INTO locations (name, region, category, address, lon, lat, rating, imageUrl, memo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, region, category, address, lon, lat, rating, imageUrl, memo]
     );
 
     const [newLocation] = await pool.query('SELECT * FROM locations WHERE id = ?', [result.insertId]);
@@ -46,7 +46,7 @@ app.post('/api/locations', async (req, res) => {
 // PUT: 특정 장소 업데이트
 app.put('/api/locations/:id', async (req, res) => {
   const { id } = req.params;
-  const { rating, imageUrl, category } = req.body;
+  const { rating, imageUrl, category, memo } = req.body;
 
   if (rating === undefined || !imageUrl || !category) {
     return res.status(400).json({ message: 'All fields are required' });
@@ -54,8 +54,8 @@ app.put('/api/locations/:id', async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      'UPDATE locations SET rating = ?, imageUrl = ?, category = ? WHERE id = ?',
-      [rating, imageUrl, category, id]
+      'UPDATE locations SET rating = ?, imageUrl = ?, category = ?, memo = ? WHERE id = ?',
+      [rating, imageUrl, category, memo, id]
     );
 
     if (result.affectedRows === 0) {

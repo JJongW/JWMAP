@@ -11,6 +11,7 @@ interface AddLocationModalProps {
     rating: number;
     lon: number;
     lat: number;
+    memo: string;
   }) => void;
 }
 
@@ -24,6 +25,7 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
     rating: 0,
     lon: 0,
     lat: 0,
+    memo: ''
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,6 +139,17 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">메모</label>
+            <input
+              type="text"
+              name="memo"
+              value={formData.memo}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="메모를 입력하세요"
+            />
           </div>
         </div>
         <div className="flex justify-end mt-6 gap-3">

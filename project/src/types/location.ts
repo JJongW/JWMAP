@@ -46,6 +46,7 @@ export interface Location {
   category: Category;
   lon: number;
   lat: number;
+  memo: string
   address: string;
   rating: number;
   imageUrl: string;

@@ -88,6 +88,7 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
     '분식',
     '호프집',
     '칵테일바',
+    '와인바',
     '아시안',
     '돈까스',
     '회',
@@ -131,6 +132,9 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
         <p className="text-gray-600 text-sm flex items-center gap-1">
           <MapPin size={14} />
           {location.address}
+        </p>
+        <p className="text-gray-700 text-sm mt-2">
+          {location.memo ? location.memo : '메모가 없습니다.'}
         </p>
         <div className="flex items-center text-yellow-500">
           <Star size={16} className="fill-current" />
