@@ -6,4 +6,4 @@ Disallow: /admin/
 Disallow: /config/
 
 # Sitemap for better indexing
-Sitemap: https://jwmap.site/sitemap.xml
+Sitemap: https://jw-map-project.vercel.app//sitemap.xml
