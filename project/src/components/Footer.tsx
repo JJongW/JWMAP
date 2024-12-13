@@ -3,7 +3,7 @@ import { Globe, Mail } from 'lucide-react';
 
 export function Footer() {
   return (
-    <footer className="bg-gray-800 text-white py-6">
+    <footer className="bg-green-500 text-white py-6">
       <div className="container mx-auto flex flex-col items-center justify-center space-y-4">
         <div className="text-lg font-semibold">© 2024 JW Map Project</div>
         <div className="flex space-x-6">
