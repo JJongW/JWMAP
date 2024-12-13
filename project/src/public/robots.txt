@@ -1,4 +1,9 @@
+# Allow all search engines
 User-agent: *
+Disallow: /api/
 Disallow: /private/
-Disallow: /hidden/
-Sitemap: https://www.jwmap.site/sitemap.xml
+Disallow: /admin/
+Disallow: /config/
+
+# Sitemap for better indexing
+Sitemap: https://jwmap.site/sitemap.xml
