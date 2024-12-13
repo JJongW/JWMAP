@@ -7,7 +7,7 @@ import type { Region, Category, Location } from './types/location';
 import { MapPin, Plus } from 'lucide-react';
 import { Footer } from './components/Footer';
 import apiClient from './utils/apiClient';
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { SpeedInsights } from "@vercel/speed-insights/react"
 
 export default function App() {
   const [locations, setLocations] = useState<Location[]>([]); // 전체 장소 데이터
