@@ -97,7 +97,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <MapPin className="w-6 h-6 text-blue-600" />
+              <MapPin className="w-6 h-6 text-red-600" />
               <h1 className="text-2xl font-bold text-gray-900">종원의 서울 맛집 지도</h1>
             </div>
             <button
