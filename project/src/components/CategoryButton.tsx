@@ -17,7 +17,7 @@ export function CategoryButton({ category, isActive, onClick, count }: CategoryB
         'relative px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all duration-200 transform',
         'flex items-center gap-2 shadow-md',
         isActive
-          ? 'bg-gradient-to-r from-green-400 via-red-500 to-yellow-400 text-white scale-100 active:scale-95'
+          ? 'bg-gradient-to-r from-green-400 to-red-500 text-white scale-100 active:scale-95'
           : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300 active:scale-95'
       )}
     >
