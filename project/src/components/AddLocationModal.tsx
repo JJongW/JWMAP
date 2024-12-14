@@ -27,6 +27,37 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
     lat: 0,
     memo: ''
   });
+  const [file, setFile] = useState<File | null>(null); // 선택된 파일 상태 추가
+
+  // 파일 선택 처리
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]); // 선택된 파일 저장
+    }
+  };
+
+  // 파일 업로드 처리
+  const handleUpload = async () => {
+    if (!file) {
+      alert('이미지를 선택해주세요.');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      setFormData((prev) => ({ ...prev, imageUrl: data.imageUrl })); // 서버에서 받은 URL 저장
+      alert('이미지 업로드 완료!');
+    } catch (error) {
+      console.error('File upload error:', error);
+      alert('이미지 업로드 중 문제가 발생했습니다.');
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -95,6 +126,21 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
             />
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700">이미지</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer"
+            />
+            <button
+              onClick={handleUpload}
+              className="mt-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+            >
+              이미지 업로드
+            </button>
+          </div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-700">이미지 URL</label>
             <input
               type="text"
@@ -104,7 +150,8 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               placeholder="예: https://example.com/image.jpg"
             />
-          </div>
+          </div> */}
+
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">평점</label>
