@@ -21,7 +21,7 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
     region: '',
     category: '',
     address: '',
-    imageUrl: '',
+    imageUrl: '', // 서버에서 받은 이미지 URL 저장
     rating: 0,
     lon: 0,
     lat: 0,
