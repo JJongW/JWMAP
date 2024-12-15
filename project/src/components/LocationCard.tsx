@@ -14,6 +14,7 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
   const [editedImageUrl, setEditedImageUrl] = useState(location.imageUrl);
   const [editedCategory, setEditedCategory] = useState(location.category);
   const [editedMemo, setEditedMemo] = useState(location.memo);
+  const [uploading, setUploading] = useState(false); // 업로드 상태
 
   // location prop이 변경될 때, 수정 모드를 종료하고 입력 필드 초기화
   useEffect(() => {
@@ -52,6 +53,30 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
     } catch (error) {
       console.error('데이터 삭제 오류:', error);
       alert('데이터 삭제 중 문제가 발생했습니다.');
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+
+    const file = e.target.files[0];
+    const formData = new FormData();
+    formData.append('image', file);
+
+    setUploading(true);
+    try {
+      const response = await apiClient.post('/api/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      setEditedImageUrl(response.data.imageUrl); // 업로드된 이미지 URL을 설정
+      alert('이미지가 업로드되었습니다.');
+    } catch (error) {
+      console.error('이미지 업로드 오류:', error);
+      alert('이미지 업로드 중 문제가 발생했습니다.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -165,13 +190,15 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
           )}
         </div>
         {isEditing && (
-          <input
-            type="text"
-            value={editedImageUrl}
-            onChange={(e) => setEditedImageUrl(e.target.value)}
-            className="w-full mt-2 border rounded px-2 py-1 text-sm"
-            placeholder="이미지 URL 수정"
-          />
+          <div className="mt-2">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="w-full text-sm"
+            />
+            {uploading && <p className="text-sm text-blue-500 mt-1">이미지 업로드 중...</p>}
+          </div>
         )}
         <div className="text-center mt-3 flex justify-center gap-2">
           {isEditing ? (

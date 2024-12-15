@@ -15,6 +15,8 @@ interface AddLocationModalProps {
   }) => void;
 }
 
+declare const kakao: any; // Kakao 지도 API 타입 정의 (전역)
+
 export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -28,6 +30,7 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
     memo: ''
   });
   const [file, setFile] = useState<File | null>(null); // 선택된 파일 상태 추가
+  const [loadingCoords, setLoadingCoords] = useState(false); // 좌표 가져오는 상태
 
   // 파일 선택 처리
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,6 +68,33 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
       ...prev,
       [name]: name === 'rating' || name === 'lon' || name === 'lat' ? parseFloat(value) : value,
     }));
+
+    // 주소 변경 시 자동으로 좌표 계산
+    if (name === 'address') {
+      handleAddressChange(value);
+    }
+  };
+
+  const handleAddressChange = async (address: string) => {
+    if (!address) return;
+
+    setLoadingCoords(true); // 로딩 상태 활성화
+    const geocoder = new kakao.maps.services.Geocoder();
+
+    geocoder.addressSearch(address, (result: any[], status: string) => {
+      if (status === kakao.maps.services.Status.OK) {
+        const coords = result[0];
+        setFormData((prev) => ({
+          ...prev,
+          lon: parseFloat(coords.x), // 경도
+          lat: parseFloat(coords.y), // 위도
+        }));
+        alert(`위도: ${coords.y}, 경도: ${coords.x}`);
+      } else {
+        alert('주소를 찾을 수 없습니다. 올바른 주소를 입력해주세요.');
+      }
+      setLoadingCoords(false); // 로딩 상태 해제
+    });
   };
 
   const handleSubmit = () => {
@@ -124,6 +154,7 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               placeholder="예: 서울 강남구 강남대로"
             />
+            {loadingCoords && <p className="text-sm text-blue-500 mt-1">좌표 계산 중...</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">이미지</label>
@@ -140,20 +171,7 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
               이미지 업로드
             </button>
           </div>
-          {/* <div>
-            <label className="block text-sm font-medium text-gray-700">이미지 URL</label>
-            <input
-              type="text"
-              name="imageUrl"
-              value={formData.imageUrl}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="예: https://example.com/image.jpg"
-            />
-          </div> */}
-
           <div className="grid grid-cols-3 gap-4">
-            <div>
               <label className="block text-sm font-medium text-gray-700">평점</label>
               <input
                 type="number"
@@ -165,27 +183,6 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
                 max="5"
                 step="0.1"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">경도 (lon)</label>
-              <input
-                type="number"
-                name="lon"
-                value={formData.lon}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">위도 (lat)</label>
-              <input
-                type="number"
-                name="lat"
-                value={formData.lat}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">메모</label>
