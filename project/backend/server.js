@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
+const sharp = require('sharp');
 const pool = require('./db'); // MySQL 연결 설정
 
 const app = express();
@@ -13,29 +14,36 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 // Multer 설정
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // 업로드된 파일을 저장할 폴더
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`); // 고유한 파일 이름 생성
-  },
-});
+const storage = multer.memoryStorage(); // 메모리 저장소로 설정 (sharp에서 처리 후 저장)
 const upload = multer({ storage });
-
 
 app.get('/', (req, res) => {
   res.send('Server is running!'); // 간단한 응답 메시지
 });
 
-// 파일 업로드 API
-app.post('/api/upload', upload.single('image'), (req, res) => {
+// 이미지 업로드 및 리사이징 API
+app.post('/api/upload', upload.single('image'), async (req, res) => {
   try {
-    const filePath = `/uploads/${req.file.filename}`;
-    res.json({ imageUrl: filePath }); // 업로드된 이미지의 URL 반환
+    if (!req.file) {
+      return res.status(400).json({ message: '파일이 업로드되지 않았습니다.' });
+    }
+
+    // 원본 파일 이름과 경로 생성
+    const originalName = req.file.originalname;
+    const fileName = `${Date.now()}-${originalName}`;
+    const outputPath = path.join(__dirname, 'uploads', fileName);
+
+    // 이미지 리사이징 및 저장
+    await sharp(req.file.buffer) // 메모리에서 받은 파일 버퍼
+      .resize(800) // 최대 가로 크기 800px로 리사이징 (세로는 비율 유지)
+      .jpg({ quality: 80 }) // JPEG 포맷으로 압축 (품질 80%)
+      .toFile(outputPath); // 파일 저장
+
+    const fileUrl = `/uploads/${fileName}`;
+    res.json({ imageUrl: fileUrl });
   } catch (error) {
-    console.error('File upload error:', error);
-    res.status(500).json({ message: 'File upload failed' });
+    console.error('Image processing error:', error);
+    res.status(500).json({ message: '이미지 처리 중 오류가 발생했습니다.' });
   }
 });
 
