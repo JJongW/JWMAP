@@ -29,7 +29,7 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
     try {
       await apiClient.put(`/api/locations/${location.id}`, {
         rating: editedRating,
-        imageUrl: `https://jwmap.site/${editedImageUrl}`,
+        imageUrl: `https://jwmap.site${editedImageUrl}`,
         category: editedCategory,
         memo: editedMemo,
       });
