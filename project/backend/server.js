@@ -5,7 +5,7 @@ const path = require('path');
 const pool = require('./db'); // MySQL 연결 설정
 
 const app = express();
-app.use(cors());
+app.use(cors());// CORS 미들웨어 사용
 app.use(express.json()); // JSON 요청 본문 파싱
 
 // 'uploads' 폴더를 정적 파일로 제공

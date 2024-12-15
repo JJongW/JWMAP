@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import apiClient from '../utils/apiClient';
 
 interface AddLocationModalProps {
   onClose: () => void;
@@ -45,21 +46,12 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
       alert('이미지를 선택해주세요.');
       return;
     }
-    const formData = new FormData();
-    formData.append('image', file);
+    const uploadData = new FormData();
+    uploadData.append('image', file);
 
     try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`서버 응답 오류: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setFormData((prev) => ({ ...prev, imageUrl: data.imageUrl })); // 서버에서 받은 URL 저장
+      const response = await apiClient.post('/api/upload', uploadData); // apiClient 사용
+      setFormData((prev) => ({ ...prev, imageUrl: response.data.imageUrl })); // 업로드된 URL 저장
       alert('이미지 업로드 완료!');
     } catch (error) {
       console.error('File upload error:', error);
