@@ -53,6 +53,11 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
         method: 'POST',
         body: formData,
       });
+
+      if (!response.ok) {
+        throw new Error(`서버 응답 오류: ${response.status}`);
+      }
+      
       const data = await response.json();
       setFormData((prev) => ({ ...prev, imageUrl: data.imageUrl })); // 서버에서 받은 URL 저장
       alert('이미지 업로드 완료!');
