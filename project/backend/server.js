@@ -15,7 +15,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Multer 설정
 const storage = multer.memoryStorage(); // 메모리 저장소로 설정 (sharp에서 처리 후 저장)
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB로 제한
+});
 
 app.get('/', (req, res) => {
   res.send('Server is running!'); // 간단한 응답 메시지
