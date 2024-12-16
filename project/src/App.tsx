@@ -111,7 +111,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* AddLocationModal */}
         {isModalOpen && (
           <AddLocationModal
@@ -119,7 +119,13 @@ export default function App() {
             onSave={handleAddLocation}
           />
         )}
-        <div className="space-y-4">
+        <div className="lg:col-span-2">
+          <ins className="kakao_ad_area" style={{display:"none"}}
+              data-ad-unit = "DAN-2SvmyGR7uLI3OKmD"
+              data-ad-width = "160"
+              data-ad-height = "600"></ins>
+        </div>
+        <div className="space-y-6">
           <ins className="kakao_ad_area" style={{display:"none"}}
               data-ad-unit = "DAN-S9qELACF6baygHLc"
               data-ad-width = "728"
@@ -215,10 +221,6 @@ export default function App() {
               </div>
             )}
           </div>
-          <ins className="kakao_ad_area" style={{display:"none"}}
-            data-ad-unit = "DAN-2SvmyGR7uLI3OKmD"
-            data-ad-width = "160"
-            data-ad-height = "600"></ins>
         </div>
         <SpeedInsights/>
       </main>
