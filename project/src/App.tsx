@@ -111,7 +111,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-8 gap-6">
         {/* AddLocationModal */}
         {isModalOpen && (
           <AddLocationModal
@@ -119,17 +119,18 @@ export default function App() {
             onSave={handleAddLocation}
           />
         )}
-        <div className="lg:col-span-2">
+        <div className="col-span-1">
           <ins className="kakao_ad_area" style={{display:"none"}}
               data-ad-unit = "DAN-2SvmyGR7uLI3OKmD"
               data-ad-width = "160"
               data-ad-height = "600"></ins>
         </div>
-        <div className="space-y-6">
+        <div className="col-span-7 space-y-6">
           <ins className="kakao_ad_area" style={{display:"none"}}
               data-ad-unit = "DAN-S9qELACF6baygHLc"
               data-ad-width = "728"
               data-ad-height = "90"></ins>
+
           {/* 지역 선택 */}
           <div className="bg-white p-4 rounded-lg shadow-sm">
             <h2 className="text-lg font-semibold mb-3">지역</h2>
@@ -168,58 +169,59 @@ export default function App() {
               ))}
             </div>
           </div>
-        </div>
-        {/* 장소 리스트 */}
-        <div className="bg-white rounded-lg shadow-md p-4 space-y-4 lg:col-span-1">
-          <h2 className="text-lg font-semibold">장소 목록</h2>
-          {filteredLocations.length > 0 ? (
-            <ul className="space-y-2">
-              {filteredLocations.slice(0, visibleLocations).map(location => (
-                <li
-                  key={location.id}
-                  className={`p-3 rounded-lg shadow-sm cursor-pointer transition-all ${
-                    selectedLocation?.id === location.id
-                      ? 'bg-blue-100 border-blue-400 border'
-                      : 'bg-gray-50 hover:bg-gray-100'
-                  }`}
-                  onClick={() => setSelectedLocation(location)}
-                >
-                  <div className="font-medium text-gray-800">{location.name}</div>
-                  <div className="text-sm text-gray-600">{location.address}</div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-gray-600 text-center">조건에 맞는 장소가 없습니다.</div>
-          )}
-          {visibleLocations < filteredLocations.length && (
-            <div className="text-center mt-4">
-              <button
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                onClick={handleShowMore}
-              >
-                더 보기
-              </button>
-            </div>
-          )}
-        </div>
 
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Map
-              locations={filteredLocations}
-              selectedLocation={selectedLocation}
-              onMarkerClick={setSelectedLocation}
-            />
-          </div>
-          <div>
-            {selectedLocation ? (
-              <LocationCard location={selectedLocation} onDelete={handleDelete} />
+          {/* 장소 리스트 */}
+          <div className="bg-white rounded-lg shadow-md p-4 space-y-4 lg:col-span-1">
+            <h2 className="text-lg font-semibold">장소 목록</h2>
+            {filteredLocations.length > 0 ? (
+              <ul className="space-y-2">
+                {filteredLocations.slice(0, visibleLocations).map(location => (
+                  <li
+                    key={location.id}
+                    className={`p-3 rounded-lg shadow-sm cursor-pointer transition-all ${
+                      selectedLocation?.id === location.id
+                        ? 'bg-blue-100 border-blue-400 border'
+                        : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                    onClick={() => setSelectedLocation(location)}
+                  >
+                    <div className="font-medium text-gray-800">{location.name}</div>
+                    <div className="text-sm text-gray-600">{location.address}</div>
+                  </li>
+                ))}
+              </ul>
             ) : (
-              <div className="bg-white rounded-lg shadow-md p-4 text-center text-gray-600">
-                지도에서 장소를 선택해주세요
+              <div className="text-gray-600 text-center">조건에 맞는 장소가 없습니다.</div>
+            )}
+            {visibleLocations < filteredLocations.length && (
+              <div className="text-center mt-4">
+                <button
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                  onClick={handleShowMore}
+                >
+                  더 보기
+                </button>
               </div>
             )}
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <Map
+                locations={filteredLocations}
+                selectedLocation={selectedLocation}
+                onMarkerClick={setSelectedLocation}
+              />
+            </div>
+            <div>
+              {selectedLocation ? (
+                <LocationCard location={selectedLocation} onDelete={handleDelete} />
+              ) : (
+                <div className="bg-white rounded-lg shadow-md p-4 text-center text-gray-600">
+                  지도에서 장소를 선택해주세요
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <SpeedInsights/>
