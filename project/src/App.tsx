@@ -125,8 +125,8 @@ export default function App() {
               data-ad-width = "160"
               data-ad-height = "600"></ins>
         </div>
-        <div className="col-span-1 gap-2"></div>
-        <div className="col-span-6 space-y-6 gap-2">]
+        <div className="col-span-1 gap-1"></div>
+        <div className="col-span-6 space-y-6 gap-2">
           {/* 지역 선택 */}
           <div className="bg-white p-4 rounded-lg shadow-sm">
             <h2 className="text-lg font-semibold mb-3">지역</h2>
