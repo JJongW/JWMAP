@@ -111,7 +111,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-8 gap-6">
+      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-8 gap-8">
         {/* AddLocationModal */}
         {isModalOpen && (
           <AddLocationModal
