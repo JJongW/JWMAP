@@ -125,12 +125,7 @@ export default function App() {
               data-ad-width = "160"
               data-ad-height = "600"></ins>
         </div>
-        <div className="col-span-7 space-y-6">
-          <ins className="kakao_ad_area" style={{display:"none"}}
-              data-ad-unit = "DAN-S9qELACF6baygHLc"
-              data-ad-width = "728"
-              data-ad-height = "90"></ins>
-
+        <div className="col-span-7 space-y-6">]
           {/* 지역 선택 */}
           <div className="bg-white p-4 rounded-lg shadow-sm">
             <h2 className="text-lg font-semibold mb-3">지역</h2>
