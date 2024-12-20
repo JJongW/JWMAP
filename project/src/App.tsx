@@ -130,20 +130,20 @@ export default function App() {
         {/* 광고 파트 */}
         <div className="col-span-1">
           {isMobile ? (
-            <ins 
-              className="kakao_ad_area" 
-              style={{ display: "none" }}
-              data-ad-unit = "DAN-S9qELACF6baygHLc"
-              data-ad-width = "320"
-              data-ad-height = "50"
-            ></ins>
-          ) : (
             <ins
               className="kakao_ad_area"
               style={{ display: "none" }}
               data-ad-unit="DAN-2SvmyGR7uLI3OKmD"
               data-ad-width="160"
               data-ad-height="600"
+            ></ins>
+          ) : (
+            <ins 
+              className="kakao_ad_area" 
+              style={{ display: "none" }}
+              data-ad-unit="DAN-S9qELACF6baygHLc"
+              data-ad-width="320"
+              data-ad-height="50"
             ></ins>
           )}
         </div>
