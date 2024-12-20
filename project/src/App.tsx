@@ -103,7 +103,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex-col md:flex-row justify-center">
       {/* 헤더 */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
@@ -123,7 +123,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-10 gap-8">
+      <main className="max-w-7xl mx-auto px-4 py-6 md:space-y-0 sm:px-6 lg:px-8 lg:grid lg:grid-cols-10 lg:gap-8">
         {/* AddLocationModal */}
         {isModalOpen && (
           <AddLocationModal
@@ -150,7 +150,7 @@ export default function App() {
         )}
       </div>
         <div className="col-span-1 gap-1"></div>
-        <div className="col-span-6 space-y-6 gap-2">
+        <div className="col-span-6 lg:space-y-6 gap-2">
           {/* 지역 선택 */}
           <div className="bg-white p-4 rounded-lg shadow-sm">
             <h2 className="text-lg font-semibold mb-3">지역</h2>
