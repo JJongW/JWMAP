@@ -86,17 +86,13 @@ export default function App() {
     setVisibleLocations(prev => prev + 10);
   };
 
+  const handleResize = () => {
+    setIsMobile(window.innerWidth <= 1023); // 모바일 기준: 1024px 이하
+  };
+
   // 데이터 로드
   useEffect(() => {
     fetchLocations();
-  }, []);
-
-  // 화면 크기에 따라 상태 업데이트
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768); // 모바일 기준: 768px 이하
-    };
-
     handleResize(); // 초기화
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -131,24 +127,26 @@ export default function App() {
             onSave={handleAddLocation}
           />
         )}
-         {/* 광고 파트 */}
-      <div className="col-span-1">
-        {isMobile ? (
-          <ins className="kakao_ad_area" 
-          style={{ display: "none" }}
-          data-ad-unit = "DAN-S9qELACF6baygHLc"
-          data-ad-width = "728"
-          data-ad-height = "90"></ins>
-        ) : (
-          <ins
-            className="kakao_ad_area"
-            style={{ display: "none" }}
-            data-ad-unit="DAN-2SvmyGR7uLI3OKmD"
-            data-ad-width="160"
-            data-ad-height="600"
-          ></ins>
-        )}
-      </div>
+        {/* 광고 파트 */}
+        <div className="col-span-1">
+          {isMobile ? (
+            <ins 
+              className="kakao_ad_area" 
+              style={{ display: "none" }}
+              data-ad-unit = "DAN-S9qELACF6baygHLc"
+              data-ad-width = "728"
+              data-ad-height = "90"
+            ></ins>
+          ) : (
+            <ins
+              className="kakao_ad_area"
+              style={{ display: "none" }}
+              data-ad-unit="DAN-2SvmyGR7uLI3OKmD"
+              data-ad-width="160"
+              data-ad-height="600"
+            ></ins>
+          )}
+        </div>
         <div className="col-span-1 gap-1"></div>
         <div className="col-span-6 lg:space-y-6 gap-2">
           {/* 지역 선택 */}
