@@ -87,7 +87,7 @@ export default function App() {
   };
 
   const handleResize = () => {
-    setIsMobile(window.innerWidth <= 1023); // 모바일 기준: 1024px 이하
+    setIsMobile(window.innerWidth <= 768); // 모바일 기준: 768px 이하
   };
 
   // 데이터 로드
@@ -128,7 +128,7 @@ export default function App() {
           />
         )}
         {/* 광고 파트 */}
-        <div className="col-span-1">
+        <div className="col-span-1 md:gap-2 lg:space-y-1 gap-2">
           {isMobile ? (
             <ins
               className="kakao_ad_area"
