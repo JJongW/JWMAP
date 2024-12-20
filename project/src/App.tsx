@@ -96,7 +96,7 @@ export default function App() {
     handleResize(); // 초기화
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [isMobile]);
 
   return (
     <div className="min-h-screen bg-gray-100 flex-col md:flex-row justify-center">
@@ -134,8 +134,8 @@ export default function App() {
               className="kakao_ad_area" 
               style={{ display: "none" }}
               data-ad-unit = "DAN-S9qELACF6baygHLc"
-              data-ad-width = "728"
-              data-ad-height = "90"
+              data-ad-width = "320"
+              data-ad-height = "50"
             ></ins>
           ) : (
             <ins
