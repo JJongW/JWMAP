@@ -10,6 +10,7 @@ import apiClient from './utils/apiClient';
 import { SpeedInsights } from "@vercel/speed-insights/react"
 
 export default function App() {
+  const [isMobile, setIsMobile] = useState<boolean>(false);
   const [locations, setLocations] = useState<Location[]>([]); // 전체 장소 데이터
   const [selectedRegion, setSelectedRegion] = useState<Region | '서울 전체'>('서울 전체');
   const [selectedCategory, setSelectedCategory] = useState<Category | '전체'>('전체');
@@ -90,6 +91,17 @@ export default function App() {
     fetchLocations();
   }, []);
 
+  // 화면 크기에 따라 상태 업데이트
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768); // 모바일 기준: 768px 이하
+    };
+
+    handleResize(); // 초기화
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* 헤더 */}
@@ -111,7 +123,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-8 gap-8">
+      <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 grid grid-cols-10 gap-8">
         {/* AddLocationModal */}
         {isModalOpen && (
           <AddLocationModal
@@ -119,12 +131,24 @@ export default function App() {
             onSave={handleAddLocation}
           />
         )}
-        <div className="col-span-1 gap-2">
-          <ins className="kakao_ad_area" style={{display:"none"}}
-              data-ad-unit = "DAN-2SvmyGR7uLI3OKmD"
-              data-ad-width = "160"
-              data-ad-height = "600"></ins>
-        </div>
+         {/* 광고 파트 */}
+      <div className="col-span-1">
+        {isMobile ? (
+          <ins className="kakao_ad_area" 
+          style={{ display: "none" }}
+          data-ad-unit = "DAN-S9qELACF6baygHLc"
+          data-ad-width = "728"
+          data-ad-height = "90"></ins>
+        ) : (
+          <ins
+            className="kakao_ad_area"
+            style={{ display: "none" }}
+            data-ad-unit="DAN-2SvmyGR7uLI3OKmD"
+            data-ad-width="160"
+            data-ad-height="600"
+          ></ins>
+        )}
+      </div>
         <div className="col-span-1 gap-1"></div>
         <div className="col-span-6 space-y-6 gap-2">
           {/* 지역 선택 */}
@@ -220,6 +244,7 @@ export default function App() {
             </div>
           </div>
         </div>
+        <div className="col-span-1 gap-1"></div>
         <SpeedInsights/>
       </main>
       <Footer /> {/* Footer 컴포넌트 추가 */}
