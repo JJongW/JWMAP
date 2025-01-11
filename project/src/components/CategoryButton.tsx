@@ -18,7 +18,7 @@ export function CategoryButton({ category, isActive, onClick, count }: CategoryB
         'flex items-center gap-2 shadow-md',
         isActive
           ? 'bg-blue-600 text-white scale-100 active:scale-95'
-          : 'bg-gray-600 text-gray-700 hover:bg-gray-200 active:bg-gray-300 active:scale-95'
+          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300 active:scale-95'
       )}
     >
       {/* 카테고리 이름 */}
