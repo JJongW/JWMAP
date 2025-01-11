@@ -109,7 +109,7 @@ export default function App() {
               <h1 className="text-2xl font-bold text-gray-900">밥 먹어야해</h1>
             </div>
             <button
-              className="px-4 py-2 bg-blue-100 text-white rounded-lg shadow hover:bg-blue-600 flex items-center gap-2"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-600 flex items-center gap-2"
               onClick={() => setIsModalOpen(true)}
             >
               <Plus size={16} />
