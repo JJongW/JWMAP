@@ -105,11 +105,11 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <MapPin className="w-6 h-6 text-red-600" />
-              <h1 className="text-2xl font-bold text-gray-900">종원의 서울 맛집 지도</h1>
+              <MapPin className="w-6 h-6 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-900">밥 먹어야해</h1>
             </div>
             <button
-              className="px-4 py-2 bg-gradient-to-r from-green-400 to-red-500 text-white rounded-lg shadow hover:bg-blue-600 flex items-center gap-2"
+              className="px-4 py-2 bg-blue-100 text-white rounded-lg shadow hover:bg-blue-600 flex items-center gap-2"
               onClick={() => setIsModalOpen(true)}
             >
               <Plus size={16} />
