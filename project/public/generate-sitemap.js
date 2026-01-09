@@ -1,7 +1,7 @@
 import SitemapGenerator from 'sitemap-generator';
 
 // 내 웹사이트 주소
-const generator = SitemapGenerator('https://jw-map-project.vercel.app', {
+const generator = SitemapGenerator('https://odga.vercel.app', {
   stripQuerystring: true, 
   filepath: './public/sitemap.xml', // 여기에 지도를 저장해!
 });
