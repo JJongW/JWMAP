@@ -3,6 +3,7 @@ import { CategoryButton } from './components/CategoryButton';
 import { LocationCard } from './components/LocationCard';
 import { Map } from './components/Map';
 import { AddLocationModal } from './components/AddLocationModal'; // 모달 컴포넌트 불러오기
+import { EventBanner } from './components/EventBanner'; // 이벤트 배너 컴포넌트
 import type { Region, Category, Location } from './types/location';
 import { MapPin, Plus, Star } from 'lucide-react';
 import { Footer } from './components/Footer';
@@ -14,9 +15,16 @@ export default function App() {
   const [locations, setLocations] = useState<Location[]>([]); // 전체 장소 데이터
   const [selectedRegion, setSelectedRegion] = useState<Region | '서울 전체'>('서울 전체');
   const [selectedCategory, setSelectedCategory] = useState<Category | '전체'>('전체');
+  const [selectedEventTag, setSelectedEventTag] = useState<string | null>(null); // 선택된 이벤트 태그
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [visibleLocations, setVisibleLocations] = useState<number>(10); // 표시할 장소 수
   const [isModalOpen, setIsModalOpen] = useState(false); // 모달 상태
+
+  // 이벤트 목록 정의 - 필요에 따라 확장 가능
+  const eventList = [
+    { name: '흑백요리사 시즌2 식당', tag: '흑백요리사 시즌2' },
+    { name: '천하제빵 시즌 1 베이커리(더 추가 예정)', tag: '천하제빵 시즌1' }
+  ];
 
   // 지역 목록과 카테고리 목록
   const regions: (Region | '서울 전체')[] = ['서울 전체', ...Array.from(new Set(locations.map(l => l.region)))];
@@ -31,18 +39,35 @@ export default function App() {
     ),
   ];
 
-  // 필터링된 장소 목록
+  // 필터링된 장소 목록 - 이벤트 태그 필터 추가
   const filteredLocations = locations.filter(location => {
     const matchesRegion = selectedRegion === '서울 전체' || location.region === selectedRegion;
     const matchesCategory = selectedCategory === '전체' || location.category === selectedCategory;
-    return matchesRegion && matchesCategory;
+    // 이벤트 태그가 선택된 경우, 해당 태그를 가진 장소만 필터링
+    const matchesEvent = !selectedEventTag || 
+      (location.eventTags && location.eventTags.includes(selectedEventTag));
+    return matchesRegion && matchesCategory && matchesEvent;
   });
+
+  // 이벤트별 장소 개수 계산
+  const getEventLocationCount = (eventTag: string) => {
+    return locations.filter(location => 
+      location.eventTags && location.eventTags.includes(eventTag)
+    ).length;
+  };
 
   // 데이터 가져오기
   const fetchLocations = async () => {
     try {
       const data = await locationApi.getAll();
       setLocations(data);
+      
+      // 디버깅: 이벤트 태그가 있는 장소 확인
+      const locationsWithEvents = data.filter(loc => loc.eventTags && loc.eventTags.length > 0);
+      if (locationsWithEvents.length > 0) {
+        console.log('이벤트 태그가 있는 장소:', locationsWithEvents);
+        console.log('이벤트 태그 목록:', locationsWithEvents.map(loc => ({ name: loc.name, tags: loc.eventTags })));
+      }
     } catch (error) {
       console.error('Error fetching locations:', error);
     }
@@ -136,6 +161,36 @@ export default function App() {
           />
         )}
         <div className="space-y-6">
+          {/* 이벤트 배너 섹션 - 지역 필터 위에 배치 */}
+          {eventList.length > 0 && eventList.map(event => {
+            const eventCount = getEventLocationCount(event.tag);
+            // 이벤트 배너는 항상 표시 (장소가 없어도 배너는 보여줌)
+            
+            return (
+              <EventBanner
+                key={event.tag}
+                eventName={event.name}
+                eventCount={eventCount}
+                isActive={selectedEventTag === event.tag}
+                onActivate={() => {
+                  setSelectedEventTag(event.tag);
+                  setVisibleLocations(10); // 필터 변경 시 목록 초기화
+                  // 이벤트 활성화 시 리스트로 자동 스크롤
+                  setTimeout(() => {
+                    const listElement = document.querySelector('[data-location-list]');
+                    if (listElement) {
+                      listElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }, 100);
+                }}
+                onDeactivate={() => {
+                  setSelectedEventTag(null);
+                  setVisibleLocations(10); // 필터 해제 시 목록 초기화
+                }}
+              />
+            );
+          })}
+
           {/* 필터 섹션 */}
           <div className="bg-white p-5 rounded-2xl border border-gray-100">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">지역</h2>
@@ -148,6 +203,7 @@ export default function App() {
                   onClick={() => {
                     setSelectedRegion(region);
                     setSelectedCategory('전체');
+                    setSelectedEventTag(null); // 지역 변경 시 이벤트 필터 해제
                   }}
                   count={locations.filter(l => region === '서울 전체' || l.region === region).length}
                 />
@@ -175,9 +231,14 @@ export default function App() {
           </div>
 
           {/* 장소 리스트 */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5" data-location-list>
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
               장소 목록 <span className="text-orange-500">({filteredLocations.length})</span>
+              {selectedEventTag && (
+                <span className="ml-2 text-orange-500 text-xs font-normal">
+                  - {eventList.find(e => e.tag === selectedEventTag)?.name} 필터 적용 중
+                </span>
+              )}
             </h2>
             {filteredLocations.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

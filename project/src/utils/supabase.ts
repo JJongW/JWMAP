@@ -16,19 +16,73 @@ export const locationApi = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    
+    // Supabase의 snake_case를 camelCase로 변환
+    // event_tags -> eventTags
+    return (data || []).map((item: any) => {
+      let eventTags = item.event_tags || item.eventTags || [];
+      
+      // JSON 문자열인 경우 파싱
+      if (typeof eventTags === 'string') {
+        try {
+          eventTags = JSON.parse(eventTags);
+        } catch (e) {
+          console.warn('이벤트 태그 파싱 실패:', eventTags);
+          eventTags = [];
+        }
+      }
+      
+      // 배열이 아닌 경우 빈 배열로 변환
+      if (!Array.isArray(eventTags)) {
+        eventTags = [];
+      }
+      
+      return {
+        ...item,
+        eventTags,
+      };
+    });
   },
 
   // 장소 추가
   async create(location: Omit<Location, 'id'>): Promise<Location> {
+    // camelCase를 snake_case로 변환하여 Supabase에 저장
+    const { eventTags: inputEventTags, ...rest } = location;
+    const supabaseData = {
+      ...rest,
+      event_tags: inputEventTags || [], // eventTags를 event_tags로 변환
+    };
+
     const { data, error } = await supabase
       .from('locations')
-      .insert([location])
+      .insert([supabaseData])
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    
+    // 응답 데이터를 camelCase로 변환
+    let responseEventTags = data.event_tags || data.eventTags || [];
+    
+    // JSON 문자열인 경우 파싱
+    if (typeof responseEventTags === 'string') {
+      try {
+        responseEventTags = JSON.parse(responseEventTags);
+      } catch (e) {
+        console.warn('이벤트 태그 파싱 실패:', responseEventTags);
+        responseEventTags = [];
+      }
+    }
+    
+    // 배열이 아닌 경우 빈 배열로 변환
+    if (!Array.isArray(responseEventTags)) {
+      responseEventTags = [];
+    }
+    
+    return {
+      ...data,
+      eventTags: responseEventTags,
+    };
   },
 
   // 장소 삭제
@@ -43,14 +97,43 @@ export const locationApi = {
 
   // 장소 수정
   async update(id: string, location: Partial<Location>): Promise<Location> {
+    // camelCase를 snake_case로 변환하여 Supabase에 저장
+    const { eventTags: inputEventTags, ...rest } = location;
+    const supabaseData: any = { ...rest };
+    if (inputEventTags !== undefined) {
+      supabaseData.event_tags = inputEventTags;
+    }
+
     const { data, error } = await supabase
       .from('locations')
-      .update(location)
+      .update(supabaseData)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw error;
-    return data;
+    
+    // 응답 데이터를 camelCase로 변환
+    let responseEventTags = data.event_tags || data.eventTags || [];
+    
+    // JSON 문자열인 경우 파싱
+    if (typeof responseEventTags === 'string') {
+      try {
+        responseEventTags = JSON.parse(responseEventTags);
+      } catch (e) {
+        console.warn('이벤트 태그 파싱 실패:', responseEventTags);
+        responseEventTags = [];
+      }
+    }
+    
+    // 배열이 아닌 경우 빈 배열로 변환
+    if (!Array.isArray(responseEventTags)) {
+      responseEventTags = [];
+    }
+    
+    return {
+      ...data,
+      eventTags: responseEventTags,
+    };
   }
 };

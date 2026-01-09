@@ -51,4 +51,5 @@ export interface Location {
   address: string;
   rating: number;
   imageUrl: string;
+  eventTags?: string[]; // 이벤트 태그 (예: ['흑백요리사 시즌2'])
 }

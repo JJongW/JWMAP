@@ -28,6 +28,7 @@ export function Map({ locations, selectedLocation, onMarkerClick }: MapProps) {
       
       // 라멘 카테고리인 경우 커스텀 마커 이미지 사용
       if (location.category === '라멘') {
+        // Vite에서는 public 폴더의 파일이 루트 경로로 제공됨
         const imageSrc = '/ramen-marker.svg'; // 라멘 마커 이미지 경로
         const imageSize = new kakao.maps.Size(64, 69); // 마커 이미지 크기
         const imageOption = { offset: new kakao.maps.Point(27, 69) }; // 마커의 좌표와 일치시킬 이미지 안에서의 좌표
