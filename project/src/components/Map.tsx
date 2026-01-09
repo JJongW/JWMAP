@@ -22,11 +22,36 @@ export function Map({ locations, selectedLocation, onMarkerClick }: MapProps) {
     };
     mapInstance.current = new kakao.maps.Map(mapContainer.current, mapOptions);
 
-    // 마커 추가
+    // 마커 추가 - 라멘, 카공카페, 카페 카테고리는 특별한 마커 사용
     locations.forEach(location => {
+      let markerImage: kakao.maps.MarkerImage | undefined = undefined;
+      
+      // 라멘 카테고리인 경우 커스텀 마커 이미지 사용
+      if (location.category === '라멘') {
+        const imageSrc = '/ramen-marker.svg'; // 라멘 마커 이미지 경로
+        const imageSize = new kakao.maps.Size(64, 69); // 마커 이미지 크기
+        const imageOption = { offset: new kakao.maps.Point(27, 69) }; // 마커의 좌표와 일치시킬 이미지 안에서의 좌표
+        markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
+      }
+      // 카공카페 카테고리인 경우 note-marker.svg 사용
+      else if (location.category === '카공카페') {
+        const imageSrc = '/note-marker.svg'; // 카공카페 마커 이미지 경로
+        const imageSize = new kakao.maps.Size(64, 69); // 마커 이미지 크기
+        const imageOption = { offset: new kakao.maps.Point(27, 69) }; // 마커의 좌표와 일치시킬 이미지 안에서의 좌표
+        markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
+      }
+      // 카페 카테고리인 경우 cafe-marker.svg 사용
+      else if (location.category === '카페') {
+        const imageSrc = '/cafe-marker.svg'; // 카페 마커 이미지 경로
+        const imageSize = new kakao.maps.Size(64, 69); // 마커 이미지 크기
+        const imageOption = { offset: new kakao.maps.Point(27, 69) }; // 마커의 좌표와 일치시킬 이미지 안에서의 좌표
+        markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
+      }
+
       const marker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(location.lat, location.lon), // 올바른 좌표 순서
         title: location.name,
+        image: markerImage, // 라멘, 카공카페, 카페 카테고리일 때 커스텀 마커 이미지 사용
       });
       marker.setMap(mapInstance.current);
 

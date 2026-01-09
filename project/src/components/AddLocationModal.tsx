@@ -40,7 +40,7 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
   ];
 
   const categories = [
-    '한식', '중식', '일식', '양식', '분식', '호프집', '칵테일바',
+    '한식', '중식', '일식', '라멘', '양식', '분식', '호프집', '칵테일바',
     '와인바', '아시안', '돈까스', '회', '피자', '베이커리', '카페', '카공카페', '버거'
   ];
 
