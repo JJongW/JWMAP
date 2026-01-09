@@ -4,9 +4,9 @@ import { LocationCard } from './components/LocationCard';
 import { Map } from './components/Map';
 import { AddLocationModal } from './components/AddLocationModal'; // 모달 컴포넌트 불러오기
 import type { Region, Category, Location } from './types/location';
-import { MapPin, Plus } from 'lucide-react';
+import { MapPin, Plus, Star } from 'lucide-react';
 import { Footer } from './components/Footer';
-import apiClient from './utils/apiClient';
+import { locationApi } from './utils/supabase';
 import { SpeedInsights } from "@vercel/speed-insights/react"
 
 export default function App() {
@@ -41,8 +41,8 @@ export default function App() {
   // 데이터 가져오기
   const fetchLocations = async () => {
     try {
-      const response = await apiClient.get('/api/locations');
-      setLocations(response.data);
+      const data = await locationApi.getAll();
+      setLocations(data);
     } catch (error) {
       console.error('Error fetching locations:', error);
     }
@@ -60,8 +60,8 @@ export default function App() {
     lat: number;
   }) => {
     try {
-      const response = await apiClient.post('/api/locations', newLocation);
-      setLocations(prev => [...prev, response.data]); // 상태 업데이트
+      const data = await locationApi.create(newLocation as Omit<Location, 'id'>);
+      setLocations(prev => [...prev, data]); // 상태 업데이트
       alert('새로운 장소가 추가되었습니다.');
     } catch (error) {
       console.error('Error adding location:', error);
@@ -72,7 +72,7 @@ export default function App() {
   // 장소 삭제
   const handleDelete = async (id: string) => {
     try {
-      await apiClient.delete(`/api/locations/${id}`);
+      await locationApi.delete(id);
       setLocations(prev => prev.filter(location => location.id !== id));
       alert('장소가 삭제되었습니다.');
     } catch (error) {
@@ -99,27 +99,30 @@ export default function App() {
   }, [isMobile]);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex-col md:flex-row justify-center">
+    <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
+      <header className="bg-white border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-4 py-5 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-6 h-6 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">밥 먹어야해</h1>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-xl font-bold text-gray-900">밥 먹어야해</h1>
             </div>
             <button
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-600 flex items-center gap-2"
+              className="px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center gap-2"
               onClick={() => setIsModalOpen(true)}
             >
-              <Plus size={16} />
-              새로운 장소 추가
+              <Plus size={18} />
+              <span className="hidden sm:inline">새로운 장소 추가</span>
+              <span className="sm:hidden">추가</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 md:space-y-0 sm:px-6 lg:px-8 lg:grid lg:grid-cols-10 lg:gap-8">
+      <main className="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* AddLocationModal */}
         {isModalOpen && (
           <AddLocationModal
@@ -127,31 +130,10 @@ export default function App() {
             onSave={handleAddLocation}
           />
         )}
-        {/* 광고 파트 */}
-        <div className="col-span-1 md:gap-2 lg:space-y-1 gap-2">
-          {isMobile ? (
-            <ins
-              className="kakao_ad_area"
-              style={{ display: "none" }}
-              data-ad-unit="DAN-2SvmyGR7uLI3OKmD"
-              data-ad-width="160"
-              data-ad-height="600"
-            ></ins>
-          ) : (
-            <ins 
-              className="kakao_ad_area" 
-              style={{ display: "none" }}
-              data-ad-unit="DAN-S9qELACF6baygHLc"
-              data-ad-width="320"
-              data-ad-height="50"
-            ></ins>
-          )}
-        </div>
-        <div className="col-span-1 gap-1"></div>
-        <div className="col-span-6 lg:space-y-6 gap-2">
-          {/* 지역 선택 */}
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <h2 className="text-lg font-semibold mb-3">지역</h2>
+        <div className="space-y-6">
+          {/* 필터 섹션 */}
+          <div className="bg-white p-5 rounded-2xl border border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">지역</h2>
             <div className="flex flex-wrap gap-2">
               {regions.map(region => (
                 <CategoryButton
@@ -160,7 +142,7 @@ export default function App() {
                   isActive={selectedRegion === region}
                   onClick={() => {
                     setSelectedRegion(region);
-                    setSelectedCategory('전체'); // 지역 변경 시 카테고리 초기화
+                    setSelectedCategory('전체');
                   }}
                   count={locations.filter(l => region === '서울 전체' || l.region === region).length}
                 />
@@ -168,9 +150,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* 카테고리 선택 */}
-          <div className="bg-white p-4 rounded-lg shadow-sm">
-            <h2 className="text-lg font-semibold mb-3">종류</h2>
+          <div className="bg-white p-5 rounded-2xl border border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">종류</h2>
             <div className="flex flex-wrap gap-2">
               {categories.map(category => (
                 <CategoryButton
@@ -189,32 +170,64 @@ export default function App() {
           </div>
 
           {/* 장소 리스트 */}
-          <div className="bg-white rounded-lg shadow-md p-4 space-y-4 lg:col-span-1">
-            <h2 className="text-lg font-semibold">장소 목록</h2>
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+              장소 목록 <span className="text-orange-500">({filteredLocations.length})</span>
+            </h2>
             {filteredLocations.length > 0 ? (
-              <ul className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {filteredLocations.slice(0, visibleLocations).map(location => (
-                  <li
+                  <div
                     key={location.id}
-                    className={`p-3 rounded-lg shadow-sm cursor-pointer transition-all ${
+                    className={`rounded-2xl cursor-pointer transition-all overflow-hidden ${
                       selectedLocation?.id === location.id
-                        ? 'bg-blue-100 border-blue-400 border'
-                        : 'bg-gray-50 hover:bg-gray-100'
+                        ? 'ring-2 ring-orange-400 shadow-lg'
+                        : 'hover:shadow-md border border-gray-100'
                     }`}
                     onClick={() => setSelectedLocation(location)}
                   >
-                    <div className="font-medium text-gray-800">{location.name}</div>
-                    <div className="text-sm text-gray-600">{location.address}</div>
-                  </li>
+                    {/* 이미지 */}
+                    <div className="relative h-32 bg-gray-100">
+                      {location.imageUrl ? (
+                        <img
+                          src={location.imageUrl}
+                          alt={location.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <MapPin className="w-8 h-8 text-gray-300" />
+                        </div>
+                      )}
+                      {/* 카테고리 뱃지 */}
+                      <span className="absolute top-2 left-2 px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded-lg">
+                        {location.category}
+                      </span>
+                    </div>
+                    {/* 컨텐츠 */}
+                    <div className="p-3">
+                      <h3 className="font-semibold text-gray-900 truncate">{location.name}</h3>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs text-gray-500 truncate flex-1">{location.region}</p>
+                        <div className="flex items-center gap-1 text-orange-500">
+                          <Star size={12} className="fill-current" />
+                          <span className="text-xs font-semibold">{location.rating?.toFixed(1) || '0.0'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </ul>
+              </div>
             ) : (
-              <div className="text-gray-600 text-center">조건에 맞는 장소가 없습니다.</div>
+              <div className="text-gray-400 text-center py-8">조건에 맞는 장소가 없습니다.</div>
             )}
             {visibleLocations < filteredLocations.length && (
-              <div className="text-center mt-4">
+              <div className="text-center mt-6">
                 <button
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                  className="px-6 py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
                   onClick={handleShowMore}
                 >
                   더 보기
@@ -223,7 +236,8 @@ export default function App() {
             )}
           </div>
 
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* 지도 & 카드 */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <Map
                 locations={filteredLocations}
@@ -235,14 +249,16 @@ export default function App() {
               {selectedLocation ? (
                 <LocationCard location={selectedLocation} onDelete={handleDelete} />
               ) : (
-                <div className="bg-white rounded-lg shadow-md p-4 text-center text-gray-600">
-                  지도에서 장소를 선택해주세요
+                <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MapPin className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-500">지도에서 장소를 선택해주세요</p>
                 </div>
               )}
             </div>
           </div>
         </div>
-        <div className="col-span-1 gap-1"></div>
         <SpeedInsights/>
       </main>
       <Footer /> {/* Footer 컴포넌트 추가 */}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import apiClient from '../utils/apiClient';
+import { X } from 'lucide-react';
 
 interface AddLocationModalProps {
   onClose: () => void;
@@ -16,7 +16,7 @@ interface AddLocationModalProps {
   }) => void;
 }
 
-declare const kakao: any; // Kakao 지도 API 타입 정의 (전역)
+declare const kakao: any;
 
 export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
   const [formData, setFormData] = useState({
@@ -30,73 +30,50 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
     lat: 0,
     memo: ''
   });
-  const [file, setFile] = useState<File | null>(null); // 선택된 파일 상태 추가
-  const [loadingCoords, setLoadingCoords] = useState(false); // 좌표 가져오는 상태
+  const [loadingCoords, setLoadingCoords] = useState(false);
 
-  // 파일 선택 처리
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]); // 선택된 파일 저장
-    }
-  };
+  const regions = [
+    '강남', '서초', '잠실/송파/강동', '영등포/여의도/강서', '건대/성수/왕십리',
+    '종로/중구', '홍대/합정/마포/연남', '용산/이태원/한남', '성북/노원/중랑',
+    '구로/관악/동작', '신촌/연희', '창동/도봉산', '회기/청량리', '강동/고덕',
+    '연신내/구파발', '마곡/김포', '미아/수유/북한산', '목동/양천', '금천/가산'
+  ];
 
-  // 파일 업로드 처리
-  const handleUpload = async () => {
-    if (!file) {
-      alert('이미지를 선택해주세요.');
-      return;
-    }
-    const uploadData = new FormData();
-    uploadData.append('image', file);
+  const categories = [
+    '한식', '중식', '일식', '양식', '분식', '호프집', '칵테일바',
+    '와인바', '아시안', '돈까스', '회', '피자', '베이커리', '카페', '카공카페', '버거'
+  ];
 
-    try {
-      const response = await apiClient.post('/api/upload', uploadData); // apiClient 사용
-      setFormData((prev) => ({ ...prev, imageUrl: response.data.imageUrl })); // 업로드된 URL 저장
-      alert('이미지 업로드 완료!');
-    } catch (error) {
-      console.error('File upload error:', error);
-      alert('이미지 업로드 중 문제가 발생했습니다.');
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'rating' || name === 'lon' || name === 'lat' ? parseFloat(value) : value,
+      [name]: name === 'rating' ? parseFloat(value) || 0 : value,
     }));
-
-    // 주소 변경 시 자동으로 좌표 계산
-    if (name === 'address') {
-      handleAddressChange(value);
-    }
   };
 
-  const handleAddressChange = async (address: string) => {
-    if (!address) return;
+  const handleAddressBlur = async () => {
+    if (!formData.address) return;
 
-    setLoadingCoords(true); // 로딩 상태 활성화
+    setLoadingCoords(true);
     const geocoder = new kakao.maps.services.Geocoder();
 
-    geocoder.addressSearch(address, (result: any[], status: string) => {
+    geocoder.addressSearch(formData.address, (result: any[], status: string) => {
       if (status === kakao.maps.services.Status.OK) {
         const coords = result[0];
         setFormData((prev) => ({
           ...prev,
-          lon: parseFloat(coords.x), // 경도
-          lat: parseFloat(coords.y), // 위도
+          lon: parseFloat(coords.x),
+          lat: parseFloat(coords.y),
         }));
-        alert(`위도: ${coords.y}, 경도: ${coords.x}`);
-      } else {
-        alert('주소를 찾을 수 없습니다. 올바른 주소를 입력해주세요.');
       }
-      setLoadingCoords(false); // 로딩 상태 해제
+      setLoadingCoords(false);
     });
   };
 
   const handleSubmit = () => {
     if (!formData.name || !formData.region || !formData.category || !formData.address) {
-      alert('모든 필드를 입력해주세요.');
+      alert('필수 항목을 모두 입력해주세요.');
       return;
     }
     onSave(formData);
@@ -104,105 +81,150 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4 text-center text-gray-800">새로운 장소 추가</h2>
-        <div className="space-y-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">새로운 장소 추가</h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <X size={20} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* 폼 */}
+        <div className="p-5 space-y-4">
+          {/* 이름 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">이름</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              이름 <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               placeholder="예: 강남 맛집"
             />
           </div>
+
+          {/* 지역 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">지역</label>
-            <input
-              type="text"
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              지역 <span className="text-red-500">*</span>
+            </label>
+            <select
               name="region"
               value={formData.region}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="예: 강남"
-            />
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+            >
+              <option value="">지역을 선택하세요</option>
+              {regions.map((region) => (
+                <option key={region} value={region}>{region}</option>
+              ))}
+            </select>
           </div>
+
+          {/* 종류 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">종류</label>
-            <input
-              type="text"
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              종류 <span className="text-red-500">*</span>
+            </label>
+            <select
               name="category"
               value={formData.category}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="예: 한식"
-            />
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+            >
+              <option value="">종류를 선택하세요</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
           </div>
+
+          {/* 주소 */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">주소</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              주소 <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               name="address"
               value={formData.address}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="예: 서울 강남구 강남대로"
+              onBlur={handleAddressBlur}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              placeholder="예: 서울 강남구 강남대로 123"
             />
-            {loadingCoords && <p className="text-sm text-blue-500 mt-1">좌표 계산 중...</p>}
+            {loadingCoords && (
+              <p className="text-xs text-orange-500 mt-1.5">좌표 계산 중...</p>
+            )}
+            {formData.lon !== 0 && formData.lat !== 0 && !loadingCoords && (
+              <p className="text-xs text-green-600 mt-1.5">
+                좌표: {formData.lat.toFixed(6)}, {formData.lon.toFixed(6)}
+              </p>
+            )}
           </div>
+
+          {/* 이미지 URL */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">이미지</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer"
-            />
-            <button
-              onClick={handleUpload}
-              className="mt-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-            >
-              이미지 업로드
-            </button>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-              <label className="block text-sm font-medium text-gray-700">평점</label>
-              <input
-                type="number"
-                name="rating"
-                value={formData.rating}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                min="0"
-                max="5"
-                step="0.1"
-              />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">메모</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">이미지 URL</label>
             <input
               type="text"
+              name="imageUrl"
+              value={formData.imageUrl}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              placeholder="https://..."
+            />
+          </div>
+
+          {/* 평점 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">평점</label>
+            <input
+              type="number"
+              name="rating"
+              value={formData.rating}
+              onChange={handleChange}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              min="0"
+              max="5"
+              step="0.1"
+              placeholder="0.0 ~ 5.0"
+            />
+          </div>
+
+          {/* 메모 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">메모</label>
+            <textarea
               name="memo"
               value={formData.memo}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
               placeholder="메모를 입력하세요"
+              rows={3}
             />
           </div>
         </div>
-        <div className="flex justify-end mt-6 gap-3">
+
+        {/* 버튼 */}
+        <div className="flex gap-3 p-5 border-t border-gray-100">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+            className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
           >
             취소
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600"
+            className="flex-1 px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-colors"
           >
             저장
           </button>

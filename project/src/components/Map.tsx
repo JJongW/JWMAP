@@ -52,5 +52,5 @@ export function Map({ locations, selectedLocation, onMarkerClick }: MapProps) {
     }
   }, [selectedLocation]);
 
-  return <div ref={mapContainer} className="w-full h-[600px] bg-gray-100 rounded-lg" />;
+  return <div ref={mapContainer} className="w-full h-[350px] sm:h-[450px] lg:h-[500px] bg-gray-100 rounded-2xl border border-gray-100" />;
 }
