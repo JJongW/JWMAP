@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { CategoryButton } from './components/CategoryButton';
 import { LocationCard } from './components/LocationCard';
 import { Map } from './components/Map';
@@ -105,10 +105,15 @@ export default function App() {
         <div className="max-w-6xl mx-auto px-4 py-5 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-                <MapPin className="w-5 h-5 text-white" />
+              {/* 서비스 로고 아이콘 - 오렌지 배경에 흰색 'qd' 로고 */}
+              <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center overflow-hidden">
+                <img 
+                  src="/logo.svg" 
+                  alt="오늘 오디가? 로고" 
+                  className="w-full h-full object-contain"
+                />
               </div>
-              <h1 className="text-xl font-bold text-gray-900">밥 먹어야해</h1>
+              <h1 className="text-xl font-bold text-gray-900 font-sans">오늘 오디가?</h1>
             </div>
             <button
               className="px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center gap-2"

@@ -9,7 +9,7 @@ export function Footer() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-400">
-            © {currentYear} <span className="text-white font-medium">밥 먹어야해</span>
+            © {currentYear} <span className="text-white font-medium">오늘 오디가?</span>
           </div>
           <div className="flex items-center gap-4">
             <a

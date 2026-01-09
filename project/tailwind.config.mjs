@@ -17,6 +17,10 @@ export default {
           900: '#7c2d12',
         },
       },
+      fontFamily: {
+        // Paperozi 폰트를 기본 폰트로 설정
+        sans: ['Paperozi', 'sans-serif'],
+      },
     },
   },
   plugins: [],
