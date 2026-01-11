@@ -1,0 +1,19 @@
+import os
+
+# SVG contents for the markers
+markers = {
+    "laptop": '''<svg width="100" height="120" viewBox="0 0 100 120" xmlns="http://www.w3.org/2000/svg">
+        <path d="M50 115C45 105 10 75 10 45C10 23 28 5 50 5C72 5 90 23 90 45C90 75 55 105 50 115Z" fill="#3182F6"/>
+        <rect x="30" y="30" width="40" height="25" rx="2" fill="white"/>
+        <rect x="25" y="55" width="50" height="4" rx="1" fill="white"/>
+        <line x1="35" y1="35" x2="45" y2="45" stroke="#3182F6" stroke-width="2" stroke-linecap="round"/>
+        <line x1="45" y1="35" x2="55" y2="45" stroke="#3182F6" stroke-width="2" stroke-linecap="round"/>
+    </svg>'''
+}
+
+# Save to file
+file_path = "laptop_marker.svg"
+with open(file_path, "w") as f:
+    f.write(markers["laptop"])
+
+print(f"File saved: {file_path}")

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { CategoryButton } from './components/CategoryButton';
 import { LocationCard } from './components/LocationCard';
 import { Map } from './components/Map';
 import { AddLocationModal } from './components/AddLocationModal'; // 모달 컴포넌트 불러오기
 import { EventBanner } from './components/EventBanner'; // 이벤트 배너 컴포넌트
+import { TopSearchBar } from './components/TopSearchBar'; // LLM 검색 바
 import type { Region, Category, Location } from './types/location';
 import { MapPin, Plus, Star } from 'lucide-react';
 import { Footer } from './components/Footer';
@@ -19,6 +20,11 @@ export default function App() {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [visibleLocations, setVisibleLocations] = useState<number>(10); // 표시할 장소 수
   const [isModalOpen, setIsModalOpen] = useState(false); // 모달 상태
+
+  // LLM 검색 관련 상태
+  const [isSearchMode, setIsSearchMode] = useState(false); // 검색 모드 여부
+  const [searchResults, setSearchResults] = useState<Location[]>([]); // 검색 결과
+  const preFilteredListRef = useRef<Location[]>([]); // 검색 전 필터된 리스트 저장
 
   // 이벤트 목록 정의 - 필요에 따라 확장 가능
   const eventList = [
@@ -111,6 +117,36 @@ export default function App() {
     setVisibleLocations(prev => prev + 10);
   };
 
+  // LLM 검색 결과 처리
+  const handleSearchResults = (places: Location[]) => {
+    // 검색 전 현재 필터된 리스트 저장 (복원용)
+    if (!isSearchMode) {
+      preFilteredListRef.current = filteredLocations;
+    }
+    setSearchResults(places);
+    setIsSearchMode(true);
+    setVisibleLocations(10);
+  };
+
+  // 검색 결과에서 장소 선택
+  const handleSearchSelect = (placeId: string) => {
+    const place = searchResults.find(p => p.id === placeId);
+    if (place) {
+      setSelectedLocation(place);
+    }
+  };
+
+  // 검색 모드 해제, 필터 뷰로 복귀
+  const handleSearchReset = () => {
+    setIsSearchMode(false);
+    setSearchResults([]);
+    setVisibleLocations(10);
+    setSelectedLocation(null);
+  };
+
+  // 검색 모드일 때 표시할 목록
+  const displayedLocations = isSearchMode ? searchResults : filteredLocations;
+
   const handleResize = () => {
     setIsMobile(window.innerWidth <= 768); // 모바일 기준: 768px 이하
   };
@@ -161,6 +197,14 @@ export default function App() {
           />
         )}
         <div className="space-y-6">
+          {/* LLM 자연어 검색 바 */}
+          <TopSearchBar
+            onResults={handleSearchResults}
+            onSelect={handleSearchSelect}
+            onReset={handleSearchReset}
+            isSearchMode={isSearchMode}
+          />
+
           {/* 이벤트 배너 섹션 - 지역 필터 위에 배치 */}
           {eventList.length > 0 && eventList.map(event => {
             const eventCount = getEventLocationCount(event.tag);
@@ -233,16 +277,21 @@ export default function App() {
           {/* 장소 리스트 */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5" data-location-list>
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
-              장소 목록 <span className="text-orange-500">({filteredLocations.length})</span>
-              {selectedEventTag && (
+              장소 목록 <span className="text-orange-500">({displayedLocations.length})</span>
+              {isSearchMode && (
+                <span className="ml-2 text-blue-500 text-xs font-normal">
+                  - 검색 결과
+                </span>
+              )}
+              {!isSearchMode && selectedEventTag && (
                 <span className="ml-2 text-orange-500 text-xs font-normal">
                   - {eventList.find(e => e.tag === selectedEventTag)?.name} 필터 적용 중
                 </span>
               )}
             </h2>
-            {filteredLocations.length > 0 ? (
+            {displayedLocations.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {filteredLocations.slice(0, visibleLocations).map(location => (
+                {displayedLocations.slice(0, visibleLocations).map(location => (
                   <div
                     key={location.id}
                     className={`rounded-2xl cursor-pointer transition-all overflow-hidden ${
@@ -290,7 +339,7 @@ export default function App() {
             ) : (
               <div className="text-gray-400 text-center py-8">조건에 맞는 장소가 없습니다.</div>
             )}
-            {visibleLocations < filteredLocations.length && (
+            {visibleLocations < displayedLocations.length && (
               <div className="text-center mt-6">
                 <button
                   className="px-6 py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
@@ -306,7 +355,7 @@ export default function App() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <Map
-                locations={filteredLocations}
+                locations={displayedLocations}
                 selectedLocation={selectedLocation}
                 onMarkerClick={setSelectedLocation}
               />

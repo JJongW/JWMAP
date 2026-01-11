@@ -48,43 +48,67 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
     onDelete(location.id);
   };
 
+  /**
+   * 카카오맵 앱 딥링크 연결
+   * 카카오맵 API를 통해 장소를 검색하고, placeId가 있으면 place 딥링크, 없으면 search 딥링크 사용
+   * 앱이 설치되어 있으면 딥링크로, 없으면 웹으로 연결
+   */
   const handleKakaoMapSearch = async () => {
+    const name = location.name;
+    let placeId: string | undefined = undefined;
+
     const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_RESTFUL_API_KEY || '';
-    
-    // API 키가 없으면 경고 후 종료
-    if (!KAKAO_API_KEY) {
-      alert('카카오맵 API 키가 설정되지 않았습니다.');
-      console.error('카카오맵 API 키가 없습니다.');
-      return;
+
+    // API 키가 있으면 카카오맵 API로 장소 검색하여 placeId 획득 시도
+    if (KAKAO_API_KEY) {
+      try {
+        const kakaoSearchUrl = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(location.name)}`;
+
+        const response = await fetch(kakaoSearchUrl, {
+          headers: {
+            Authorization: `KakaoAK ${KAKAO_API_KEY}`,
+          },
+        });
+
+        // HTTP 응답 상태 확인
+        if (response.ok) {
+          const data = await response.json();
+          const results = data.documents || [];
+
+          if (results.length > 0) {
+            // 가장 관련성 높은 결과 선택
+            // 카카오맵 API 응답의 id 필드를 placeId로 사용
+            placeId = results[0].id;
+          }
+        } else {
+          console.warn(`카카오맵 API 오류 (${response.status}): placeId 없이 검색 딥링크로 연결합니다.`);
+        }
+      } catch (error) {
+        console.error('카카오맵 API 요청 오류:', error);
+        // API 오류 시 placeId 없이 진행
+      }
+    } else {
+      console.warn('카카오맵 API 키가 없어 검색 딥링크로 연결합니다.');
     }
 
-    const kakaoSearchUrl = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(location.name)}`;
+    // 1️⃣ 앱 딥링크 생성
+    // placeId가 있으면 place 딥링크, 없으면 search 딥링크 사용
+    const appLink = placeId
+      ? `kakaomap://place?id=${placeId}`
+      : `kakaomap://search?q=${encodeURIComponent(name)}`;
 
-    try {
-      const response = await fetch(kakaoSearchUrl, {
-        headers: {
-          Authorization: `KakaoAK ${KAKAO_API_KEY}`,
-        },
-      });
+    // 2️⃣ 웹 fallback URL
+    const webLink = placeId
+      ? `https://place.map.kakao.com/${placeId}`
+      : `https://map.kakao.com/link/search/${encodeURIComponent(name)}`;
 
-      // HTTP 응답 상태 확인
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+    // 3️⃣ 사용자 클릭 기반 이동 (딥링크 시도)
+    window.location.href = appLink;
 
-      const data = await response.json();
-      const results = data.documents;
-
-      if (results && results.length > 0) {
-        const placeUrl = `https://place.map.kakao.com/${results[0].id}`;
-        window.open(placeUrl, '_blank');
-      } else {
-        alert('해당 장소를 찾을 수 없습니다.');
-      }
-    } catch (error) {
-      console.error('카카오맵 API 요청 오류:', error);
-      alert('카카오맵 API 요청 중 오류가 발생했습니다.');
-    }
+    // 4️⃣ 앱 미설치 시 fallback (700ms 후 웹으로 이동)
+    setTimeout(() => {
+      window.location.href = webLink;
+    }, 700);
   };
 
   /**
