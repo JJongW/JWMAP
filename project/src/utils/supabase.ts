@@ -40,6 +40,7 @@ export const locationApi = {
       return {
         ...item,
         eventTags,
+        features: item.features || {},
       };
     });
   },
@@ -82,6 +83,7 @@ export const locationApi = {
     return {
       ...data,
       eventTags: responseEventTags,
+      features: data.features || {},
     };
   },
 
@@ -134,6 +136,7 @@ export const locationApi = {
     return {
       ...data,
       eventTags: responseEventTags,
+      features: data.features || {},
     };
   }
 };

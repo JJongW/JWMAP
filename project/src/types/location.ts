@@ -40,6 +40,14 @@ export type Category =
   | '카공카페'
   | '버거';
 
+export interface Features {
+  solo_ok?: boolean;      // 혼밥 가능
+  quiet?: boolean;        // 조용한 분위기
+  no_wait?: boolean;      // 웨이팅 없음
+  good_for_date?: boolean; // 데이트 추천
+  group_friendly?: boolean; // 단체석 있음
+}
+
 export interface Location {
   id: string;
   name: string;
@@ -52,4 +60,5 @@ export interface Location {
   rating: number;
   imageUrl: string;
   eventTags?: string[]; // 이벤트 태그 (예: ['흑백요리사 시즌2'])
+  features?: Features;  // 장소 특징
 }

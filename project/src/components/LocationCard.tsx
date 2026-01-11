@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
-import type { Location } from '../types/location';
+import type { Location, Features } from '../types/location';
 import { Star, MapPin, Edit2, Trash2, ExternalLink, X, Check, ImageIcon } from 'lucide-react';
 import { locationApi } from '../utils/supabase';
+import { CustomSelect } from './CustomSelect';
 
 interface LocationCardProps {
   location: Location;
   onDelete: (id: string) => void;
 }
+
+const featureOptions = [
+  { key: 'solo_ok', label: '혼밥 가능' },
+  { key: 'quiet', label: '조용한 분위기' },
+  { key: 'no_wait', label: '웨이팅 없음' },
+  { key: 'good_for_date', label: '데이트 추천' },
+  { key: 'group_friendly', label: '단체석 있음' },
+] as const;
 
 export function LocationCard({ location, onDelete }: LocationCardProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -14,6 +23,7 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
   const [editedImageUrl, setEditedImageUrl] = useState(location.imageUrl);
   const [editedCategory, setEditedCategory] = useState(location.category);
   const [editedMemo, setEditedMemo] = useState(location.memo);
+  const [editedFeatures, setEditedFeatures] = useState<Features>(location.features || {});
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
@@ -22,16 +32,29 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
     setEditedImageUrl(location.imageUrl);
     setEditedCategory(location.category);
     setEditedMemo(location.memo);
+    setEditedFeatures(location.features || {});
     setImageError(false);
   }, [location]);
 
+  const handleFeatureToggle = (key: keyof Features) => {
+    setEditedFeatures((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
   const handleSave = async () => {
     try {
+      // features에서 true인 것만 포함
+      const activeFeatures = Object.fromEntries(
+        Object.entries(editedFeatures).filter(([, value]) => value === true)
+      );
       await locationApi.update(location.id, {
         rating: editedRating,
         imageUrl: editedImageUrl,
         category: editedCategory,
         memo: editedMemo,
+        features: Object.keys(activeFeatures).length > 0 ? activeFeatures : {},
       });
       alert('수정된 내용이 저장되었습니다.');
       setIsEditing(false);
@@ -202,21 +225,9 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
         )}
         {/* 카테고리 배지 */}
         <div className="absolute top-3 left-3">
-          {isEditing ? (
-            <select
-              value={editedCategory}
-              onChange={(e) => setEditedCategory(e.target.value as Location['category'])}
-              className="text-xs font-medium bg-white text-gray-700 rounded-lg px-3 py-1.5 border border-gray-200"
-            >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          ) : (
-            <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-500 text-white">
-              {editedCategory}
-            </span>
-          )}
+          <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-500 text-white">
+            {editedCategory}
+          </span>
         </div>
       </div>
 
@@ -264,6 +275,17 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
           </p>
         )}
 
+        {/* 카테고리 선택 (수정 모드) */}
+        {isEditing && (
+          <CustomSelect
+            label="종류"
+            value={editedCategory}
+            onChange={(value) => setEditedCategory(value as Location['category'])}
+            options={categories}
+            placeholder="종류를 선택하세요"
+          />
+        )}
+
         {/* 이미지 URL 입력 (수정 모드) */}
         {isEditing && (
           <div>
@@ -275,6 +297,45 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               placeholder="https://..."
             />
+          </div>
+        )}
+
+        {/* 특징 (수정 모드) */}
+        {isEditing && (
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-2 block">특징</label>
+            <div className="flex flex-wrap gap-1.5">
+              {featureOptions.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => handleFeatureToggle(option.key)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    editedFeatures[option.key]
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 특징 표시 (보기 모드) */}
+        {!isEditing && location.features && Object.keys(location.features).some(k => location.features?.[k as keyof Features]) && (
+          <div className="flex flex-wrap gap-1.5">
+            {featureOptions
+              .filter((option) => location.features?.[option.key])
+              .map((option) => (
+                <span
+                  key={option.key}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-orange-100 text-orange-700"
+                >
+                  {option.label}
+                </span>
+              ))}
           </div>
         )}
 

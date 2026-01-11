@@ -50,6 +50,13 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode }: Top
         if (places[0]?.id) {
           onSelect(places[0].id);
         }
+        // Scroll to list section
+        setTimeout(() => {
+          const listElement = document.querySelector('[data-location-list]');
+          if (listElement) {
+            listElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '검색 중 문제가 발생했습니다.');

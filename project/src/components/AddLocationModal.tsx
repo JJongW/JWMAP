@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { CustomSelect } from './CustomSelect';
+
+interface Features {
+  solo_ok?: boolean;
+  quiet?: boolean;
+  no_wait?: boolean;
+  good_for_date?: boolean;
+  group_friendly?: boolean;
+}
 
 interface AddLocationModalProps {
   onClose: () => void;
@@ -13,6 +22,7 @@ interface AddLocationModalProps {
     lon: number;
     lat: number;
     memo: string;
+    features?: Features;
   }) => void;
 }
 
@@ -30,7 +40,16 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
     lat: 0,
     memo: ''
   });
+  const [features, setFeatures] = useState<Features>({});
   const [loadingCoords, setLoadingCoords] = useState(false);
+
+  const featureOptions = [
+    { key: 'solo_ok', label: '혼밥 가능' },
+    { key: 'quiet', label: '조용한 분위기' },
+    { key: 'no_wait', label: '웨이팅 없음' },
+    { key: 'good_for_date', label: '데이트 추천' },
+    { key: 'group_friendly', label: '단체석 있음' },
+  ] as const;
 
   const regions = [
     '강남', '서초', '잠실/송파/강동', '영등포/여의도/강서', '건대/성수/왕십리',
@@ -72,12 +91,26 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
     });
   };
 
+  const handleFeatureToggle = (key: keyof Features) => {
+    setFeatures((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
   const handleSubmit = () => {
     if (!formData.name || !formData.region || !formData.category || !formData.address) {
       alert('필수 항목을 모두 입력해주세요.');
       return;
     }
-    onSave(formData);
+    // features에서 true인 것만 포함
+    const activeFeatures = Object.fromEntries(
+      Object.entries(features).filter(([, value]) => value === true)
+    );
+    onSave({
+      ...formData,
+      features: Object.keys(activeFeatures).length > 0 ? activeFeatures : undefined,
+    });
     onClose();
   };
 
@@ -113,40 +146,24 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
           </div>
 
           {/* 지역 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              지역 <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="region"
-              value={formData.region}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-            >
-              <option value="">지역을 선택하세요</option>
-              {regions.map((region) => (
-                <option key={region} value={region}>{region}</option>
-              ))}
-            </select>
-          </div>
+          <CustomSelect
+            label="지역"
+            required
+            value={formData.region}
+            onChange={(value) => setFormData((prev) => ({ ...prev, region: value }))}
+            options={regions}
+            placeholder="지역을 선택하세요"
+          />
 
           {/* 종류 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              종류 <span className="text-red-500">*</span>
-            </label>
-            <select
-              name="category"
-              value={formData.category}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-            >
-              <option value="">종류를 선택하세요</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
+          <CustomSelect
+            label="종류"
+            required
+            value={formData.category}
+            onChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
+            options={categories}
+            placeholder="종류를 선택하세요"
+          />
 
           {/* 주소 */}
           <div>
@@ -212,6 +229,27 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
               placeholder="메모를 입력하세요"
               rows={3}
             />
+          </div>
+
+          {/* 특징 (Features) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">특징</label>
+            <div className="flex flex-wrap gap-2">
+              {featureOptions.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => handleFeatureToggle(option.key)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    features[option.key]
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

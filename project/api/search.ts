@@ -213,9 +213,9 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
     priceLevel: item.price_level as number | undefined,
     naverPlaceId: item.naver_place_id as string | undefined,
     kakaoPlaceId: item.kakao_place_id as string | undefined,
-    imageUrl: item.image_url as string,
-    eventTags: item.event_tags as string[] | undefined,
-    visitDate: item.visit_date as string | undefined,
+    imageUrl: (item.image_url || item.imageUrl) as string,
+    eventTags: (item.event_tags || item.eventTags) as string[] | undefined,
+    visitDate: (item.visit_date || item.visitDate) as string | undefined,
   }));
 
   // Filter by constraints (features)

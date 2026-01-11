@@ -89,6 +89,14 @@ export default function App() {
     rating: number;
     lon: number;
     lat: number;
+    memo?: string;
+    features?: {
+      solo_ok?: boolean;
+      quiet?: boolean;
+      no_wait?: boolean;
+      good_for_date?: boolean;
+      group_friendly?: boolean;
+    };
   }) => {
     try {
       const data = await locationApi.create(newLocation as Omit<Location, 'id'>);
