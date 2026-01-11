@@ -3,6 +3,7 @@ import type { Location, Features } from '../types/location';
 import { Star, MapPin, Edit2, Trash2, ExternalLink, X, Check, ImageIcon } from 'lucide-react';
 import { locationApi } from '../utils/supabase';
 import { CustomSelect } from './CustomSelect';
+import { ImageUpload } from './ImageUpload';
 
 interface LocationCardProps {
   location: Location;
@@ -286,18 +287,13 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
           />
         )}
 
-        {/* 이미지 URL 입력 (수정 모드) */}
+        {/* 이미지 업로드 (수정 모드) */}
         {isEditing && (
-          <div>
-            <label className="text-xs font-medium text-gray-500 mb-1 block">이미지 URL</label>
-            <input
-              type="text"
-              value={editedImageUrl}
-              onChange={(e) => setEditedImageUrl(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              placeholder="https://..."
-            />
-          </div>
+          <ImageUpload
+            label="이미지"
+            value={editedImageUrl}
+            onChange={(url) => setEditedImageUrl(url)}
+          />
         )}
 
         {/* 특징 (수정 모드) */}

@@ -60,6 +60,8 @@ VITE_NAVER_CLIENT_ID=          # Naver API
 VITE_NAVER_CLIENT_SECRET=
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+VITE_CLOUDINARY_CLOUD_NAME=    # Cloudinary cloud name
+VITE_CLOUDINARY_UPLOAD_PRESET= # Cloudinary unsigned upload preset
 
 # Backend API (Vercel serverless - set in Vercel dashboard)
 SUPABASE_URL=                  # Same as VITE_SUPABASE_URL

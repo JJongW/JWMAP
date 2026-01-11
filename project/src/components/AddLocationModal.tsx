@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
+import { ImageUpload } from './ImageUpload';
 
 interface Features {
   solo_ok?: boolean;
@@ -189,18 +190,12 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
             )}
           </div>
 
-          {/* 이미지 URL */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">이미지 URL</label>
-            <input
-              type="text"
-              name="imageUrl"
-              value={formData.imageUrl}
-              onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              placeholder="https://..."
-            />
-          </div>
+          {/* 이미지 */}
+          <ImageUpload
+            label="이미지"
+            value={formData.imageUrl}
+            onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
+          />
 
           {/* 평점 */}
           <div>
