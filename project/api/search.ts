@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { randomUUID } from 'crypto';
 
 // Types
 interface LLMQuery {
@@ -16,6 +17,12 @@ interface LLMQuery {
     price_level?: number;
   };
   sort?: 'relevance' | 'rating';
+}
+
+interface TimingMetrics {
+  llmMs: number;
+  dbMs: number;
+  totalMs: number;
 }
 
 interface Location {
@@ -261,69 +268,95 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
 
 // Log search to database
 async function logSearch(
+  traceId: string,
   queryText: string,
   parsed: LLMQuery,
-  resultCount: number
+  resultCount: number,
+  timing: TimingMetrics
 ): Promise<string | null> {
   try {
     const { data, error } = await supabase
       .from('search_logs')
       .insert({
+        id: traceId,
         query: queryText,
         parsed: parsed,
         result_count: resultCount,
+        llm_ms: timing.llmMs,
+        db_ms: timing.dbMs,
+        total_ms: timing.totalMs,
       })
       .select('id')
       .single();
 
     if (error) {
-      console.error('Search log error:', error);
+      console.error(`[${traceId}] Search log error:`, error);
       return null;
     }
     return data?.id || null;
-  } catch {
+  } catch (err) {
+    console.error(`[${traceId}] Search log exception:`, err);
     return null;
   }
 }
 
 // Main handler
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const traceId = randomUUID();
+  const startTime = Date.now();
+
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('X-Trace-ID', traceId);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed', traceId });
   }
 
   const { text } = req.body || {};
 
   if (!text || typeof text !== 'string') {
-    return res.status(400).json({ error: 'Missing or invalid "text" field' });
+    return res.status(400).json({ error: 'Missing or invalid "text" field', traceId });
   }
+
+  console.log(`[${traceId}] Search request: "${text}"`);
 
   try {
     // 1. Parse query with LLM
+    const llmStart = Date.now();
     const parsed = await parseQuery(text);
+    const llmMs = Date.now() - llmStart;
+    console.log(`[${traceId}] LLM parsed in ${llmMs}ms:`, JSON.stringify(parsed));
 
     // 2. Search locations
+    const dbStart = Date.now();
     const places = await searchLocations(parsed);
+    const dbMs = Date.now() - dbStart;
+    console.log(`[${traceId}] DB search in ${dbMs}ms: ${places.length} results`);
+
+    const totalMs = Date.now() - startTime;
+
+    const timing: TimingMetrics = { llmMs, dbMs, totalMs };
 
     // 3. Log search (async, don't wait)
-    logSearch(text, parsed, places.length);
+    logSearch(traceId, text, parsed, places.length, timing);
 
     // 4. Return results
     return res.status(200).json({
       places,
-      query: parsed, // Include parsed query for debugging
+      query: parsed,
+      traceId,
+      timing,
     });
   } catch (error) {
-    console.error('Search error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    const totalMs = Date.now() - startTime;
+    console.error(`[${traceId}] Search error after ${totalMs}ms:`, error);
+    return res.status(500).json({ error: 'Internal server error', traceId });
   }
 }

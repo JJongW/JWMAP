@@ -150,13 +150,16 @@ interface LocationTag {
 | source | text (manual/llm/user) |
 
 ### Table: `search_logs`
-| Column | Type |
-|--------|------|
-| id | uuid |
-| query | text |
-| parsed | jsonb (LLMQuery output) |
-| result_count | int |
-| created_at | timestamptz |
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Trace ID (passed from API) |
+| query | text | Raw user query |
+| parsed | jsonb | LLMQuery output |
+| result_count | int | Number of results |
+| llm_ms | int | LLM parsing latency |
+| db_ms | int | Database query latency |
+| total_ms | int | Total request latency |
+| created_at | timestamptz | |
 
 ### Table: `click_logs`
 | Column | Type |
@@ -197,6 +200,12 @@ LLM-powered natural language search.
     "keywords": ["혼밥", "맛집"],
     "constraints": { "solo_ok": true },
     "sort": "relevance"
+  },
+  "traceId": "550e8400-e29b-41d4-a716-446655440000",
+  "timing": {
+    "llmMs": 245,
+    "dbMs": 32,
+    "totalMs": 285
   }
 }
 ```
