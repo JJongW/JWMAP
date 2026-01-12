@@ -18,7 +18,7 @@ export const locationApi = {
     if (error) throw error;
     
     // Supabase의 snake_case를 camelCase로 변환
-    // event_tags -> eventTags
+    // event_tags -> eventTags, image_url -> imageUrl
     return (data || []).map((item: any) => {
       let eventTags = item.event_tags || item.eventTags || [];
       
@@ -37,8 +37,15 @@ export const locationApi = {
         eventTags = [];
       }
       
+      // image_url을 imageUrl로 변환 (image_url이 있으면 우선 사용, 없으면 imageUrl 사용)
+      const imageUrl = item.image_url || item.imageUrl || '';
+      
+      // image_url 제거하고 imageUrl로 통일
+      const { image_url, ...rest } = item;
+      
       return {
-        ...item,
+        ...rest,
+        imageUrl,
         eventTags,
         features: item.features || {},
       };
@@ -49,11 +56,15 @@ export const locationApi = {
   async create(location: Omit<Location, 'id'>): Promise<Location> {
     // camelCase를 snake_case로 변환하여 Supabase에 저장
     const { eventTags: inputEventTags, imageUrl, ...rest } = location;
-    const supabaseData = {
+    const supabaseData: any = {
       ...rest,
-      image_url: imageUrl, // imageUrl을 image_url로 변환
       event_tags: inputEventTags || [], // eventTags를 event_tags로 변환
     };
+    
+    // imageUrl이 있고 빈 문자열이 아니면 image_url로 변환
+    if (imageUrl && imageUrl.trim()) {
+      supabaseData.image_url = imageUrl;
+    }
 
     const { data, error } = await supabase
       .from('locations')
@@ -81,8 +92,13 @@ export const locationApi = {
       responseEventTags = [];
     }
     
+    // image_url을 imageUrl로 변환
+    const responseImageUrl = data.image_url || data.imageUrl || '';
+    const { image_url, ...responseData } = data;
+    
     return {
-      ...data,
+      ...responseData,
+      imageUrl: responseImageUrl,
       eventTags: responseEventTags,
       features: data.features || {},
     };
@@ -101,10 +117,21 @@ export const locationApi = {
   // 장소 수정
   async update(id: string, location: Partial<Location>): Promise<Location> {
     // camelCase를 snake_case로 변환하여 Supabase에 저장
-    const { eventTags: inputEventTags, ...rest } = location;
+    const { eventTags: inputEventTags, imageUrl, ...rest } = location;
     const supabaseData: any = { ...rest };
+    
     if (inputEventTags !== undefined) {
       supabaseData.event_tags = inputEventTags;
+    }
+    
+    // imageUrl이 있으면 image_url로 변환 (빈 문자열이 아닐 때만)
+    if (imageUrl !== undefined) {
+      if (imageUrl && imageUrl.trim()) {
+        supabaseData.image_url = imageUrl;
+      } else {
+        // 빈 문자열이면 null로 설정
+        supabaseData.image_url = null;
+      }
     }
 
     const { data, error } = await supabase
@@ -134,8 +161,13 @@ export const locationApi = {
       responseEventTags = [];
     }
     
+    // image_url을 imageUrl로 변환
+    const responseImageUrl = data.image_url || data.imageUrl || '';
+    const { image_url, ...responseData } = data;
+    
     return {
-      ...data,
+      ...responseData,
+      imageUrl: responseImageUrl,
       eventTags: responseEventTags,
       features: data.features || {},
     };

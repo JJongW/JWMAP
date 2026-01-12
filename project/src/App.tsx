@@ -5,7 +5,7 @@ import { Map } from './components/Map';
 import { AddLocationModal } from './components/AddLocationModal'; // 모달 컴포넌트 불러오기
 import { EventBanner } from './components/EventBanner'; // 이벤트 배너 컴포넌트
 import { TopSearchBar } from './components/TopSearchBar'; // LLM 검색 바
-import type { Region, Category, Location } from './types/location';
+import type { Region, Category, Location, Features } from './types/location';
 import { MapPin, Plus, Star } from 'lucide-react';
 import { Footer } from './components/Footer';
 import { locationApi } from './utils/supabase';
@@ -90,13 +90,9 @@ export default function App() {
     lon: number;
     lat: number;
     memo?: string;
-    features?: {
-      solo_ok?: boolean;
-      quiet?: boolean;
-      no_wait?: boolean;
-      good_for_date?: boolean;
-      group_friendly?: boolean;
-    };
+    short_desc?: string;
+    kakao_place_id?: string;
+    features?: Features;
   }) => {
     try {
       const data = await locationApi.create(newLocation as Omit<Location, 'id'>);
