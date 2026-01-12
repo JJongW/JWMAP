@@ -5,17 +5,91 @@ interface ImageUploadProps {
   value: string;
   onChange: (url: string) => void;
   label?: string;
+  maxWidth?: number;      // 최대 너비 (기본: 1200px)
+  maxHeight?: number;     // 최대 높이 (기본: 1200px)
+  quality?: number;       // 압축 품질 0-1 (기본: 0.8)
 }
 
-export function ImageUpload({ value, onChange, label = '이미지' }: ImageUploadProps) {
+// 이미지 압축 함수
+async function compressImage(
+  file: File,
+  maxWidth: number,
+  maxHeight: number,
+  quality: number
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      // 원본 크기
+      let { width, height } = img;
+
+      // 비율 유지하면서 리사이즈
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      // Canvas에 그리기
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas context not available'));
+        return;
+      }
+
+      // 흰색 배경 (PNG 투명 배경 대응)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, width, height);
+
+      // 이미지 그리기
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // JPEG로 압축 (더 작은 파일 크기)
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error('Failed to compress image'));
+          }
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+export function ImageUpload({
+  value,
+  onChange,
+  label = '이미지',
+  maxWidth = 1200,
+  maxHeight = 1200,
+  quality = 0.8,
+}: ImageUploadProps) {
   const [mode, setMode] = useState<'url' | 'upload'>('upload');
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string>(value);
+  const [compressionInfo, setCompressionInfo] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -34,19 +108,28 @@ export function ImageUpload({ value, onChange, label = '이미지' }: ImageUploa
     }
 
     setError(null);
+    setCompressionInfo(null);
     setIsUploading(true);
 
-    // 미리보기 생성
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setPreview(e.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-
     try {
+      // 이미지 압축
+      const originalSize = file.size;
+      const compressedBlob = await compressImage(file, maxWidth, maxHeight, quality);
+      const compressedSize = compressedBlob.size;
+
+      // 압축 정보 표시
+      const reduction = Math.round((1 - compressedSize / originalSize) * 100);
+      setCompressionInfo(
+        `${formatBytes(originalSize)} → ${formatBytes(compressedSize)} (${reduction}% 감소)`
+      );
+
+      // 미리보기 생성
+      const previewUrl = URL.createObjectURL(compressedBlob);
+      setPreview(previewUrl);
+
       // Cloudinary 업로드
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', compressedBlob, 'image.jpg');
       formData.append('upload_preset', uploadPreset);
 
       const response = await fetch(
@@ -66,6 +149,9 @@ export function ImageUpload({ value, onChange, label = '이미지' }: ImageUploa
 
       onChange(imageUrl);
       setPreview(imageUrl);
+
+      // 임시 URL 해제
+      URL.revokeObjectURL(previewUrl);
     } catch (err) {
       console.error('Upload error:', err);
       setError('이미지 업로드 중 오류가 발생했습니다.');
@@ -85,6 +171,7 @@ export function ImageUpload({ value, onChange, label = '이미지' }: ImageUploa
     onChange('');
     setPreview('');
     setError(null);
+    setCompressionInfo(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -193,6 +280,11 @@ export function ImageUpload({ value, onChange, label = '이미지' }: ImageUploa
             </button>
           )}
         </div>
+      )}
+
+      {/* 압축 정보 */}
+      {compressionInfo && (
+        <p className="text-xs text-green-600">{compressionInfo}</p>
       )}
 
       {/* 에러 메시지 */}
