@@ -41,11 +41,15 @@ export type Category =
   | '버거';
 
 export interface Features {
-  solo_ok?: boolean;      // 혼밥 가능
-  quiet?: boolean;        // 조용한 분위기
-  no_wait?: boolean;      // 웨이팅 없음
-  good_for_date?: boolean; // 데이트 추천
-  group_friendly?: boolean; // 단체석 있음
+  solo_ok?: boolean;       // 혼밥 가능
+  quiet?: boolean;         // 조용한 분위기
+  wait_short?: boolean;    // 웨이팅 짧음
+  date_ok?: boolean;       // 데이트 추천
+  group_ok?: boolean;      // 단체석 있음
+  parking?: boolean;       // 주차 가능
+  pet_friendly?: boolean;  // 반려동물 동반
+  reservation?: boolean;   // 예약 가능
+  late_night?: boolean;    // 심야 영업
 }
 
 export interface Location {
@@ -61,4 +65,6 @@ export interface Location {
   imageUrl: string;
   eventTags?: string[]; // 이벤트 태그 (예: ['흑백요리사 시즌2'])
   features?: Features;  // 장소 특징
+  short_desc?: string;  // 한 줄 경험/설명
+  kakao_place_id?: string; // 카카오 장소 ID
 }

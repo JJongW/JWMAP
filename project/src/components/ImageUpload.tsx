@@ -140,11 +140,13 @@ export function ImageUpload({
         }
       );
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('업로드 실패');
+        console.error('Cloudinary error:', data);
+        throw new Error(data.error?.message || '업로드 실패');
       }
 
-      const data = await response.json();
       const imageUrl = data.secure_url;
 
       onChange(imageUrl);
@@ -154,7 +156,14 @@ export function ImageUpload({
       URL.revokeObjectURL(previewUrl);
     } catch (err) {
       console.error('Upload error:', err);
-      setError('이미지 업로드 중 오류가 발생했습니다.');
+      const errorMessage = err instanceof Error ? err.message : '알 수 없는 오류';
+
+      // 환경변수 체크
+      if (!cloudName || !uploadPreset) {
+        setError('Cloudinary 설정이 없습니다. 환경변수를 확인해주세요.');
+      } else {
+        setError(`이미지 업로드 실패: ${errorMessage}`);
+      }
       setPreview('');
     } finally {
       setIsUploading(false);

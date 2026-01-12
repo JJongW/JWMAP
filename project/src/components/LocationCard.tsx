@@ -10,13 +10,17 @@ interface LocationCardProps {
   onDelete: (id: string) => void;
 }
 
-const featureOptions = [
+const featureOptions: { key: keyof Features; label: string }[] = [
   { key: 'solo_ok', label: '혼밥 가능' },
   { key: 'quiet', label: '조용한 분위기' },
-  { key: 'no_wait', label: '웨이팅 없음' },
-  { key: 'good_for_date', label: '데이트 추천' },
-  { key: 'group_friendly', label: '단체석 있음' },
-] as const;
+  { key: 'wait_short', label: '웨이팅 짧음' },
+  { key: 'date_ok', label: '데이트 추천' },
+  { key: 'group_ok', label: '단체석 있음' },
+  { key: 'parking', label: '주차 가능' },
+  { key: 'pet_friendly', label: '반려동물 동반' },
+  { key: 'reservation', label: '예약 가능' },
+  { key: 'late_night', label: '심야 영업' },
+];
 
 export function LocationCard({ location, onDelete }: LocationCardProps) {
   const [isEditing, setIsEditing] = useState(false);

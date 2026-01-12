@@ -48,9 +48,10 @@ export const locationApi = {
   // 장소 추가
   async create(location: Omit<Location, 'id'>): Promise<Location> {
     // camelCase를 snake_case로 변환하여 Supabase에 저장
-    const { eventTags: inputEventTags, ...rest } = location;
+    const { eventTags: inputEventTags, imageUrl, ...rest } = location;
     const supabaseData = {
       ...rest,
+      image_url: imageUrl, // imageUrl을 image_url로 변환
       event_tags: inputEventTags || [], // eventTags를 event_tags로 변환
     };
 
