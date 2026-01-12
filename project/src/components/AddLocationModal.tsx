@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
 import { ImageUpload } from './ImageUpload';
@@ -6,6 +6,13 @@ import { PlaceSearch } from './PlaceSearch';
 import type { Features } from '../types/location';
 import type { LLMSuggestions, TagSuggestion } from '../schemas/llmSuggestions';
 import { featureLabels, tagTypeLabels } from '../schemas/llmSuggestions';
+
+interface ExistingLocation {
+  id: string;
+  name: string;
+  address: string;
+  kakao_place_id?: string;
+}
 
 interface AddLocationModalProps {
   onClose: () => void;
@@ -23,9 +30,10 @@ interface AddLocationModalProps {
     kakao_place_id?: string;
     features?: Features;
   }) => void;
+  existingLocations?: ExistingLocation[];
 }
 
-export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
+export function AddLocationModal({ onClose, onSave, existingLocations = [] }: AddLocationModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     region: '',
@@ -43,6 +51,40 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
   const [showOptional, setShowOptional] = useState(false);
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
   const [suggestions, setSuggestions] = useState<LLMSuggestions | null>(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+
+  // 중복 체크 함수 (향후 사용 예정)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const checkDuplicate = (name: string, address: string, kakaoPlaceId?: string): ExistingLocation | null => {
+    // 1. kakao_place_id로 체크 (가장 정확)
+    if (kakaoPlaceId) {
+      const byPlaceId = existingLocations.find(
+        loc => loc.kakao_place_id === kakaoPlaceId
+      );
+      if (byPlaceId) return byPlaceId;
+    }
+
+    // 2. 이름 + 주소로 체크 (유사도)
+    const normalizedName = name.trim().toLowerCase();
+    const normalizedAddress = address.trim().toLowerCase();
+
+    const byNameAndAddress = existingLocations.find(loc => {
+      const locName = loc.name.trim().toLowerCase();
+      const locAddress = loc.address.trim().toLowerCase();
+
+      // 정확히 일치하거나, 이름이 포함관계이고 주소가 유사한 경우
+      const nameMatch = locName === normalizedName ||
+        locName.includes(normalizedName) ||
+        normalizedName.includes(locName);
+      const addressMatch = locAddress === normalizedAddress ||
+        locAddress.includes(normalizedAddress) ||
+        normalizedAddress.includes(locAddress);
+
+      return nameMatch && addressMatch;
+    });
+
+    return byNameAndAddress || null;
+  };
 
   const featureOptions: { key: keyof Features; label: string }[] = [
     { key: 'solo_ok', label: '혼밥 가능' },
@@ -68,6 +110,28 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
     '와인바', '아시안', '돈까스', '회', '피자', '베이커리', '카페', '카공카페', '버거',
     '프랑스음식', '고기요리', '퓨전음식', '베트남'
   ];
+
+  // 주소를 좌표로 변환 (카카오 지오코딩)
+  const geocodeAddress = async (address: string): Promise<{ lat: number; lon: number } | null> => {
+    if (!address.trim() || typeof kakao === 'undefined' || !kakao.maps?.services?.Geocoder) {
+      return null;
+    }
+
+    return new Promise((resolve) => {
+      const geocoder = new kakao.maps.services.Geocoder();
+      geocoder.addressSearch(address, (result: kakao.maps.services.Geocoder.Result[], status: kakao.maps.services.Status) => {
+        if (status === kakao.maps.services.Status.OK && result.length > 0) {
+          const coords = result[0];
+          resolve({
+            lat: parseFloat(coords.y),
+            lon: parseFloat(coords.x),
+          });
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  };
 
   // 주소에서 지역 자동 추출
   const extractRegionFromAddress = (address: string): string => {
@@ -209,9 +273,40 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // 필수 항목 검증
     if (!formData.name || !formData.region || !formData.category) {
       alert('장소명, 지역, 종류는 필수 항목입니다.');
+      return;
+    }
+
+    // 주소 필수 검증
+    if (!formData.address.trim()) {
+      alert('주소는 필수 항목입니다.');
+      return;
+    }
+
+    // 좌표가 없으면 지오코딩 시도
+    let finalLat = formData.lat;
+    let finalLon = formData.lon;
+
+    if ((!finalLat || !finalLon || finalLat === 0 || finalLon === 0) && formData.address.trim()) {
+      setIsGeocoding(true);
+      const coords = await geocodeAddress(formData.address);
+      if (coords) {
+        finalLat = coords.lat;
+        finalLon = coords.lon;
+      } else {
+        alert('주소를 좌표로 변환할 수 없습니다. 주소를 확인해주세요.');
+        setIsGeocoding(false);
+        return;
+      }
+      setIsGeocoding(false);
+    }
+
+    // 최종 좌표 검증
+    if (!finalLat || !finalLon || finalLat === 0 || finalLon === 0) {
+      alert('주소의 좌표를 가져올 수 없습니다. 주소를 확인해주세요.');
       return;
     }
 
@@ -222,12 +317,14 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
 
     onSave({
       ...formData,
+      lat: finalLat,
+      lon: finalLon,
       features: Object.keys(activeFeatures).length > 0 ? activeFeatures : undefined,
     });
     onClose();
   };
 
-  const isFormValid = formData.name && formData.region && formData.category;
+  const isFormValid = formData.name && formData.region && formData.category && formData.address.trim();
 
   // 추천된 features 라벨 표시
   const getSuggestedFeaturesText = (): string => {
@@ -303,21 +400,43 @@ export function AddLocationModal({ onClose, onSave }: AddLocationModalProps) {
                   placeholder="장소명"
                 />
               </div>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) => {
-                  const address = e.target.value;
-                  const detectedRegion = extractRegionFromAddress(address);
-                  setFormData((prev) => ({
-                    ...prev,
-                    address,
-                    region: detectedRegion || prev.region,
-                  }));
-                }}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="주소"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={async (e) => {
+                    const address = e.target.value;
+                    const detectedRegion = extractRegionFromAddress(address);
+                    
+                    setFormData((prev) => ({
+                      ...prev,
+                      address,
+                      region: detectedRegion || prev.region,
+                    }));
+
+                    // 주소가 완성되면 지오코딩으로 좌표 자동 변환
+                    if (address.trim().length > 5 && !formData.kakao_place_id) {
+                      setIsGeocoding(true);
+                      const coords = await geocodeAddress(address);
+                      if (coords) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          lat: coords.lat,
+                          lon: coords.lon,
+                        }));
+                      }
+                      setIsGeocoding(false);
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="주소"
+                />
+                {isGeocoding && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 size={16} className="animate-spin text-orange-500" />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

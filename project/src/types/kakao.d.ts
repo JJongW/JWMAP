@@ -48,5 +48,43 @@ declare namespace kakao.maps {
         callback: (event: { latLng?: LatLng; [key: string]: unknown }) => void
       ): void;
     }
+
+    // Services 네임스페이스 정의
+    namespace services {
+      enum Status {
+        OK = 'OK',
+        ZERO_RESULT = 'ZERO_RESULT',
+        ERROR = 'ERROR',
+      }
+
+      // Geocoder 클래스 정의
+      class Geocoder {
+        addressSearch(
+          address: string,
+          callback: (result: Geocoder.Result[], status: Status) => void
+        ): void;
+      }
+
+      namespace Geocoder {
+        interface Result {
+          address_name: string;
+          y: string; // 위도
+          x: string; // 경도
+          address_type: string;
+          road_address?: {
+            address_name: string;
+            region_1depth_name: string;
+            region_2depth_name: string;
+            region_3depth_name: string;
+            road_name: string;
+            underground_yn: string;
+            main_building_no: string;
+            sub_building_no: string;
+            building_name: string;
+            zone_no: string;
+          };
+        }
+      }
+    }
   }
   
