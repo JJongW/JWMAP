@@ -5,7 +5,8 @@ import { Map } from './components/Map';
 import { AddLocationModal } from './components/AddLocationModal'; // 모달 컴포넌트 불러오기
 import { EventBanner } from './components/EventBanner'; // 이벤트 배너 컴포넌트
 import { TopSearchBar } from './components/TopSearchBar'; // LLM 검색 바
-import type { Region, Category, Location, Features } from './types/location';
+import type { Region, Category, Location, Features, Province } from './types/location';
+import { PROVINCES, REGION_HIERARCHY, inferProvinceFromRegion } from './types/location';
 import { MapPin, Plus, Star } from 'lucide-react';
 import { Footer } from './components/Footer';
 import { locationApi } from './utils/supabase';
@@ -14,7 +15,8 @@ import { SpeedInsights } from "@vercel/speed-insights/react"
 export default function App() {
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [locations, setLocations] = useState<Location[]>([]); // 전체 장소 데이터
-  const [selectedRegion, setSelectedRegion] = useState<Region | '서울 전체'>('서울 전체');
+  const [selectedProvince, setSelectedProvince] = useState<Province | '전체'>('전체'); // 대분류 (시/도)
+  const [selectedDistrict, setSelectedDistrict] = useState<string | '전체'>('전체'); // 소분류 (구/동)
   const [selectedCategory, setSelectedCategory] = useState<Category | '전체'>('전체');
   const [selectedEventTag, setSelectedEventTag] = useState<string | null>(null); // 선택된 이벤트 태그
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
@@ -32,28 +34,66 @@ export default function App() {
     { name: '천하제빵 시즌 1 베이커리(더 추가 예정)', tag: '천하제빵 시즌1' }
   ];
 
-  // 지역 목록과 카테고리 목록
-  const regions: (Region | '서울 전체')[] = ['서울 전체', ...Array.from(new Set(locations.map(l => l.region)))];
+  // 장소의 province를 가져오는 헬퍼 함수 (저장된 값 또는 추론)
+  const getLocationProvince = (location: Location): Province | null => {
+    if (location.province) return location.province;
+    return inferProvinceFromRegion(location.region);
+  };
+
+  // 선택된 Province의 District 목록 (데이터에 있는 것만)
+  const availableDistricts: string[] = selectedProvince === '전체'
+    ? []
+    : (() => {
+        const hierarchyDistricts = REGION_HIERARCHY[selectedProvince] || [];
+        const dataDistricts = new Set(
+          locations
+            .filter(l => getLocationProvince(l) === selectedProvince)
+            .map(l => l.region)
+        );
+        // 계층 구조에 있는 것 + 데이터에만 있는 것 모두 포함
+        return [...new Set([...hierarchyDistricts.filter(d => dataDistricts.has(d)), ...dataDistricts])];
+      })();
+
+  // 카테고리 목록 (현재 필터에 맞는 것만)
   const categories: (Category | '전체')[] = [
     '전체',
     ...Array.from(
       new Set(
         locations
-          .filter(location => selectedRegion === '서울 전체' || location.region === selectedRegion)
+          .filter(location => {
+            const province = getLocationProvince(location);
+            const matchesProvince = selectedProvince === '전체' || province === selectedProvince;
+            const matchesDistrict = selectedDistrict === '전체' || location.region === selectedDistrict;
+            return matchesProvince && matchesDistrict;
+          })
           .map(l => l.category)
       )
     ),
   ];
 
-  // 필터링된 장소 목록 - 이벤트 태그 필터 추가
+  // 필터링된 장소 목록 - Province, District, Category, Event 필터
   const filteredLocations = locations.filter(location => {
-    const matchesRegion = selectedRegion === '서울 전체' || location.region === selectedRegion;
+    const province = getLocationProvince(location);
+    const matchesProvince = selectedProvince === '전체' || province === selectedProvince;
+    const matchesDistrict = selectedDistrict === '전체' || location.region === selectedDistrict;
     const matchesCategory = selectedCategory === '전체' || location.category === selectedCategory;
-    // 이벤트 태그가 선택된 경우, 해당 태그를 가진 장소만 필터링
-    const matchesEvent = !selectedEventTag || 
+    const matchesEvent = !selectedEventTag ||
       (location.eventTags && location.eventTags.includes(selectedEventTag));
-    return matchesRegion && matchesCategory && matchesEvent;
+    return matchesProvince && matchesDistrict && matchesCategory && matchesEvent;
   });
+
+  // Province별 장소 개수 계산
+  const getProvinceCount = (province: Province | '전체'): number => {
+    if (province === '전체') return locations.length;
+    return locations.filter(l => getLocationProvince(l) === province).length;
+  };
+
+  // District별 장소 개수 계산
+  const getDistrictCount = (district: string): number => {
+    return locations.filter(l =>
+      getLocationProvince(l) === selectedProvince && l.region === district
+    ).length;
+  };
 
   // 이벤트별 장소 개수 계산
   const getEventLocationCount = (eventTag: string) => {
@@ -82,6 +122,7 @@ export default function App() {
   // 새로운 장소 추가
   const handleAddLocation = async (newLocation: {
     name: string;
+    province?: Province;
     region: string;
     category: string;
     address: string;
@@ -93,6 +134,7 @@ export default function App() {
     short_desc?: string;
     kakao_place_id?: string;
     features?: Features;
+    tags?: string[];
   }) => {
     try {
       const data = await locationApi.create(newLocation as Omit<Location, 'id'>);
@@ -114,6 +156,13 @@ export default function App() {
       console.error('Error deleting location:', error);
       alert('장소 삭제 중 문제가 발생했습니다.');
     }
+  };
+
+  // 장소 수정
+  const handleUpdate = (updatedLocation: Location) => {
+    setLocations(prev => prev.map(loc =>
+      loc.id === updatedLocation.id ? updatedLocation : loc
+    ));
   };
 
   // "더 보기" 버튼 클릭
@@ -198,6 +247,12 @@ export default function App() {
           <AddLocationModal
             onClose={() => setIsModalOpen(false)}
             onSave={handleAddLocation}
+            existingLocations={locations.map(loc => ({
+              id: loc.id,
+              name: loc.name,
+              address: loc.address,
+              kakao_place_id: loc.kakao_place_id,
+            }))}
           />
         )}
         <div className="space-y-6">
@@ -239,25 +294,80 @@ export default function App() {
             );
           })}
 
-          {/* 필터 섹션 */}
+          {/* 필터 섹션 - 2단계 지역 필터 */}
           <div className="bg-white p-5 rounded-2xl border border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">지역</h2>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+              지역 (시/도)
+            </h2>
             <div className="flex flex-wrap gap-2">
-              {regions.map(region => (
-                <CategoryButton
-                  key={region}
-                  category={region}
-                  isActive={selectedRegion === region}
-                  onClick={() => {
-                    setSelectedRegion(region);
-                    setSelectedCategory('전체');
-                    setSelectedEventTag(null); // 지역 변경 시 이벤트 필터 해제
-                  }}
-                  count={locations.filter(l => region === '서울 전체' || l.region === region).length}
-                />
-              ))}
+              {/* 전체 버튼 */}
+              <CategoryButton
+                category="전국"
+                isActive={selectedProvince === '전체'}
+                onClick={() => {
+                  setSelectedProvince('전체');
+                  setSelectedDistrict('전체');
+                  setSelectedCategory('전체');
+                  setSelectedEventTag(null);
+                }}
+                count={getProvinceCount('전체')}
+              />
+              {/* Province 버튼들 */}
+              {PROVINCES.map(province => {
+                const count = getProvinceCount(province);
+                // 데이터가 있는 Province만 표시 (또는 모두 표시하려면 조건 제거)
+                if (count === 0) return null;
+                return (
+                  <CategoryButton
+                    key={province}
+                    category={province}
+                    isActive={selectedProvince === province}
+                    onClick={() => {
+                      setSelectedProvince(province);
+                      setSelectedDistrict('전체');
+                      setSelectedCategory('전체');
+                      setSelectedEventTag(null);
+                    }}
+                    count={count}
+                  />
+                );
+              })}
             </div>
           </div>
+
+          {/* 소분류 (구/동) - Province 선택 시에만 표시 */}
+          {selectedProvince !== '전체' && availableDistricts.length > 0 && (
+            <div className="bg-white p-5 rounded-2xl border border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+                {selectedProvince} 세부 지역
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {/* 전체 버튼 */}
+                <CategoryButton
+                  category={`${selectedProvince} 전체`}
+                  isActive={selectedDistrict === '전체'}
+                  onClick={() => {
+                    setSelectedDistrict('전체');
+                    setSelectedCategory('전체');
+                  }}
+                  count={getProvinceCount(selectedProvince)}
+                />
+                {/* District 버튼들 */}
+                {availableDistricts.map(district => (
+                  <CategoryButton
+                    key={district}
+                    category={district}
+                    isActive={selectedDistrict === district}
+                    onClick={() => {
+                      setSelectedDistrict(district);
+                      setSelectedCategory('전체');
+                    }}
+                    count={getDistrictCount(district)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="bg-white p-5 rounded-2xl border border-gray-100">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">종류</h2>
@@ -268,10 +378,8 @@ export default function App() {
                   category={category}
                   isActive={selectedCategory === category}
                   onClick={() => setSelectedCategory(category)}
-                  count={locations.filter(
-                    l =>
-                      (selectedRegion === '서울 전체' || l.region === selectedRegion) &&
-                      (category === '전체' || l.category === category)
+                  count={filteredLocations.filter(
+                    l => category === '전체' || l.category === category
                   ).length}
                 />
               ))}
@@ -330,7 +438,9 @@ export default function App() {
                     <div className="p-3">
                       <h3 className="font-semibold text-gray-900 truncate">{location.name}</h3>
                       <div className="flex items-center justify-between mt-2">
-                        <p className="text-xs text-gray-500 truncate flex-1">{location.region}</p>
+                        <p className="text-xs text-gray-500 truncate flex-1">
+                        {getLocationProvince(location) ? `${getLocationProvince(location)} · ${location.region}` : location.region}
+                      </p>
                         <div className="flex items-center gap-1 text-orange-500">
                           <Star size={12} className="fill-current" />
                           <span className="text-xs font-semibold">{location.rating?.toFixed(1) || '0.0'}</span>
@@ -366,7 +476,7 @@ export default function App() {
             </div>
             <div>
               {selectedLocation ? (
-                <LocationCard location={selectedLocation} onDelete={handleDelete} />
+                <LocationCard location={selectedLocation} onDelete={handleDelete} onUpdate={handleUpdate} />
               ) : (
                 <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
                   <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

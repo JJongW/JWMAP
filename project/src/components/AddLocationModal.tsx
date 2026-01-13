@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { X, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react';
+import { X, Sparkles, Loader2 } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
 import { ImageUpload } from './ImageUpload';
 import { PlaceSearch } from './PlaceSearch';
-import type { Features } from '../types/location';
+import type { Features, Province } from '../types/location';
+import { PROVINCES, REGION_HIERARCHY } from '../types/location';
 import type { LLMSuggestions, TagSuggestion } from '../schemas/llmSuggestions';
 import { featureLabels, tagTypeLabels } from '../schemas/llmSuggestions';
 
@@ -18,6 +19,7 @@ interface AddLocationModalProps {
   onClose: () => void;
   onSave: (location: {
     name: string;
+    province?: Province;
     region: string;
     category: string;
     address: string;
@@ -29,6 +31,7 @@ interface AddLocationModalProps {
     short_desc?: string;
     kakao_place_id?: string;
     features?: Features;
+    tags?: string[];
   }) => void;
   existingLocations?: ExistingLocation[];
 }
@@ -36,6 +39,7 @@ interface AddLocationModalProps {
 export function AddLocationModal({ onClose, onSave, existingLocations = [] }: AddLocationModalProps) {
   const [formData, setFormData] = useState({
     name: '',
+    province: '' as Province | '',
     region: '',
     category: '',
     address: '',
@@ -48,13 +52,13 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     kakao_place_id: '',
   });
   const [features, setFeatures] = useState<Features>({});
-  const [showOptional, setShowOptional] = useState(false);
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
+  const [customTags, setCustomTags] = useState<string[]>([]);
   const [suggestions, setSuggestions] = useState<LLMSuggestions | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<ExistingLocation | null>(null);
 
-  // 중복 체크 함수 (향후 사용 예정)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // 중복 체크 함수
   const checkDuplicate = (name: string, address: string, kakaoPlaceId?: string): ExistingLocation | null => {
     // 1. kakao_place_id로 체크 (가장 정확)
     if (kakaoPlaceId) {
@@ -98,12 +102,10 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     { key: 'late_night', label: '심야 영업' },
   ];
 
-  const regions = [
-    '강남', '서초', '잠실/송파/강동', '영등포/여의도/강서', '건대/성수/왕십리',
-    '종로/중구', '홍대/합정/마포/연남', '용산/이태원/한남', '성북/노원/중랑',
-    '구로/관악/동작', '신촌/연희', '창동/도봉산', '회기/청량리', '강동/고덕',
-    '연신내/구파발', '마곡/김포', '미아/수유/북한산', '목동/양천', '금천/가산'
-  ];
+  // 선택된 Province에 따른 District 목록
+  const availableDistricts = formData.province
+    ? REGION_HIERARCHY[formData.province] || []
+    : [];
 
   const categories = [
     '한식', '중식', '일식', '라멘', '양식', '분식', '호프집', '칵테일바',
@@ -133,15 +135,42 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     });
   };
 
-  // 주소에서 지역 자동 추출
-  const extractRegionFromAddress = (address: string): string => {
-    const regionMap: Record<string, string> = {
+  // 주소에서 지역 자동 추출 (Province + District)
+  const extractRegionFromAddress = (address: string): { province: Province; region: string } | null => {
+    // 시/도 레벨 매핑
+    const provincePatterns: { pattern: string; province: Province }[] = [
+      { pattern: '서울', province: '서울' },
+      { pattern: '경기', province: '경기' },
+      { pattern: '인천', province: '인천' },
+      { pattern: '부산', province: '부산' },
+      { pattern: '대구', province: '대구' },
+      { pattern: '대전', province: '대전' },
+      { pattern: '광주광역시', province: '광주' },
+      { pattern: '울산', province: '울산' },
+      { pattern: '세종', province: '세종' },
+      { pattern: '강원', province: '강원' },
+      { pattern: '충청북도', province: '충북' },
+      { pattern: '충북', province: '충북' },
+      { pattern: '충청남도', province: '충남' },
+      { pattern: '충남', province: '충남' },
+      { pattern: '전라북도', province: '전북' },
+      { pattern: '전북', province: '전북' },
+      { pattern: '전라남도', province: '전남' },
+      { pattern: '전남', province: '전남' },
+      { pattern: '경상북도', province: '경북' },
+      { pattern: '경북', province: '경북' },
+      { pattern: '경상남도', province: '경남' },
+      { pattern: '경남', province: '경남' },
+      { pattern: '제주', province: '제주' },
+    ];
+
+    // 서울 구별 매핑
+    const seoulDistrictMap: Record<string, string> = {
       '강남구': '강남',
       '서초구': '서초',
       '송파구': '잠실/송파/강동',
       '강동구': '잠실/송파/강동',
       '영등포구': '영등포/여의도/강서',
-      '여의도': '영등포/여의도/강서',
       '강서구': '영등포/여의도/강서',
       '광진구': '건대/성수/왕십리',
       '성동구': '건대/성수/왕십리',
@@ -164,12 +193,287 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
       '금천구': '금천/가산',
     };
 
-    for (const [key, value] of Object.entries(regionMap)) {
-      if (address.includes(key)) {
-        return value;
+    // 경기도 시별 매핑
+    const gyeonggiDistrictMap: Record<string, string> = {
+      '수원시': '수원',
+      '성남시': '성남/분당',
+      '분당': '성남/분당',
+      '고양시': '고양/일산',
+      '일산': '고양/일산',
+      '용인시': '용인',
+      '부천시': '부천',
+      '안양시': '안양/과천',
+      '과천시': '안양/과천',
+      '안산시': '안산',
+      '화성시': '화성/동탄',
+      '동탄': '화성/동탄',
+      '평택시': '평택',
+      '의정부시': '의정부',
+      '파주시': '파주',
+      '김포시': '김포',
+      '광명시': '광명',
+      '광주시': '광주',
+      '하남시': '하남',
+      '시흥시': '시흥',
+      '군포시': '군포/의왕',
+      '의왕시': '군포/의왕',
+      '오산시': '오산',
+      '이천시': '이천',
+      '안성시': '안성',
+      '양평군': '양평/여주',
+      '여주시': '양평/여주',
+      '구리시': '구리/남양주',
+      '남양주시': '구리/남양주',
+      '포천시': '포천/동두천',
+      '동두천시': '포천/동두천',
+    };
+
+    // 인천 구별 매핑
+    const incheonDistrictMap: Record<string, string> = {
+      '부평구': '부평',
+      '연수구': '송도/연수',
+      '송도': '송도/연수',
+      '계양구': '계양',
+      '남동구': '남동구',
+      '서구': '서구/검단',
+      '검단': '서구/검단',
+      '중구': '중구/동구',
+      '동구': '중구/동구',
+      '강화군': '강화/옹진',
+      '옹진군': '강화/옹진',
+    };
+
+    // 부산 구별 매핑
+    const busanDistrictMap: Record<string, string> = {
+      '부산진구': '서면',
+      '서면': '서면',
+      '해운대구': '해운대',
+      '해운대': '해운대',
+      '수영구': '광안리/수영',
+      '광안리': '광안리/수영',
+      '센텀': '센텀시티',
+      '중구': '남포동/중앙동',
+      '남포동': '남포동/중앙동',
+      '동래구': '동래/온천장',
+      '온천장': '동래/온천장',
+      '사상구': '사상/덕천',
+      '덕천': '사상/덕천',
+      '북구': '사상/덕천',
+      '기장군': '기장',
+      '사하구': '사하/다대포',
+      '다대포': '사하/다대포',
+      '연제구': '연산/토곡',
+      '연산동': '연산/토곡',
+    };
+
+    // 대구 구별 매핑
+    const daeguDistrictMap: Record<string, string> = {
+      '중구': '동성로/중구',
+      '동성로': '동성로/중구',
+      '수성구': '수성구',
+      '범어동': '범어/만촌',
+      '만촌동': '범어/만촌',
+      '동구': '동대구/신천',
+      '동대구': '동대구/신천',
+      '신천동': '동대구/신천',
+      '북구': '북구/칠곡',
+      '칠곡': '북구/칠곡',
+      '달서구': '달서구',
+      '경북대': '경대/대현',
+      '대현동': '경대/대현',
+    };
+
+    // 대전 구별 매핑
+    const daejeonDistrictMap: Record<string, string> = {
+      '서구': '둔산',
+      '둔산동': '둔산',
+      '유성구': '유성/궁동',
+      '궁동': '유성/궁동',
+      '중구': '대전역/중앙로',
+      '대전역': '대전역/중앙로',
+      '관저동': '서구/관저',
+      '동구': '동구/대동',
+      '대동': '동구/대동',
+    };
+
+    // 광주 구별 매핑
+    const gwangjuDistrictMap: Record<string, string> = {
+      '동구': '충장로/동구',
+      '충장로': '충장로/동구',
+      '서구': '상무지구',
+      '상무': '상무지구',
+      '광산구': '첨단지구',
+      '첨단': '첨단지구',
+      '수완': '수완지구',
+      '송정역': '광주송정역',
+      '송정동': '광주송정역',
+    };
+
+    // 울산 구별 매핑
+    const ulsanDistrictMap: Record<string, string> = {
+      '남구': '삼산/신정',
+      '삼산동': '삼산/신정',
+      '신정동': '삼산/신정',
+      '중구': '성남동/중구',
+      '성남동': '성남동/중구',
+      '동구': '동구/방어진',
+      '방어진': '동구/방어진',
+      '울주군': '울주/언양',
+      '언양': '울주/언양',
+    };
+
+    // 세종 매핑
+    const sejongDistrictMap: Record<string, string> = {
+      '조치원': '조치원',
+      '어진동': '정부청사/어진동',
+      '정부청사': '정부청사/어진동',
+      '나성동': '나성동/다정동',
+      '다정동': '나성동/다정동',
+    };
+
+    // 강원 시별 매핑
+    const gangwonDistrictMap: Record<string, string> = {
+      '춘천시': '춘천',
+      '원주시': '원주',
+      '강릉시': '강릉',
+      '속초시': '속초/양양',
+      '양양군': '속초/양양',
+      '동해시': '동해/삼척',
+      '삼척시': '동해/삼척',
+      '평창군': '평창/정선',
+      '정선군': '평창/정선',
+      '홍천군': '홍천/횡성',
+      '횡성군': '홍천/횡성',
+    };
+
+    // 충북 시별 매핑
+    const chungbukDistrictMap: Record<string, string> = {
+      '청주시': '청주',
+      '충주시': '충주',
+      '제천시': '제천',
+      '음성군': '음성/진천',
+      '진천군': '음성/진천',
+    };
+
+    // 충남 시별 매핑
+    const chungnamDistrictMap: Record<string, string> = {
+      '천안시': '천안',
+      '아산시': '아산',
+      '서산시': '서산/당진',
+      '당진시': '서산/당진',
+      '공주시': '공주/부여',
+      '부여군': '공주/부여',
+      '논산시': '논산/계룡',
+      '계룡시': '논산/계룡',
+      '홍성군': '홍성/예산',
+      '예산군': '홍성/예산',
+    };
+
+    // 전북 시별 매핑
+    const jeonbukDistrictMap: Record<string, string> = {
+      '전주시': '전주',
+      '익산시': '익산',
+      '군산시': '군산',
+      '정읍시': '정읍/김제',
+      '김제시': '정읍/김제',
+      '남원시': '남원/순창',
+      '순창군': '남원/순창',
+    };
+
+    // 전남 시별 매핑
+    const jeonnamDistrictMap: Record<string, string> = {
+      '여수시': '여수',
+      '순천시': '순천',
+      '광양시': '광양',
+      '목포시': '목포',
+      '나주시': '나주',
+      '무안군': '무안/영암',
+      '영암군': '무안/영암',
+    };
+
+    // 경북 시별 매핑
+    const gyeongbukDistrictMap: Record<string, string> = {
+      '포항시': '포항',
+      '경주시': '경주',
+      '구미시': '구미',
+      '안동시': '안동',
+      '김천시': '김천',
+      '영주시': '영주/봉화',
+      '봉화군': '영주/봉화',
+      '상주시': '상주/문경',
+      '문경시': '상주/문경',
+    };
+
+    // 경남 시별 매핑
+    const gyeongnamDistrictMap: Record<string, string> = {
+      '창원시': '창원/마산',
+      '마산': '창원/마산',
+      '김해시': '김해',
+      '진주시': '진주',
+      '양산시': '양산',
+      '거제시': '거제',
+      '통영시': '통영/고성',
+      '고성군': '통영/고성',
+      '밀양시': '밀양/창녕',
+      '창녕군': '밀양/창녕',
+    };
+
+    // 제주 시별 매핑
+    const jejuDistrictMap: Record<string, string> = {
+      '제주시': '제주시',
+      '서귀포시': '서귀포',
+      '애월읍': '애월/한림',
+      '한림읍': '애월/한림',
+      '성산읍': '성산/표선',
+      '표선면': '성산/표선',
+      '중문': '중문',
+    };
+
+    // Province별 District 매핑 통합
+    const districtMaps: Record<Province, Record<string, string>> = {
+      '서울': seoulDistrictMap,
+      '경기': gyeonggiDistrictMap,
+      '인천': incheonDistrictMap,
+      '부산': busanDistrictMap,
+      '대구': daeguDistrictMap,
+      '대전': daejeonDistrictMap,
+      '광주': gwangjuDistrictMap,
+      '울산': ulsanDistrictMap,
+      '세종': sejongDistrictMap,
+      '강원': gangwonDistrictMap,
+      '충북': chungbukDistrictMap,
+      '충남': chungnamDistrictMap,
+      '전북': jeonbukDistrictMap,
+      '전남': jeonnamDistrictMap,
+      '경북': gyeongbukDistrictMap,
+      '경남': gyeongnamDistrictMap,
+      '제주': jejuDistrictMap,
+    };
+
+    // Province 찾기
+    let detectedProvince: Province | null = null;
+    for (const { pattern, province } of provincePatterns) {
+      if (address.includes(pattern)) {
+        detectedProvince = province;
+        break;
       }
     }
-    return '';
+
+    if (!detectedProvince) return null;
+
+    // District 찾기
+    let detectedRegion = '';
+    const districtMap = districtMaps[detectedProvince];
+    if (districtMap) {
+      for (const [key, value] of Object.entries(districtMap)) {
+        if (address.includes(key)) {
+          detectedRegion = value;
+          break;
+        }
+      }
+    }
+
+    return { province: detectedProvince, region: detectedRegion };
   };
 
   // 카카오 카테고리에서 우리 카테고리로 매핑
@@ -217,17 +521,23 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     lon: number;
     category: string;
   }) => {
-    const detectedRegion = extractRegionFromAddress(place.roadAddress || place.address);
+    const detected = extractRegionFromAddress(place.roadAddress || place.address);
     const mappedCategory = mapCategory(place.category);
+    const addressToUse = place.roadAddress || place.address;
+
+    // 중복 체크
+    const duplicate = checkDuplicate(place.name, addressToUse, place.id);
+    setDuplicateWarning(duplicate);
 
     setFormData((prev) => ({
       ...prev,
       name: place.name,
-      address: place.roadAddress || place.address,
+      address: addressToUse,
       lat: place.lat,
       lon: place.lon,
       kakao_place_id: place.id,
-      region: detectedRegion || prev.region,
+      province: detected?.province || prev.province,
+      region: detected?.region || prev.region,
       category: mappedCategory || prev.category,
     }));
   };
@@ -275,8 +585,8 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
 
   const handleSubmit = async () => {
     // 필수 항목 검증
-    if (!formData.name || !formData.region || !formData.category) {
-      alert('장소명, 지역, 종류는 필수 항목입니다.');
+    if (!formData.name || !formData.province || !formData.region || !formData.category) {
+      alert('장소명, 시/도, 세부 지역, 종류는 필수 항목입니다.');
       return;
     }
 
@@ -284,6 +594,17 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     if (!formData.address.trim()) {
       alert('주소는 필수 항목입니다.');
       return;
+    }
+
+    // 중복 체크 (저장 전 최종 확인)
+    const duplicate = checkDuplicate(formData.name, formData.address, formData.kakao_place_id);
+    if (duplicate) {
+      const confirmAdd = window.confirm(
+        `"${duplicate.name}"이(가) 이미 등록되어 있습니다.\n그래도 추가하시겠습니까?`
+      );
+      if (!confirmAdd) {
+        return;
+      }
     }
 
     // 좌표가 없으면 지오코딩 시도
@@ -317,14 +638,17 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
 
     onSave({
       ...formData,
+      province: formData.province as Province,
+      memo: formData.short_desc || formData.memo, // short_desc를 memo로 사용
       lat: finalLat,
       lon: finalLon,
       features: Object.keys(activeFeatures).length > 0 ? activeFeatures : undefined,
+      tags: customTags.length > 0 ? customTags : undefined,
     });
     onClose();
   };
 
-  const isFormValid = formData.name && formData.region && formData.category && formData.address.trim();
+  const isFormValid = formData.name && formData.province && formData.region && formData.category && formData.address.trim();
 
   // 추천된 features 라벨 표시
   const getSuggestedFeaturesText = (): string => {
@@ -336,22 +660,45 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     return activeKeys.join(', ');
   };
 
-  // 추천된 tags 표시
+  // 태그 토글
+  const handleTagToggle = (tagName: string) => {
+    setCustomTags((prev) =>
+      prev.includes(tagName)
+        ? prev.filter((t) => t !== tagName)
+        : [...prev, tagName]
+    );
+  };
+
+  // 추천된 tags 표시 (클릭 가능)
   const renderSuggestedTags = () => {
     if (!suggestions?.tags || suggestions.tags.length === 0) return null;
 
     return (
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {suggestions.tags.map((tag: TagSuggestion, idx: number) => (
-          <span
-            key={idx}
-            className="inline-flex items-center gap-1 px-2 py-1 bg-orange-50 text-orange-600 text-xs rounded-md"
-            title={`${tagTypeLabels[tag.type]} (확신도: ${Math.round(tag.weight * 100)}%)`}
-          >
-            <span className="text-orange-400">{tagTypeLabels[tag.type]}</span>
-            {tag.name}
-          </span>
-        ))}
+      <div className="mt-2">
+        <p className="text-xs text-gray-500 mb-1.5">클릭하여 태그 추가:</p>
+        <div className="flex flex-wrap gap-1.5">
+          {suggestions.tags.map((tag: TagSuggestion, idx: number) => {
+            const isSelected = customTags.includes(tag.name);
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleTagToggle(tag.name)}
+                className={`inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md transition-colors ${
+                  isSelected
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-orange-50 text-orange-600 hover:bg-orange-100'
+                }`}
+                title={`${tagTypeLabels[tag.type]} (확신도: ${Math.round(tag.weight * 100)}%)`}
+              >
+                <span className={isSelected ? 'text-orange-200' : 'text-orange-400'}>
+                  {tagTypeLabels[tag.type]}
+                </span>
+                {tag.name}
+              </button>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -378,10 +725,24 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
               장소 검색 <span className="text-red-500">*</span>
             </label>
             <PlaceSearch onSelect={handlePlaceSelect} placeholder="장소명으로 검색하세요" />
-            {formData.name && (
+            {formData.name && !duplicateWarning && (
               <p className="text-xs text-green-600 mt-1.5">
                 선택됨: {formData.name}
               </p>
+            )}
+            {/* 중복 경고 */}
+            {duplicateWarning && (
+              <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                <p className="text-sm text-amber-700 font-medium">
+                  이미 등록된 장소입니다
+                </p>
+                <p className="text-xs text-amber-600 mt-1">
+                  "{duplicateWarning.name}" ({duplicateWarning.address})
+                </p>
+                <p className="text-xs text-amber-500 mt-1">
+                  그래도 추가하려면 저장 버튼을 누르세요.
+                </p>
+              </div>
             )}
           </div>
 
@@ -406,12 +767,13 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
                   value={formData.address}
                   onChange={async (e) => {
                     const address = e.target.value;
-                    const detectedRegion = extractRegionFromAddress(address);
-                    
+                    const detected = extractRegionFromAddress(address);
+
                     setFormData((prev) => ({
                       ...prev,
                       address,
-                      region: detectedRegion || prev.region,
+                      province: detected?.province || prev.province,
+                      region: detected?.region || prev.region,
                     }));
 
                     // 주소가 완성되면 지오코딩으로 좌표 자동 변환
@@ -440,15 +802,31 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
             </div>
           )}
 
-          {/* 지역 */}
+          {/* 시/도 선택 */}
           <CustomSelect
-            label="지역"
+            label="시/도"
             required
-            value={formData.region}
-            onChange={(value) => setFormData((prev) => ({ ...prev, region: value }))}
-            options={regions}
-            placeholder="지역을 선택하세요"
+            value={formData.province}
+            onChange={(value) => setFormData((prev) => ({
+              ...prev,
+              province: value as Province,
+              region: '', // Province 변경 시 region 초기화
+            }))}
+            options={PROVINCES}
+            placeholder="시/도를 선택하세요"
           />
+
+          {/* 세부 지역 선택 - Province 선택 후에만 표시 */}
+          {formData.province && availableDistricts.length > 0 && (
+            <CustomSelect
+              label="세부 지역"
+              required
+              value={formData.region}
+              onChange={(value) => setFormData((prev) => ({ ...prev, region: value }))}
+              options={availableDistricts}
+              placeholder="세부 지역을 선택하세요"
+            />
+          )}
 
           {/* 종류 */}
           <CustomSelect
@@ -527,54 +905,47 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
             </div>
           </div>
 
-          {/* 선택 입력 섹션 토글 */}
-          <button
-            type="button"
-            onClick={() => setShowOptional(!showOptional)}
-            className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 rounded-xl text-sm text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <span>추가 정보 입력 (선택)</span>
-            {showOptional ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-          </button>
-
-          {/* 선택 입력 섹션 */}
-          {showOptional && (
-            <div className="space-y-4 pt-2">
-              {/* 이미지 */}
-              <ImageUpload
-                label="이미지"
-                value={formData.imageUrl}
-                onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
-              />
-
-              {/* 평점 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">평점</label>
-                <input
-                  type="number"
-                  value={formData.rating || ''}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, rating: parseFloat(e.target.value) || 0 }))}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  min="0"
-                  max="5"
-                  step="0.1"
-                  placeholder="0.0 ~ 5.0"
-                />
-              </div>
-
-              {/* 메모 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">메모</label>
-                <textarea
-                  value={formData.memo}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, memo: e.target.value }))}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
-                  placeholder="상세한 메모를 남겨보세요"
-                  rows={3}
-                />
+          {/* 선택된 태그 표시 */}
+          {customTags.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">선택된 태그</label>
+              <div className="flex flex-wrap gap-1.5">
+                {customTags.map((tag, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleTagToggle(tag)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-500 text-white text-xs rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    {tag}
+                    <X size={12} />
+                  </button>
+                ))}
               </div>
             </div>
           )}
+
+          {/* 이미지 */}
+          <ImageUpload
+            label="이미지"
+            value={formData.imageUrl}
+            onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
+          />
+
+          {/* 평점 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">평점</label>
+            <input
+              type="number"
+              value={formData.rating || ''}
+              onChange={(e) => setFormData((prev) => ({ ...prev, rating: parseFloat(e.target.value) || 0 }))}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              min="0"
+              max="5"
+              step="0.1"
+              placeholder="0.0 ~ 5.0"
+            />
+          </div>
         </div>
 
         {/* 버튼 */}

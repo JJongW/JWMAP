@@ -43,11 +43,25 @@ export const locationApi = {
       // image_url 제거하고 imageUrl로 통일
       const { image_url, ...rest } = item;
       
+      // tags 파싱
+      let tags = item.tags || [];
+      if (typeof tags === 'string') {
+        try {
+          tags = JSON.parse(tags);
+        } catch (e) {
+          tags = [];
+        }
+      }
+      if (!Array.isArray(tags)) {
+        tags = [];
+      }
+
       return {
         ...rest,
         imageUrl,
         eventTags,
         features: item.features || {},
+        tags,
       };
     });
   },
@@ -55,12 +69,13 @@ export const locationApi = {
   // 장소 추가
   async create(location: Omit<Location, 'id'>): Promise<Location> {
     // camelCase를 snake_case로 변환하여 Supabase에 저장
-    const { eventTags: inputEventTags, imageUrl, ...rest } = location;
+    const { eventTags: inputEventTags, imageUrl, tags: inputTags, ...rest } = location;
     const supabaseData: any = {
       ...rest,
       event_tags: inputEventTags || [], // eventTags를 event_tags로 변환
+      tags: inputTags || [], // tags 저장
     };
-    
+
     // imageUrl이 있고 빈 문자열이 아니면 image_url로 변환
     if (imageUrl && imageUrl.trim()) {
       supabaseData.image_url = imageUrl;
@@ -95,12 +110,26 @@ export const locationApi = {
     // image_url을 imageUrl로 변환
     const responseImageUrl = data.image_url || data.imageUrl || '';
     const { image_url, ...responseData } = data;
-    
+
+    // tags 파싱
+    let responseTags = data.tags || [];
+    if (typeof responseTags === 'string') {
+      try {
+        responseTags = JSON.parse(responseTags);
+      } catch (e) {
+        responseTags = [];
+      }
+    }
+    if (!Array.isArray(responseTags)) {
+      responseTags = [];
+    }
+
     return {
       ...responseData,
       imageUrl: responseImageUrl,
       eventTags: responseEventTags,
       features: data.features || {},
+      tags: responseTags,
     };
   },
 
@@ -117,13 +146,17 @@ export const locationApi = {
   // 장소 수정
   async update(id: string, location: Partial<Location>): Promise<Location> {
     // camelCase를 snake_case로 변환하여 Supabase에 저장
-    const { eventTags: inputEventTags, imageUrl, ...rest } = location;
+    const { eventTags: inputEventTags, imageUrl, tags: inputTags, ...rest } = location;
     const supabaseData: any = { ...rest };
-    
+
     if (inputEventTags !== undefined) {
       supabaseData.event_tags = inputEventTags;
     }
-    
+
+    if (inputTags !== undefined) {
+      supabaseData.tags = inputTags;
+    }
+
     // imageUrl이 있으면 image_url로 변환 (빈 문자열이 아닐 때만)
     if (imageUrl !== undefined) {
       if (imageUrl && imageUrl.trim()) {
@@ -164,12 +197,26 @@ export const locationApi = {
     // image_url을 imageUrl로 변환
     const responseImageUrl = data.image_url || data.imageUrl || '';
     const { image_url, ...responseData } = data;
-    
+
+    // tags 파싱
+    let responseTags = data.tags || [];
+    if (typeof responseTags === 'string') {
+      try {
+        responseTags = JSON.parse(responseTags);
+      } catch (e) {
+        responseTags = [];
+      }
+    }
+    if (!Array.isArray(responseTags)) {
+      responseTags = [];
+    }
+
     return {
       ...responseData,
       imageUrl: responseImageUrl,
       eventTags: responseEventTags,
       features: data.features || {},
+      tags: responseTags,
     };
   }
 };

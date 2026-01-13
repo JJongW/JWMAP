@@ -8,6 +8,7 @@ import { ImageUpload } from './ImageUpload';
 interface LocationCardProps {
   location: Location;
   onDelete: (id: string) => void;
+  onUpdate?: (updatedLocation: Location) => void;
 }
 
 const featureOptions: { key: keyof Features; label: string }[] = [
@@ -22,7 +23,7 @@ const featureOptions: { key: keyof Features; label: string }[] = [
   { key: 'late_night', label: '심야 영업' },
 ];
 
-export function LocationCard({ location, onDelete }: LocationCardProps) {
+export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedRating, setEditedRating] = useState(location.rating);
   const [editedImageUrl, setEditedImageUrl] = useState(location.imageUrl);
@@ -54,13 +55,19 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
       const activeFeatures = Object.fromEntries(
         Object.entries(editedFeatures).filter(([, value]) => value === true)
       );
-      await locationApi.update(location.id, {
+      const updatedData = await locationApi.update(location.id, {
         rating: editedRating,
         imageUrl: editedImageUrl,
         category: editedCategory,
         memo: editedMemo,
         features: Object.keys(activeFeatures).length > 0 ? activeFeatures : {},
       });
+
+      // 부모 컴포넌트에 업데이트 알림
+      if (onUpdate) {
+        onUpdate(updatedData);
+      }
+
       alert('수정된 내용이 저장되었습니다.');
       setIsEditing(false);
     } catch (error) {
@@ -336,6 +343,20 @@ export function LocationCard({ location, onDelete }: LocationCardProps) {
                   {option.label}
                 </span>
               ))}
+          </div>
+        )}
+
+        {/* 태그 표시 (보기 모드) */}
+        {!isEditing && location.tags && location.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {location.tags.map((tag, idx) => (
+              <span
+                key={idx}
+                className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600"
+              >
+                #{tag}
+              </span>
+            ))}
           </div>
         )}
 
