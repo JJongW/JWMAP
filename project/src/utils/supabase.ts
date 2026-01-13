@@ -37,10 +37,10 @@ export const locationApi = {
         eventTags = [];
       }
       
-      // image_url을 imageUrl로 변환 (image_url이 있으면 우선 사용, 없으면 imageUrl 사용)
-      const imageUrl = item.image_url || item.imageUrl || '';
-      
-      // image_url 제거하고 imageUrl로 통일
+      // imageUrl 필드 처리 (DB 컬럼명에 따라 유연하게 처리)
+      const imageUrl = item.imageUrl || item.image_url || '';
+
+      // image_url이 있으면 제거 (imageUrl로 통일)
       const { image_url, ...rest } = item;
       
       // tags 파싱
@@ -76,9 +76,9 @@ export const locationApi = {
       tags: inputTags || [], // tags 저장
     };
 
-    // imageUrl이 있고 빈 문자열이 아니면 image_url로 변환
+    // imageUrl이 있고 빈 문자열이 아니면 저장
     if (imageUrl && imageUrl.trim()) {
-      supabaseData.image_url = imageUrl;
+      supabaseData.imageUrl = imageUrl; // DB 컬럼명이 camelCase인 경우
     }
 
     const { data, error } = await supabase
@@ -107,8 +107,8 @@ export const locationApi = {
       responseEventTags = [];
     }
     
-    // image_url을 imageUrl로 변환
-    const responseImageUrl = data.image_url || data.imageUrl || '';
+    // imageUrl 처리
+    const responseImageUrl = data.imageUrl || data.image_url || '';
     const { image_url, ...responseData } = data;
 
     // tags 파싱
@@ -157,15 +157,14 @@ export const locationApi = {
       supabaseData.tags = inputTags;
     }
 
-    // imageUrl이 있으면 image_url로 변환 (빈 문자열이 아닐 때만)
-    if (imageUrl !== undefined) {
-      if (imageUrl && imageUrl.trim()) {
-        supabaseData.image_url = imageUrl;
-      } else {
-        // 빈 문자열이면 null로 설정
-        supabaseData.image_url = null;
-      }
+    // imageUrl 처리 - DB 컬럼명에 맞게 설정
+    // 빈 문자열이 아닐 때만 업데이트 (컬럼이 없을 수 있으므로 null 설정 제외)
+    if (imageUrl !== undefined && imageUrl && imageUrl.trim()) {
+      supabaseData.imageUrl = imageUrl; // DB 컬럼명이 camelCase인 경우
     }
+
+    console.log('Supabase update - id:', id);
+    console.log('Supabase update - data:', supabaseData);
 
     const { data, error } = await supabase
       .from('locations')
@@ -174,7 +173,10 @@ export const locationApi = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase update error:', error);
+      throw error;
+    }
     
     // 응답 데이터를 camelCase로 변환
     let responseEventTags = data.event_tags || data.eventTags || [];
@@ -194,8 +196,8 @@ export const locationApi = {
       responseEventTags = [];
     }
     
-    // image_url을 imageUrl로 변환
-    const responseImageUrl = data.image_url || data.imageUrl || '';
+    // imageUrl 처리
+    const responseImageUrl = data.imageUrl || data.image_url || '';
     const { image_url, ...responseData } = data;
 
     // tags 파싱

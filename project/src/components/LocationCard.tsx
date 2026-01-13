@@ -70,9 +70,10 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
 
       alert('수정된 내용이 저장되었습니다.');
       setIsEditing(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('데이터 저장 오류:', error);
-      alert('데이터 저장 중 문제가 발생했습니다.');
+      console.error('오류 상세:', error?.message, error?.details, error?.hint);
+      alert(`데이터 저장 중 문제가 발생했습니다.\n${error?.message || error}`);
     }
   };
 
