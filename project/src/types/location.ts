@@ -141,22 +141,30 @@ export type DisclosureType = 'paid' | 'invited' | 'sponsored';
 export interface Location {
   id: string;
   name: string;
-  province?: Province; // 대분류 (시/도) - 새 필드
-  region: Region;      // 소분류 (구/동)
+  province?: Province;    // 대분류 (시/도)
+  region: Region;         // 소분류 (구/동)
+  sub_region?: string;    // 세부 지역
   category: Category;
   lon: number;
   lat: number;
-  memo: string
+  memo: string;
   address: string;
   rating: number;
   imageUrl: string;
-  eventTags?: string[]; // 이벤트 태그 (예: ['흑백요리사 시즌2'])
-  features?: Features;  // 장소 특징
-  short_desc?: string;  // 한 줄 경험/설명 (큐레이터 원라이너)
-  kakao_place_id?: string; // 카카오 장소 ID
-  tags?: string[];      // LLM 추천 태그 (예: ['혼밥', '조용한 분위기'])
-  // 큐레이터 관련 필드
-  curator_visited_at?: string;  // 큐레이터 방문 일시
+  eventTags?: string[];   // 이벤트 태그 (예: ['흑백요리사 시즌2'])
+  features?: Features;    // 장소 특징
+  short_desc?: string;    // 한 줄 경험/설명 (큐레이터 원라이너)
+  tags?: string[];        // LLM 추천 태그 (예: ['혼밥', '조용한 분위기'])
+  // 장소 ID
+  kakao_place_id?: string;  // 카카오 장소 ID
+  naver_place_id?: string;  // 네이버 장소 ID
+  // 메타 정보
+  price_level?: number;     // 가격대 (1-4)
+  visit_date?: string;      // 방문 일자
+  last_verified_at?: string; // 마지막 검증 일시
+  created_at?: string;      // 생성 일시
+  // 큐레이터 관련 필드 (UI용, DB에는 없을 수 있음)
+  curator_visited_at?: string;  // 큐레이터 방문 일시 (visit_date와 매핑)
   curator_visit_slot?: string;  // 방문 시간대 (점심/저녁/심야 등)
   disclosure?: DisclosureType;  // 내돈내산/초대/협찬
 }

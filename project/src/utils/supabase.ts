@@ -62,6 +62,15 @@ export const locationApi = {
         eventTags,
         features: item.features || {},
         tags,
+        // DB 필드 매핑
+        sub_region: item.sub_region,
+        naver_place_id: item.naver_place_id,
+        price_level: item.price_level,
+        visit_date: item.visit_date,
+        last_verified_at: item.last_verified_at,
+        created_at: item.created_at,
+        // visit_date를 curator_visited_at으로도 매핑 (UI 호환성)
+        curator_visited_at: item.visit_date,
       };
     });
   },
@@ -69,16 +78,30 @@ export const locationApi = {
   // 장소 추가
   async create(location: Omit<Location, 'id'>): Promise<Location> {
     // camelCase를 snake_case로 변환하여 Supabase에 저장
-    const { eventTags: inputEventTags, imageUrl, tags: inputTags, ...rest } = location;
+    const {
+      eventTags: inputEventTags,
+      imageUrl,
+      tags: inputTags,
+      curator_visited_at,  // UI용 필드는 제외
+      curator_visit_slot,
+      disclosure,
+      ...rest
+    } = location;
+
     const supabaseData: any = {
       ...rest,
-      event_tags: inputEventTags || [], // eventTags를 event_tags로 변환
-      tags: inputTags || [], // tags 저장
+      event_tags: inputEventTags || [],
+      tags: inputTags || [],
     };
 
     // imageUrl이 있고 빈 문자열이 아니면 저장
     if (imageUrl && imageUrl.trim()) {
-      supabaseData.imageUrl = imageUrl; // DB 컬럼명이 camelCase인 경우
+      supabaseData.imageUrl = imageUrl;
+    }
+
+    // curator_visited_at이 있으면 visit_date로 저장
+    if (curator_visited_at) {
+      supabaseData.visit_date = curator_visited_at;
     }
 
     const { data, error } = await supabase
@@ -130,6 +153,14 @@ export const locationApi = {
       eventTags: responseEventTags,
       features: data.features || {},
       tags: responseTags,
+      // DB 필드 매핑
+      sub_region: data.sub_region,
+      naver_place_id: data.naver_place_id,
+      price_level: data.price_level,
+      visit_date: data.visit_date,
+      last_verified_at: data.last_verified_at,
+      created_at: data.created_at,
+      curator_visited_at: data.visit_date,
     };
   },
 
@@ -146,7 +177,16 @@ export const locationApi = {
   // 장소 수정
   async update(id: string, location: Partial<Location>): Promise<Location> {
     // camelCase를 snake_case로 변환하여 Supabase에 저장
-    const { eventTags: inputEventTags, imageUrl, tags: inputTags, ...rest } = location;
+    const {
+      eventTags: inputEventTags,
+      imageUrl,
+      tags: inputTags,
+      curator_visited_at,
+      curator_visit_slot,
+      disclosure,
+      ...rest
+    } = location;
+
     const supabaseData: any = { ...rest };
 
     if (inputEventTags !== undefined) {
@@ -157,14 +197,15 @@ export const locationApi = {
       supabaseData.tags = inputTags;
     }
 
-    // imageUrl 처리 - DB 컬럼명에 맞게 설정
-    // 빈 문자열이 아닐 때만 업데이트 (컬럼이 없을 수 있으므로 null 설정 제외)
+    // imageUrl 처리
     if (imageUrl !== undefined && imageUrl && imageUrl.trim()) {
-      supabaseData.imageUrl = imageUrl; // DB 컬럼명이 camelCase인 경우
+      supabaseData.imageUrl = imageUrl;
     }
 
-    console.log('Supabase update - id:', id);
-    console.log('Supabase update - data:', supabaseData);
+    // curator_visited_at -> visit_date 매핑
+    if (curator_visited_at !== undefined) {
+      supabaseData.visit_date = curator_visited_at;
+    }
 
     const { data, error } = await supabase
       .from('locations')
@@ -219,35 +260,53 @@ export const locationApi = {
       eventTags: responseEventTags,
       features: data.features || {},
       tags: responseTags,
+      // DB 필드 매핑
+      sub_region: data.sub_region,
+      naver_place_id: data.naver_place_id,
+      price_level: data.price_level,
+      visit_date: data.visit_date,
+      last_verified_at: data.last_verified_at,
+      created_at: data.created_at,
+      curator_visited_at: data.visit_date,
     };
   }
 };
 
 // 리뷰 관련 API 함수들
+// 참고: reviews 테이블이 없으면 빈 데이터 반환 (기능 비활성화 상태)
 export const reviewApi = {
   // 특정 장소의 리뷰 가져오기
   async getByLocationId(locationId: string): Promise<Review[]> {
-    const { data, error } = await supabase
-      .from('reviews')
-      .select('*')
-      .eq('location_id', locationId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('location_id', locationId)
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('리뷰 조회 오류:', error);
-      return []; // 테이블이 없어도 빈 배열 반환
+      if (error) {
+        // 테이블이 없는 경우 조용히 빈 배열 반환
+        if (error.message?.includes('schema cache') || error.code === '42P01') {
+          return [];
+        }
+        console.error('리뷰 조회 오류:', error);
+        return [];
+      }
+
+      return (data || []).map((item: any) => ({
+        id: item.id,
+        location_id: item.location_id,
+        user_id: item.user_id,
+        user_display_name: item.user_display_name || '익명',
+        one_liner: item.one_liner,
+        visit_type: item.visit_type || 'first',
+        features: item.features || {},
+        created_at: item.created_at,
+      }));
+    } catch (err) {
+      // 테이블 없음 등의 에러는 조용히 처리
+      return [];
     }
-
-    return (data || []).map((item: any) => ({
-      id: item.id,
-      location_id: item.location_id,
-      user_id: item.user_id,
-      user_display_name: item.user_display_name || '익명',
-      one_liner: item.one_liner,
-      visit_type: item.visit_type || 'first',
-      features: item.features || {},
-      created_at: item.created_at,
-    }));
   },
 
   // 리뷰 추가
@@ -286,16 +345,23 @@ export const reviewApi = {
 
   // 리뷰 개수 가져오기
   async getCount(locationId: string): Promise<number> {
-    const { count, error } = await supabase
-      .from('reviews')
-      .select('*', { count: 'exact', head: true })
-      .eq('location_id', locationId);
+    try {
+      const { count, error } = await supabase
+        .from('reviews')
+        .select('*', { count: 'exact', head: true })
+        .eq('location_id', locationId);
 
-    if (error) {
-      console.error('리뷰 개수 조회 오류:', error);
+      if (error) {
+        // 테이블이 없는 경우 조용히 0 반환
+        if (error.message?.includes('schema cache') || error.code === '42P01') {
+          return 0;
+        }
+        return 0;
+      }
+
+      return count || 0;
+    } catch (err) {
       return 0;
     }
-
-    return count || 0;
   }
 };
