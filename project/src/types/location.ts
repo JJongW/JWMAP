@@ -132,6 +132,12 @@ export interface Features {
   late_night?: boolean;    // 심야 영업
 }
 
+// 방문 유형
+export type VisitType = 'first' | 'revisit';
+
+// 공개 유형 (내돈내산/초대/협찬)
+export type DisclosureType = 'paid' | 'invited' | 'sponsored';
+
 export interface Location {
   id: string;
   name: string;
@@ -146,7 +152,23 @@ export interface Location {
   imageUrl: string;
   eventTags?: string[]; // 이벤트 태그 (예: ['흑백요리사 시즌2'])
   features?: Features;  // 장소 특징
-  short_desc?: string;  // 한 줄 경험/설명
+  short_desc?: string;  // 한 줄 경험/설명 (큐레이터 원라이너)
   kakao_place_id?: string; // 카카오 장소 ID
   tags?: string[];      // LLM 추천 태그 (예: ['혼밥', '조용한 분위기'])
+  // 큐레이터 관련 필드
+  curator_visited_at?: string;  // 큐레이터 방문 일시
+  curator_visit_slot?: string;  // 방문 시간대 (점심/저녁/심야 등)
+  disclosure?: DisclosureType;  // 내돈내산/초대/협찬
+}
+
+// 커뮤니티 리뷰
+export interface Review {
+  id: string;
+  location_id: string;
+  user_id?: string;           // 익명 가능
+  user_display_name?: string; // 표시 이름
+  one_liner: string;          // 한 줄 리뷰 (필수)
+  visit_type: VisitType;      // 첫방문/재방문
+  features?: Features;        // 선택한 특징 태그
+  created_at: string;
 }

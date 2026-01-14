@@ -4,10 +4,12 @@ import type { Location } from '../types/location';
 interface MapProps {
   locations: Location[];
   selectedLocation: Location | null;
+  highlightedLocationId?: string | null;
   onMarkerClick: (location: Location) => void;
+  className?: string;
 }
 
-export function Map({ locations, selectedLocation, onMarkerClick }: MapProps) {
+export function Map({ locations, selectedLocation, highlightedLocationId, onMarkerClick, className }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<kakao.maps.Map | null>(null);
   const markers = useRef<kakao.maps.Marker[]>([]);
@@ -78,5 +80,10 @@ export function Map({ locations, selectedLocation, onMarkerClick }: MapProps) {
     }
   }, [selectedLocation]);
 
-  return <div ref={mapContainer} className="w-full h-[350px] sm:h-[450px] lg:h-[500px] bg-gray-100 rounded-2xl border border-gray-100" />;
+  return (
+    <div
+      ref={mapContainer}
+      className={className || "w-full h-[350px] sm:h-[450px] lg:h-[500px] bg-gray-100 rounded-2xl border border-gray-100"}
+    />
+  );
 }

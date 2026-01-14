@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Location } from '../types/location';
+import type { Location, Review, VisitType, Features } from '../types/location';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -220,5 +220,82 @@ export const locationApi = {
       features: data.features || {},
       tags: responseTags,
     };
+  }
+};
+
+// 리뷰 관련 API 함수들
+export const reviewApi = {
+  // 특정 장소의 리뷰 가져오기
+  async getByLocationId(locationId: string): Promise<Review[]> {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('location_id', locationId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('리뷰 조회 오류:', error);
+      return []; // 테이블이 없어도 빈 배열 반환
+    }
+
+    return (data || []).map((item: any) => ({
+      id: item.id,
+      location_id: item.location_id,
+      user_id: item.user_id,
+      user_display_name: item.user_display_name || '익명',
+      one_liner: item.one_liner,
+      visit_type: item.visit_type || 'first',
+      features: item.features || {},
+      created_at: item.created_at,
+    }));
+  },
+
+  // 리뷰 추가
+  async create(review: {
+    location_id: string;
+    user_display_name?: string;
+    one_liner: string;
+    visit_type: VisitType;
+    features?: Features;
+  }): Promise<Review> {
+    const { data, error } = await supabase
+      .from('reviews')
+      .insert([{
+        location_id: review.location_id,
+        user_display_name: review.user_display_name || '익명',
+        one_liner: review.one_liner,
+        visit_type: review.visit_type,
+        features: review.features || {},
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      id: data.id,
+      location_id: data.location_id,
+      user_id: data.user_id,
+      user_display_name: data.user_display_name || '익명',
+      one_liner: data.one_liner,
+      visit_type: data.visit_type || 'first',
+      features: data.features || {},
+      created_at: data.created_at,
+    };
+  },
+
+  // 리뷰 개수 가져오기
+  async getCount(locationId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('location_id', locationId);
+
+    if (error) {
+      console.error('리뷰 개수 조회 오류:', error);
+      return 0;
+    }
+
+    return count || 0;
   }
 };
