@@ -1,6 +1,7 @@
 import { ArrowLeft, Star, MapPin, Navigation, ExternalLink, ChevronRight } from 'lucide-react';
 import type { Location, Province, Features } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
+import { getCardImageUrl } from '../utils/image';
 
 interface PlacePreviewProps {
   location: Location;
@@ -90,9 +91,10 @@ export function PlacePreview({
         {location.imageUrl && (
           <div className="h-32 bg-gray-100">
             <img
-              src={location.imageUrl}
+              src={getCardImageUrl(location.imageUrl)}
               alt={location.name}
               className="w-full h-full object-cover"
+              loading="lazy"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}

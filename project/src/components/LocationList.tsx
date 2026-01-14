@@ -1,6 +1,7 @@
 import { MapPin, Star } from 'lucide-react';
 import type { Location, Province } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
+import { getThumbnailUrl, getCardImageUrl } from '../utils/image';
 
 interface LocationListProps {
   locations: Location[];
@@ -58,9 +59,10 @@ export function LocationList({
               <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
                 {location.imageUrl ? (
                   <img
-                    src={location.imageUrl}
+                    src={getThumbnailUrl(location.imageUrl)}
                     alt={location.name}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
@@ -163,9 +165,10 @@ export function LocationList({
               <div className="relative h-32 bg-gray-100">
                 {location.imageUrl ? (
                   <img
-                    src={location.imageUrl}
+                    src={getCardImageUrl(location.imageUrl)}
                     alt={location.name}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}

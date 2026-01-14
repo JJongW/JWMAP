@@ -3,7 +3,7 @@ import { Map } from '../Map';
 import { TopSearchBar } from '../TopSearchBar';
 import { FilterSection } from '../FilterSection';
 import { LocationList } from '../LocationList';
-import { PlacePreview } from '../PlacePreview';
+import { SidebarDetail } from '../SidebarDetail';
 import { Sidebar } from './Sidebar';
 import type { Location, Province, Category } from '../../types/location';
 
@@ -130,12 +130,10 @@ export function DesktopLayout({
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto">
           {previewLocation ? (
-            /* Preview Mode */
-            <PlacePreview
+            /* Detail Mode - Full content in sidebar */
+            <SidebarDetail
               location={previewLocation}
               onBack={handleBackFromPreview}
-              onOpenDetail={() => onOpenDetail(previewLocation)}
-              className="h-full"
             />
           ) : (
             /* List Mode */

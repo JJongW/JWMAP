@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { Location, Features } from '../types/location';
 import { Star, MapPin, Edit2, Trash2, ExternalLink, X, Check, ImageIcon } from 'lucide-react';
 import { locationApi } from '../utils/supabase';
+import { getCardImageUrl } from '../utils/image';
 import { CustomSelect } from './CustomSelect';
 import { ImageUpload } from './ImageUpload';
 
@@ -226,9 +227,10 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
       <div className="relative h-48 bg-gray-100">
         {editedImageUrl && !imageError ? (
           <img
-            src={editedImageUrl}
+            src={getCardImageUrl(editedImageUrl)}
             alt={location.name}
             className="w-full h-full object-cover"
+            loading="lazy"
             onError={() => setImageError(true)}
           />
         ) : (

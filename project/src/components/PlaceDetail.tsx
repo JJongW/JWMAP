@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, MapPin, Star, Copy, Check, ChevronDown, ChevronUp, Navigation, ExternalLink } from 'lucide-react';
 import type { Location, Review, Features } from '../types/location';
 import { reviewApi } from '../utils/supabase';
+import { getDetailImageUrl } from '../utils/image';
 import { ProofBar } from './ProofBar';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
@@ -119,9 +120,10 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
           {location.imageUrl && !imageError && (
             <div className="relative h-48 bg-gray-100">
               <img
-                src={location.imageUrl}
+                src={getDetailImageUrl(location.imageUrl)}
                 alt={location.name}
                 className="w-full h-full object-cover"
+                loading="lazy"
                 onError={() => setImageError(true)}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
@@ -259,9 +261,10 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
           {location.imageUrl && !imageError && (
             <div className="relative h-56 bg-gray-100">
               <img
-                src={location.imageUrl}
+                src={getDetailImageUrl(location.imageUrl)}
                 alt={location.name}
                 className="w-full h-full object-cover"
+                loading="lazy"
                 onError={() => setImageError(true)}
               />
               <button
