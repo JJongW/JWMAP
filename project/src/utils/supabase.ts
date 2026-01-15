@@ -396,30 +396,44 @@ export const reviewApi = {
     visit_type: VisitType;
     features?: Features;
   }): Promise<Review> {
-    const { data, error } = await supabase
-      .from('reviews')
-      .insert([{
-        location_id: review.location_id,
-        user_display_name: review.user_display_name || '익명',
-        one_liner: review.one_liner,
-        visit_type: review.visit_type,
-        features: review.features || {},
-      }])
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .insert([{
+          location_id: review.location_id,
+          user_display_name: review.user_display_name || '익명',
+          one_liner: review.one_liner,
+          visit_type: review.visit_type,
+          features: review.features || {},
+        }])
+        .select()
+        .single();
 
-    if (error) throw error;
+      if (error) {
+        // 테이블이 없는 경우 에러 메시지 개선
+        if (error.message?.includes('schema cache') || error.code === '42P01') {
+          throw new Error('리뷰 기능이 아직 활성화되지 않았습니다. 관리자에게 문의해주세요.');
+        }
+        throw error;
+      }
 
-    return {
-      id: data.id,
-      location_id: data.location_id,
-      user_id: data.user_id,
-      user_display_name: data.user_display_name || '익명',
-      one_liner: data.one_liner,
-      visit_type: data.visit_type || 'first',
-      features: data.features || {},
-      created_at: data.created_at,
-    };
+      return {
+        id: data.id,
+        location_id: data.location_id,
+        user_id: data.user_id,
+        user_display_name: data.user_display_name || '익명',
+        one_liner: data.one_liner,
+        visit_type: data.visit_type || 'first',
+        features: data.features || {},
+        created_at: data.created_at,
+      };
+    } catch (err: any) {
+      // 테이블 없음 에러인 경우 사용자 친화적 메시지로 변환
+      if (err.message?.includes('schema cache') || err.message?.includes('42P01')) {
+        throw new Error('리뷰 기능이 아직 활성화되지 않았습니다. 관리자에게 문의해주세요.');
+      }
+      throw err;
+    }
   },
 
   // 리뷰 개수 가져오기

@@ -141,9 +141,9 @@ export function SidebarDetail({ location, onBack, searchId }: SidebarDetailProps
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Cover Image */}
+        {/* Cover Image - Square */}
         {location.imageUrl && !imageError && (
-          <div className="relative h-52 bg-gray-100">
+          <div className="relative aspect-square bg-gray-100">
             <img
               src={getDetailImageUrl(location.imageUrl)}
               alt={location.name}

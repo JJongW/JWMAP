@@ -86,9 +86,11 @@ export function AddReviewModal({
 
       onSuccess(newReview);
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error('리뷰 저장 오류:', err);
-      setError('리뷰 저장 중 문제가 발생했습니다. 다시 시도해주세요.');
+      // API에서 반환한 에러 메시지 표시
+      const errorMessage = err?.message || '리뷰 저장 중 문제가 발생했습니다. 다시 시도해주세요.';
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
