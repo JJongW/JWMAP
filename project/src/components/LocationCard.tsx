@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { Location, Features } from '../types/location';
+import type { Location, Features, CategoryMain, CategorySub } from '../types/location';
+import { CATEGORY_HIERARCHY, CATEGORY_MAINS, getCategorySubsByMain } from '../types/location';
 import { Star, MapPin, Edit2, Trash2, ExternalLink, X, Check, ImageIcon } from 'lucide-react';
 import { locationApi } from '../utils/supabase';
 import { getCardImageUrl } from '../utils/image';
@@ -28,7 +29,8 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
   const [isEditing, setIsEditing] = useState(false);
   const [editedRating, setEditedRating] = useState(location.rating);
   const [editedImageUrl, setEditedImageUrl] = useState(location.imageUrl);
-  const [editedCategory, setEditedCategory] = useState(location.categorySub || location.categoryMain || '');
+  const [editedCategoryMain, setEditedCategoryMain] = useState<CategoryMain | ''>(location.categoryMain || '');
+  const [editedCategorySub, setEditedCategorySub] = useState<CategorySub | ''>(location.categorySub || '');
   const [editedMemo, setEditedMemo] = useState(location.memo);
   const [editedFeatures, setEditedFeatures] = useState<Features>(location.features || {});
   const [imageError, setImageError] = useState(false);
@@ -37,11 +39,17 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
     setIsEditing(false);
     setEditedRating(location.rating);
     setEditedImageUrl(location.imageUrl);
-    setEditedCategory(location.categorySub || location.categoryMain || '');
+    setEditedCategoryMain(location.categoryMain || '');
+    setEditedCategorySub(location.categorySub || '');
     setEditedMemo(location.memo);
     setEditedFeatures(location.features || {});
     setImageError(false);
   }, [location]);
+  
+  // 대분류에 따른 소분류 목록
+  const availableCategorySubs = editedCategoryMain && editedCategoryMain !== '전체'
+    ? getCategorySubsByMain(editedCategoryMain)
+    : [];
 
   const handleFeatureToggle = (key: keyof Features) => {
     setEditedFeatures((prev) => ({
@@ -59,7 +67,8 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
       const updatedData = await locationApi.update(location.id, {
         rating: editedRating,
         imageUrl: editedImageUrl,
-        category: editedCategory,
+        categoryMain: editedCategoryMain || undefined,
+        categorySub: editedCategorySub || undefined,
         memo: editedMemo,
         features: Object.keys(activeFeatures).length > 0 ? activeFeatures : {},
       });
@@ -216,10 +225,6 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
     }, 700);
   };
 
-  // 카테고리 표시용 헬퍼 함수 (categorySub 우선, 없으면 category)
-  const getDisplayCategory = (loc: Location): string => {
-    return loc.categorySub || loc.category || '미분류';
-  };
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -241,7 +246,7 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
         {/* 카테고리 배지 */}
         <div className="absolute top-3 left-3">
           <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-500 text-white">
-            {location.categorySub || editedCategory}
+            {isEditing ? (editedCategorySub || editedCategoryMain || '미분류') : (location.categorySub || location.categoryMain || '미분류')}
           </span>
         </div>
       </div>
@@ -290,18 +295,29 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
           </p>
         )}
 
-        {/* 카테고리 선택 (수정 모드) - 레거시 호환을 위해 category 필드만 수정 */}
+        {/* 카테고리 선택 (수정 모드) */}
         {isEditing && (
-          <CustomSelect
-            label="종류"
-            value={editedCategory}
-            onChange={(value) => setEditedCategory(value as Location['category'])}
-            options={[
-              '한식', '중식', '일식', '라멘', '양식', '분식', '호프집', '칵테일바',
-              '와인바', '아시안', '돈까스', '회', '피자', '베이커리', '카페', '카공카페', '버거',
-            ]}
-            placeholder="종류를 선택하세요"
-          />
+          <>
+            <CustomSelect
+              label="카테고리 (대분류)"
+              value={editedCategoryMain}
+              onChange={(value) => {
+                setEditedCategoryMain(value as CategoryMain);
+                setEditedCategorySub(''); // 대분류 변경 시 소분류 초기화
+              }}
+              options={CATEGORY_MAINS.filter(main => main !== '전체')}
+              placeholder="카테고리 대분류를 선택하세요"
+            />
+            {editedCategoryMain && editedCategoryMain !== '전체' && availableCategorySubs.length > 0 && (
+              <CustomSelect
+                label="카테고리 (소분류)"
+                value={editedCategorySub}
+                onChange={(value) => setEditedCategorySub(value as CategorySub)}
+                options={availableCategorySubs}
+                placeholder="카테고리 소분류를 선택하세요"
+              />
+            )}
+          </>
         )}
 
         {/* 이미지 업로드 (수정 모드) */}
