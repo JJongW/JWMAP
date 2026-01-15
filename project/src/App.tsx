@@ -253,7 +253,8 @@ export default function App() {
     name: string;
     province?: Province;
     region: string;
-    category: string;
+    categoryMain?: CategoryMain;
+    categorySub?: CategorySub;
     address: string;
     imageUrl: string;
     rating: number;

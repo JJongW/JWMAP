@@ -19,14 +19,14 @@ export const locationApi = {
     
     // Supabase의 snake_case를 camelCase로 변환
     // event_tags -> eventTags, image_url -> imageUrl
-    return (data || []).map((item: any) => {
+    return (data || []).map((item: Record<string, unknown>) => {
       let eventTags = item.event_tags || item.eventTags || [];
       
       // JSON 문자열인 경우 파싱
       if (typeof eventTags === 'string') {
         try {
           eventTags = JSON.parse(eventTags);
-        } catch (e) {
+        } catch {
           console.warn('이벤트 태그 파싱 실패:', eventTags);
           eventTags = [];
         }
@@ -41,14 +41,15 @@ export const locationApi = {
       const imageUrl = item.imageUrl || item.image_url || '';
 
       // image_url이 있으면 제거 (imageUrl로 통일)
-      const { image_url, ...rest } = item;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { image_url: _, ...rest } = item;
       
       // tags 파싱
       let tags = item.tags || [];
       if (typeof tags === 'string') {
         try {
           tags = JSON.parse(tags);
-        } catch (e) {
+        } catch {
           tags = [];
         }
       }
@@ -58,23 +59,23 @@ export const locationApi = {
 
       return {
         ...rest,
-        imageUrl,
-        eventTags,
-        features: item.features || {},
-        tags,
+        imageUrl: imageUrl as string,
+        eventTags: eventTags as string[],
+        features: (item.features || {}) as Features,
+        tags: tags as string[],
         // DB 필드 매핑
-        sub_region: item.sub_region,
-        naver_place_id: item.naver_place_id,
-        price_level: item.price_level,
-        visit_date: item.visit_date,
-        last_verified_at: item.last_verified_at,
-        created_at: item.created_at,
+        sub_region: item.sub_region as string | undefined,
+        naver_place_id: item.naver_place_id as string | undefined,
+        price_level: item.price_level as number | undefined,
+        visit_date: item.visit_date as string | undefined,
+        last_verified_at: item.last_verified_at as string | undefined,
+        created_at: item.created_at as string | undefined,
         // visit_date를 curator_visited_at으로도 매핑 (UI 호환성)
-        curator_visited_at: item.visit_date,
+        curator_visited_at: item.visit_date as string | undefined,
         // 카테고리 대분류/소분류 (새 구조)
-        categoryMain: item.category_main || item.categoryMain,
-        categorySub: item.category_sub || item.categorySub,
-      };
+        categoryMain: (item.category_main || item.categoryMain) as string | undefined,
+        categorySub: (item.category_sub || item.categorySub) as string | undefined,
+      } as Location;
     });
   },
 
@@ -87,18 +88,26 @@ export const locationApi = {
       tags: inputTags,
       categoryMain,
       categorySub,
+      features: inputFeatures,
       curator_visited_at,  // UI용 필드는 제외
-      curator_visit_slot,
-      disclosure,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      curator_visit_slot: _curator_visit_slot,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      disclosure: _disclosure,
       ...rest
     } = location;
 
-    const supabaseData: any = {
-      ...rest,
+    // rest에서 features 제거 (명시적으로 처리하기 위해)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { features: _features, ...restWithoutFeatures } = rest as Record<string, unknown>;
+
+    const supabaseData: Record<string, unknown> = {
+      ...restWithoutFeatures,
       event_tags: inputEventTags || [],
       tags: inputTags || [],
       category_main: categoryMain,
       category_sub: categorySub,
+      features: inputFeatures || {}, // features가 없으면 빈 객체로 설정 (NOT NULL 제약 조건)
     };
 
     // imageUrl이 있고 빈 문자열이 아니면 저장
@@ -126,7 +135,7 @@ export const locationApi = {
     if (typeof responseEventTags === 'string') {
       try {
         responseEventTags = JSON.parse(responseEventTags);
-      } catch (e) {
+      } catch {
         console.warn('이벤트 태그 파싱 실패:', responseEventTags);
         responseEventTags = [];
       }
@@ -139,14 +148,15 @@ export const locationApi = {
     
     // imageUrl 처리
     const responseImageUrl = data.imageUrl || data.image_url || '';
-    const { image_url, ...responseData } = data;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { image_url: _imageUrlCreate, ...responseData } = data;
 
     // tags 파싱
     let responseTags = data.tags || [];
     if (typeof responseTags === 'string') {
       try {
         responseTags = JSON.parse(responseTags);
-      } catch (e) {
+      } catch {
         responseTags = [];
       }
     }
@@ -158,20 +168,20 @@ export const locationApi = {
       ...responseData,
       imageUrl: responseImageUrl,
       eventTags: responseEventTags,
-      features: data.features || {},
-      tags: responseTags,
+      features: (data.features || {}) as Features,
+      tags: responseTags as string[],
       // DB 필드 매핑
-      sub_region: data.sub_region,
-      naver_place_id: data.naver_place_id,
-      price_level: data.price_level,
-      visit_date: data.visit_date,
-      last_verified_at: data.last_verified_at,
-      created_at: data.created_at,
-      curator_visited_at: data.visit_date,
+      sub_region: data.sub_region as string | undefined,
+      naver_place_id: data.naver_place_id as string | undefined,
+      price_level: data.price_level as number | undefined,
+      visit_date: data.visit_date as string | undefined,
+      last_verified_at: data.last_verified_at as string | undefined,
+      created_at: data.created_at as string | undefined,
+      curator_visited_at: data.visit_date as string | undefined,
       // 카테고리 대분류/소분류
-      categoryMain: data.category_main || data.categoryMain,
-      categorySub: data.category_sub || data.categorySub,
-    };
+      categoryMain: (data.category_main || data.categoryMain) as string | undefined,
+      categorySub: (data.category_sub || data.categorySub) as string | undefined,
+    } as Location;
   },
 
   // 장소 삭제
@@ -194,12 +204,14 @@ export const locationApi = {
       categoryMain,
       categorySub,
       curator_visited_at,
-      curator_visit_slot,
-      disclosure,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      curator_visit_slot: _curator_visit_slot,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      disclosure: _disclosure,
       ...rest
     } = location;
 
-    const supabaseData: any = { ...rest };
+    const supabaseData: Record<string, unknown> = { ...rest };
 
     if (inputEventTags !== undefined) {
       supabaseData.event_tags = inputEventTags;
@@ -246,7 +258,7 @@ export const locationApi = {
     if (typeof responseEventTags === 'string') {
       try {
         responseEventTags = JSON.parse(responseEventTags);
-      } catch (e) {
+      } catch {
         console.warn('이벤트 태그 파싱 실패:', responseEventTags);
         responseEventTags = [];
       }
@@ -259,14 +271,15 @@ export const locationApi = {
     
     // imageUrl 처리
     const responseImageUrl = data.imageUrl || data.image_url || '';
-    const { image_url, ...responseData } = data;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { image_url: _imageUrlUpdate, ...responseData } = data;
 
     // tags 파싱
     let responseTags = data.tags || [];
     if (typeof responseTags === 'string') {
       try {
         responseTags = JSON.parse(responseTags);
-      } catch (e) {
+      } catch {
         responseTags = [];
       }
     }
@@ -278,17 +291,17 @@ export const locationApi = {
       ...responseData,
       imageUrl: responseImageUrl,
       eventTags: responseEventTags,
-      features: data.features || {},
-      tags: responseTags,
+      features: (data.features || {}) as Features,
+      tags: responseTags as string[],
       // DB 필드 매핑
-      sub_region: data.sub_region,
-      naver_place_id: data.naver_place_id,
-      price_level: data.price_level,
-      visit_date: data.visit_date,
-      last_verified_at: data.last_verified_at,
-      created_at: data.created_at,
-      curator_visited_at: data.visit_date,
-    };
+      sub_region: data.sub_region as string | undefined,
+      naver_place_id: data.naver_place_id as string | undefined,
+      price_level: data.price_level as number | undefined,
+      visit_date: data.visit_date as string | undefined,
+      last_verified_at: data.last_verified_at as string | undefined,
+      created_at: data.created_at as string | undefined,
+      curator_visited_at: data.visit_date as string | undefined,
+    } as Location;
   }
 };
 
@@ -297,7 +310,7 @@ export const searchLogApi = {
   // 검색 로그 기록
   async log(params: {
     query: string;
-    parsed?: Record<string, any>;
+    parsed?: Record<string, unknown>;
     result_count: number;
     llm_ms?: number;
     db_ms?: number;
@@ -327,7 +340,7 @@ export const searchLogApi = {
       }
 
       return data?.id || null;
-    } catch (err) {
+    } catch {
       return null;
     }
   }
@@ -365,7 +378,7 @@ export const clickLogApi = {
         }
         console.error('클릭 로그 저장 실패:', error);
       }
-    } catch (err) {
+    } catch {
       // 조용히 무시
     }
   }
@@ -392,17 +405,17 @@ export const reviewApi = {
         return [];
       }
 
-      return (data || []).map((item: any) => ({
-        id: item.id,
-        location_id: item.location_id,
-        user_id: item.user_id,
-        user_display_name: item.user_display_name || '익명',
-        one_liner: item.one_liner,
-        visit_type: item.visit_type || 'first',
-        features: item.features || {},
-        created_at: item.created_at,
+      return (data || []).map((item: Record<string, unknown>) => ({
+        id: item.id as string,
+        location_id: item.location_id as string,
+        user_id: item.user_id as string | undefined,
+        user_display_name: (item.user_display_name || '익명') as string,
+        one_liner: item.one_liner as string,
+        visit_type: (item.visit_type || 'first') as VisitType,
+        features: (item.features || {}) as Features,
+        created_at: item.created_at as string,
       }));
-    } catch (err) {
+    } catch {
       // 테이블 없음 등의 에러는 조용히 처리
       return [];
     }
@@ -447,9 +460,10 @@ export const reviewApi = {
         features: data.features || {},
         created_at: data.created_at,
       };
-    } catch (err: any) {
+    } catch (err) {
       // 테이블 없음 에러인 경우 사용자 친화적 메시지로 변환
-      if (err.message?.includes('schema cache') || err.message?.includes('42P01')) {
+      const error = err as Error;
+      if (error.message?.includes('schema cache') || error.message?.includes('42P01')) {
         throw new Error('리뷰 기능이 아직 활성화되지 않았습니다. 관리자에게 문의해주세요.');
       }
       throw err;
@@ -473,7 +487,7 @@ export const reviewApi = {
       }
 
       return count || 0;
-    } catch (err) {
+    } catch {
       return 0;
     }
   }

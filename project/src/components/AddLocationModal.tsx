@@ -810,7 +810,7 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
       memo: formData.short_desc || formData.memo, // short_desc를 memo로 사용
       lat: finalLat,
       lon: finalLon,
-      features: Object.keys(activeFeatures).length > 0 ? activeFeatures : undefined,
+      features: Object.keys(activeFeatures).length > 0 ? activeFeatures : {}, // 빈 객체로 전달 (NOT NULL 제약 조건)
       tags: customTags.length > 0 ? customTags : undefined,
     });
     onClose();
