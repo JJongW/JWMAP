@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { Search, X, RotateCcw } from 'lucide-react';
 import type { Location } from '../types/location';
+import { searchLogApi } from '../utils/supabase';
 
 interface TopSearchBarProps {
   onResults: (places: Location[]) => void;
   onSelect: (placeId: string) => void;
   onReset: () => void;
   isSearchMode: boolean;
+  onSearchIdChange?: (searchId: string | null) => void; // 검색 ID 전달 (클릭 로그용)
 }
 
-export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode }: TopSearchBarProps) {
+export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSearchIdChange }: TopSearchBarProps) {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +26,8 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode }: Top
     setIsLoading(true);
     setError(null);
     setHasEmptyResults(false);
+
+    const startTime = Date.now();
 
     try {
       const response = await fetch('/api/search', {
@@ -40,6 +44,20 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode }: Top
 
       const data = await response.json();
       const places: Location[] = data.places || [];
+      const totalMs = Date.now() - startTime;
+
+      // 검색 로그 기록
+      const searchId = await searchLogApi.log({
+        query: trimmedQuery,
+        parsed: data.parsed || {},
+        result_count: places.length,
+        llm_ms: data.llm_ms || 0,
+        db_ms: data.db_ms || 0,
+        total_ms: totalMs,
+      });
+
+      // 검색 ID 전달 (클릭 로그에서 사용)
+      onSearchIdChange?.(searchId);
 
       if (places.length === 0) {
         setHasEmptyResults(true);
@@ -69,6 +87,7 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode }: Top
     setQuery('');
     setError(null);
     setHasEmptyResults(false);
+    onSearchIdChange?.(null); // 검색 ID 초기화
     onReset();
   };
 

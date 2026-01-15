@@ -5,6 +5,7 @@ import { FilterSection } from '../FilterSection';
 import { LocationList } from '../LocationList';
 import { SidebarDetail } from '../SidebarDetail';
 import { Sidebar } from './Sidebar';
+import { clickLogApi } from '../../utils/supabase';
 import type { Location, Province, Category } from '../../types/location';
 
 interface DesktopLayoutProps {
@@ -26,6 +27,8 @@ interface DesktopLayoutProps {
   onSearchResults: (places: Location[]) => void;
   onSearchSelect: (placeId: string) => void;
   onSearchReset: () => void;
+  currentSearchId?: string | null;
+  onSearchIdChange?: (searchId: string | null) => void;
 
   // Filters
   selectedProvince: Province | '전체';
@@ -62,6 +65,8 @@ export function DesktopLayout({
   onSearchResults,
   onSearchSelect,
   onSearchReset,
+  currentSearchId,
+  onSearchIdChange,
   selectedProvince,
   onProvinceChange,
   selectedDistrict,
@@ -77,10 +82,28 @@ export function DesktopLayout({
   onShowMore,
   onOpenAddModal,
 }: DesktopLayoutProps) {
-  // Handle location select
+  // Handle location select from list
   const handleLocationSelect = (location: Location) => {
     onSelectLocation(location);
     onPreviewLocation(location);
+    // 클릭 로그 기록
+    clickLogApi.log({
+      location_id: location.id,
+      action_type: 'list_click',
+      search_id: currentSearchId,
+    });
+  };
+
+  // Handle marker click
+  const handleMarkerClick = (location: Location) => {
+    onSelectLocation(location);
+    onPreviewLocation(location);
+    // 클릭 로그 기록
+    clickLogApi.log({
+      location_id: location.id,
+      action_type: 'marker_click',
+      search_id: currentSearchId,
+    });
   };
 
   // Handle back from preview
@@ -95,10 +118,7 @@ export function DesktopLayout({
         locations={displayedLocations}
         selectedLocation={selectedLocation}
         highlightedLocationId={hoveredLocationId}
-        onMarkerClick={(location) => {
-          onSelectLocation(location);
-          onPreviewLocation(location);
-        }}
+        onMarkerClick={handleMarkerClick}
         className="w-full h-full"
       />
 
@@ -134,6 +154,7 @@ export function DesktopLayout({
             <SidebarDetail
               location={previewLocation}
               onBack={handleBackFromPreview}
+              searchId={currentSearchId}
             />
           ) : (
             /* List Mode */
@@ -144,6 +165,7 @@ export function DesktopLayout({
                 onSelect={onSearchSelect}
                 onReset={onSearchReset}
                 isSearchMode={isSearchMode}
+                onSearchIdChange={onSearchIdChange}
               />
 
               {/* Filters */}

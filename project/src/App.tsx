@@ -37,6 +37,7 @@ export default function App() {
   // Search state
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchResults, setSearchResults] = useState<Location[]>([]);
+  const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
   const preFilteredListRef = useRef<Location[]>([]);
 
   // Pagination
@@ -175,6 +176,7 @@ export default function App() {
   const handleSearchReset = () => {
     setIsSearchMode(false);
     setSearchResults([]);
+    setCurrentSearchId(null);
     setVisibleLocations(10);
     setSelectedLocation(null);
     setPreviewLocation(null);
@@ -228,6 +230,8 @@ export default function App() {
     onSearchResults: handleSearchResults,
     onSearchSelect: handleSearchSelect,
     onSearchReset: handleSearchReset,
+    currentSearchId,
+    onSearchIdChange: setCurrentSearchId,
     selectedProvince,
     onProvinceChange: handleProvinceChange,
     selectedDistrict,

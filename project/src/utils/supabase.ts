@@ -272,6 +272,85 @@ export const locationApi = {
   }
 };
 
+// 검색 로그 API
+export const searchLogApi = {
+  // 검색 로그 기록
+  async log(params: {
+    query: string;
+    parsed?: Record<string, any>;
+    result_count: number;
+    llm_ms?: number;
+    db_ms?: number;
+    total_ms?: number;
+  }): Promise<string | null> {
+    try {
+      const { data, error } = await supabase
+        .from('search_logs')
+        .insert([{
+          query: params.query,
+          parsed: params.parsed || {},
+          result_count: params.result_count,
+          llm_ms: params.llm_ms || 0,
+          db_ms: params.db_ms || 0,
+          total_ms: params.total_ms || 0,
+        }])
+        .select('id')
+        .single();
+
+      if (error) {
+        // 테이블 없으면 조용히 무시
+        if (error.message?.includes('schema cache') || error.code === '42P01') {
+          return null;
+        }
+        console.error('검색 로그 저장 실패:', error);
+        return null;
+      }
+
+      return data?.id || null;
+    } catch (err) {
+      return null;
+    }
+  }
+};
+
+// 클릭 로그 API
+export type ClickActionType =
+  | 'view_detail'      // 장소 상세 보기
+  | 'open_naver'       // 네이버지도 열기
+  | 'open_kakao'       // 카카오맵 열기
+  | 'marker_click'     // 마커 클릭
+  | 'list_click'       // 리스트에서 클릭
+  | 'copy_address';    // 주소 복사
+
+export const clickLogApi = {
+  // 클릭 로그 기록
+  async log(params: {
+    location_id: string;
+    action_type: ClickActionType;
+    search_id?: string | null;
+  }): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('click_logs')
+        .insert([{
+          location_id: params.location_id,
+          action_type: params.action_type,
+          search_id: params.search_id || null,
+        }]);
+
+      if (error) {
+        // 테이블 없으면 조용히 무시
+        if (error.message?.includes('schema cache') || error.code === '42P01') {
+          return;
+        }
+        console.error('클릭 로그 저장 실패:', error);
+      }
+    } catch (err) {
+      // 조용히 무시
+    }
+  }
+};
+
 // 리뷰 관련 API 함수들
 // 참고: reviews 테이블이 없으면 빈 데이터 반환 (기능 비활성화 상태)
 export const reviewApi = {

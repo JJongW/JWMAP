@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Star, MapPin, Copy, Check, Navigation, ExternalLink } from 'lucide-react';
 import type { Location, Review, Features } from '../types/location';
-import { reviewApi } from '../utils/supabase';
+import { reviewApi, clickLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { ProofBar } from './ProofBar';
 import { CommunityReviews } from './CommunityReviews';
@@ -10,6 +10,7 @@ import { AddReviewModal } from './AddReviewModal';
 interface SidebarDetailProps {
   location: Location;
   onBack: () => void;
+  searchId?: string | null;
 }
 
 const featureLabels: Record<keyof Features, string> = {
@@ -24,7 +25,7 @@ const featureLabels: Record<keyof Features, string> = {
   late_night: '심야 영업',
 };
 
-export function SidebarDetail({ location, onBack }: SidebarDetailProps) {
+export function SidebarDetail({ location, onBack, searchId }: SidebarDetailProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [isReviewsExpanded, setIsReviewsExpanded] = useState(false);
@@ -43,7 +44,14 @@ export function SidebarDetail({ location, onBack }: SidebarDetailProps) {
       setReviewCount(count);
     };
     loadReviews();
-  }, [location.id]);
+
+    // 상세 보기 로그
+    clickLogApi.log({
+      location_id: location.id,
+      action_type: 'view_detail',
+      search_id: searchId,
+    });
+  }, [location.id, searchId]);
 
   // Copy address
   const handleCopyAddress = async () => {
@@ -51,6 +59,12 @@ export function SidebarDetail({ location, onBack }: SidebarDetailProps) {
       await navigator.clipboard.writeText(location.address);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      // 주소 복사 로그
+      clickLogApi.log({
+        location_id: location.id,
+        action_type: 'copy_address',
+        search_id: searchId,
+      });
     } catch (err) {
       console.error('주소 복사 실패:', err);
     }
@@ -58,6 +72,13 @@ export function SidebarDetail({ location, onBack }: SidebarDetailProps) {
 
   // Open Naver Map
   const handleOpenNaver = () => {
+    // 네이버 지도 열기 로그
+    clickLogApi.log({
+      location_id: location.id,
+      action_type: 'open_naver',
+      search_id: searchId,
+    });
+
     const appName = encodeURIComponent(window.location.origin);
     const query = encodeURIComponent(location.name);
     const appLink = `nmap://search?query=${query}&appname=${appName}`;
@@ -71,6 +92,13 @@ export function SidebarDetail({ location, onBack }: SidebarDetailProps) {
 
   // Open Kakao Map
   const handleOpenKakao = () => {
+    // 카카오맵 열기 로그
+    clickLogApi.log({
+      location_id: location.id,
+      action_type: 'open_kakao',
+      search_id: searchId,
+    });
+
     const query = encodeURIComponent(location.name);
     const appLink = `kakaomap://search?q=${query}`;
     const webLink = `https://map.kakao.com/link/search/${query}`;

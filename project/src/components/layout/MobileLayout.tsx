@@ -7,6 +7,7 @@ import { LocationList } from '../LocationList';
 import { PlacePreview } from '../PlacePreview';
 import { MobileOverlay } from '../MobileOverlay';
 import { BottomSheet } from './BottomSheet';
+import { clickLogApi } from '../../utils/supabase';
 import type { Location, Province, Category } from '../../types/location';
 import type { UiMode, BottomSheetState, SheetMode } from '../../types/ui';
 
@@ -39,6 +40,8 @@ interface MobileLayoutProps {
   onSearchResults: (places: Location[]) => void;
   onSearchSelect: (placeId: string) => void;
   onSearchReset: () => void;
+  currentSearchId?: string | null;
+  onSearchIdChange?: (searchId: string | null) => void;
 
   // Filters
   selectedProvince: Province | '전체';
@@ -79,6 +82,8 @@ export function MobileLayout({
   onSearchResults,
   onSearchSelect,
   onSearchReset,
+  currentSearchId,
+  onSearchIdChange,
   selectedProvince,
   onProvinceChange,
   selectedDistrict,
@@ -117,12 +122,32 @@ export function MobileLayout({
   // Handle location select in list
   const handleLocationSelect = (location: Location) => {
     onSelectLocation(location);
+    // 클릭 로그 기록
+    clickLogApi.log({
+      location_id: location.id,
+      action_type: 'list_click',
+      search_id: currentSearchId,
+    });
     if (isExplore) {
       onPreviewLocation(location);
       onSheetModeChange('preview');
     } else {
       onOpenDetail(location);
     }
+  };
+
+  // Handle marker click
+  const handleMarkerClick = (location: Location) => {
+    onSelectLocation(location);
+    onPreviewLocation(location);
+    onSheetModeChange('preview');
+    onBottomSheetStateChange('half');
+    // 클릭 로그 기록
+    clickLogApi.log({
+      location_id: location.id,
+      action_type: 'marker_click',
+      search_id: currentSearchId,
+    });
   };
 
   // Handle back from preview
@@ -198,6 +223,7 @@ export function MobileLayout({
             onSelect={onSearchSelect}
             onReset={onSearchReset}
             isSearchMode={isSearchMode}
+            onSearchIdChange={onSearchIdChange}
           />
 
           {/* Filters */}
@@ -239,12 +265,7 @@ export function MobileLayout({
           <Map
             locations={displayedLocations}
             selectedLocation={selectedLocation}
-            onMarkerClick={(location) => {
-              onSelectLocation(location);
-              onPreviewLocation(location);
-              onSheetModeChange('preview');
-              onBottomSheetStateChange('half');
-            }}
+            onMarkerClick={handleMarkerClick}
             className="w-full h-full"
           />
         )}
@@ -288,6 +309,7 @@ export function MobileLayout({
                 location={previewLocation}
                 onBack={handleBackFromPreview}
                 onOpenDetail={() => onOpenDetail(previewLocation)}
+                searchId={currentSearchId}
               />
             ) : null}
           </BottomSheet>

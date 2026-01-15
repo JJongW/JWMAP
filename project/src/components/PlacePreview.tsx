@@ -2,12 +2,14 @@ import { ArrowLeft, Star, MapPin, Navigation, ExternalLink, ChevronRight } from 
 import type { Location, Province, Features } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import { getCardImageUrl } from '../utils/image';
+import { clickLogApi } from '../utils/supabase';
 
 interface PlacePreviewProps {
   location: Location;
   onBack?: () => void;
   onOpenDetail: () => void;
   className?: string;
+  searchId?: string | null;
 }
 
 // Feature labels
@@ -33,6 +35,7 @@ export function PlacePreview({
   onBack,
   onOpenDetail,
   className = '',
+  searchId,
 }: PlacePreviewProps) {
   // Get active features
   const activeFeatures = location.features
@@ -47,6 +50,13 @@ export function PlacePreview({
 
   // Open Naver Map
   const handleOpenNaver = () => {
+    // 네이버 지도 열기 로그
+    clickLogApi.log({
+      location_id: location.id,
+      action_type: 'open_naver',
+      search_id: searchId,
+    });
+
     const appName = encodeURIComponent(window.location.origin);
     const query = encodeURIComponent(location.name);
     const appLink = `nmap://search?query=${query}&appname=${appName}`;
@@ -60,6 +70,13 @@ export function PlacePreview({
 
   // Open Kakao Map
   const handleOpenKakao = () => {
+    // 카카오맵 열기 로그
+    clickLogApi.log({
+      location_id: location.id,
+      action_type: 'open_kakao',
+      search_id: searchId,
+    });
+
     const query = encodeURIComponent(location.name);
     const appLink = `kakaomap://search?q=${query}`;
     const webLink = `https://map.kakao.com/link/search/${query}`;
