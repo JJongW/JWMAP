@@ -12,7 +12,7 @@ import { locationApi } from './utils/supabase';
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 export default function App() {
-  const { isMobile, isDesktop } = useBreakpoint();
+  const { isMobile } = useBreakpoint();
 
   // Data state
   const [locations, setLocations] = useState<Location[]>([]);
@@ -149,6 +149,43 @@ export default function App() {
     }
   };
 
+  // Update location
+  const handleUpdate = async (updatedLocation: Location) => {
+    try {
+      const data = await locationApi.update(updatedLocation.id, updatedLocation);
+      setLocations(prev => prev.map(loc => loc.id === data.id ? data : loc));
+      // 현재 선택된 장소도 업데이트
+      if (selectedLocation?.id === data.id) {
+        setSelectedLocation(data);
+      }
+      if (previewLocation?.id === data.id) {
+        setPreviewLocation(data);
+      }
+    } catch (error) {
+      console.error('Error updating location:', error);
+      alert('장소 수정 중 문제가 발생했습니다.');
+    }
+  };
+
+  // Delete location
+  const handleDelete = async (id: string) => {
+    try {
+      await locationApi.delete(id);
+      setLocations(prev => prev.filter(loc => loc.id !== id));
+      // 현재 선택된 장소가 삭제된 경우 초기화
+      if (selectedLocation?.id === id) {
+        setSelectedLocation(null);
+      }
+      if (previewLocation?.id === id) {
+        setPreviewLocation(null);
+      }
+      alert('장소가 삭제되었습니다.');
+    } catch (error) {
+      console.error('Error deleting location:', error);
+      alert('장소 삭제 중 문제가 발생했습니다.');
+    }
+  };
+
   // Search handlers
   const handleSearchResults = (places: Location[]) => {
     if (!isSearchMode) {
@@ -246,6 +283,8 @@ export default function App() {
     visibleLocations,
     onShowMore: handleShowMore,
     onOpenAddModal: () => setIsModalOpen(true),
+    onUpdate: handleUpdate,
+    onDelete: handleDelete,
   };
 
   return (

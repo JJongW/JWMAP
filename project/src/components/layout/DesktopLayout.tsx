@@ -49,6 +49,10 @@ interface DesktopLayoutProps {
 
   // Header actions
   onOpenAddModal: () => void;
+
+  // Location actions
+  onUpdate?: (updatedLocation: Location) => void;
+  onDelete?: (id: string) => void;
 }
 
 export function DesktopLayout({
@@ -81,6 +85,8 @@ export function DesktopLayout({
   visibleLocations,
   onShowMore,
   onOpenAddModal,
+  onUpdate,
+  onDelete,
 }: DesktopLayoutProps) {
   // Handle location select from list
   const handleLocationSelect = (location: Location) => {
@@ -155,6 +161,8 @@ export function DesktopLayout({
               location={previewLocation}
               onBack={handleBackFromPreview}
               searchId={currentSearchId}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
             />
           ) : (
             /* List Mode */
