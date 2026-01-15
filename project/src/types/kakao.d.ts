@@ -9,6 +9,8 @@ declare namespace kakao.maps {
       constructor(container: HTMLElement, options: MapOptions);
       setCenter(latlng: LatLng): void; // 지도 중심 설정
       panTo(latlng: LatLng): void; // 지도 중심을 부드럽게 이동
+      setLevel(level: number): void; // 지도 레벨(줌) 설정
+      getLevel(): number; // 현재 지도 레벨 가져오기
     }
   
     interface MapOptions {
@@ -16,14 +18,35 @@ declare namespace kakao.maps {
       level: number; // 줌 레벨
     }
   
+    // Size 클래스 정의
+    class Size {
+      constructor(width: number, height: number);
+    }
+
+    // Point 클래스 정의
+    class Point {
+      constructor(x: number, y: number);
+    }
+
+    // MarkerImage 클래스 정의
+    class MarkerImage {
+      constructor(src: string, size: Size, options?: { offset?: Point; alt?: string; shape?: string; coords?: string; spriteOrigin?: Point; spriteSize?: Size });
+    }
+
     // Marker 클래스 정의
     class Marker {
       constructor(options: MarkerOptions);
       setMap(map: Map | null): void; // 마커를 특정 지도에 설정하거나 제거
+      setPosition(position: LatLng): void; // 마커 위치 설정
+      setImage(image: MarkerImage | null): void; // 마커 이미지 설정
+      setTitle(title: string): void; // 마커 제목 설정
+      setZIndex(zIndex: number): void; // 마커 z-index 설정
+      getPosition(): LatLng; // 마커 위치 가져오기
     }
   
     interface MarkerOptions {
       position: LatLng; // 마커 위치
+      image?: MarkerImage; // 마커 이미지 (선택)
       title?: string; // 마커 제목 (선택)
     }
   

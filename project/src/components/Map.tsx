@@ -10,9 +10,9 @@ interface MapProps {
 }
 
 // 카테고리별 마커 이미지 생성
-function createMarkerImage(category: string): any {
-  if (typeof kakao === 'undefined' || !kakao.maps) {
-    return undefined;
+function createMarkerImage(category: string): kakao.maps.MarkerImage | null {
+  if (typeof kakao === 'undefined' || !kakao.maps?.Size || !kakao.maps?.Point || !kakao.maps?.MarkerImage) {
+    return null;
   }
 
   let imageSrc: string | null = null;
@@ -31,17 +31,18 @@ function createMarkerImage(category: string): any {
       const imageOption = { offset: new kakao.maps.Point(27, 69) };
       return new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
     } catch {
-      return undefined;
+      return null;
     }
   }
 
-  return undefined;
+  return null;
 }
 
-export function Map({ locations, selectedLocation, highlightedLocationId, onMarkerClick, className }: MapProps) {
+export function Map(props: MapProps) {
+  const { locations = [], selectedLocation, onMarkerClick, className } = props || {};
   const mapContainer = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const mapRef = useRef<kakao.maps.Map | null>(null);
+  const markersRef = useRef<kakao.maps.Marker[]>([]);
   const onMarkerClickRef = useRef(onMarkerClick);
   const [isReady, setIsReady] = useState(false);
 
@@ -102,12 +103,15 @@ export function Map({ locations, selectedLocation, highlightedLocationId, onMark
       try {
         const markerImage = createMarkerImage(location.category);
         const marker = new kakao.maps.Marker({
-          map: mapRef.current,
           position: new kakao.maps.LatLng(location.lat, location.lon),
           title: location.name,
-          image: markerImage,
+          image: markerImage || undefined,
         });
 
+        // 마커를 지도에 추가
+        marker.setMap(mapRef.current);
+
+        // 클릭 이벤트 리스너 추가
         kakao.maps.event.addListener(marker, 'click', () => {
           onMarkerClickRef.current(location);
         });
