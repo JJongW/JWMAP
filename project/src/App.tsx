@@ -4,8 +4,8 @@ import { DesktopLayout } from './components/layout/DesktopLayout';
 import { AddLocationModal } from './components/AddLocationModal';
 import { PlaceDetail } from './components/PlaceDetail';
 import { Footer } from './components/Footer';
-import type { Category, Location, Features, Province } from './types/location';
-import { REGION_HIERARCHY, inferProvinceFromRegion } from './types/location';
+import type { Location, Features, Province, CategoryMain, CategorySub } from './types/location';
+import { REGION_HIERARCHY, inferProvinceFromRegion, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from './types/location';
 import type { UiMode, BottomSheetState, SheetMode } from './types/ui';
 import { useBreakpoint } from './hooks/useBreakpoint';
 import { locationApi } from './utils/supabase';
@@ -20,7 +20,8 @@ export default function App() {
   // Filter state
   const [selectedProvince, setSelectedProvince] = useState<Province | '전체'>('전체');
   const [selectedDistrict, setSelectedDistrict] = useState<string | '전체'>('전체');
-  const [selectedCategory, setSelectedCategory] = useState<Category | '전체'>('전체');
+  const [selectedCategoryMain, setSelectedCategoryMain] = useState<CategoryMain | '전체'>('전체');
+  const [selectedCategorySub, setSelectedCategorySub] = useState<CategorySub | '전체'>('전체');
   const [selectedEventTag, setSelectedEventTag] = useState<string | null>(null);
 
   // Selection state
@@ -58,7 +59,7 @@ export default function App() {
     : (() => {
         const hierarchyDistricts = REGION_HIERARCHY[selectedProvince] || [];
         const dataDistricts = new Set(
-          locations
+        locations
             .filter(l => getLocationProvince(l) === selectedProvince)
             .map(l => l.region)
         );
@@ -75,18 +76,103 @@ export default function App() {
     return matchesProvince && matchesDistrict && matchesEvent;
   });
 
-  // Categories from current filter (only show categories that have locations)
-  const categories: (Category | '전체')[] = [
-    '전체',
-    ...Array.from(new Set(locationsForCategoryFilter.map(l => l.category))),
-  ];
+  // categorySub로부터 대분류를 역추론하는 헬퍼 함수
+  const getMainFromSub = (sub: CategorySub): CategoryMain | null => {
+    for (const [main, subs] of Object.entries(CATEGORY_HIERARCHY) as [CategoryMain, CategorySub[]][]) {
+      if (subs.includes(sub)) {
+        return main;
+      }
+    }
+    return null;
+  };
+
+  // 대분류 목록 생성 (데이터에 있는 대분류만 표시)
+  const availableCategoryMains: CategoryMain[] = (() => {
+    if (!locationsForCategoryFilter || locationsForCategoryFilter.length === 0) {
+      return ['전체'];
+    }
+    return ['전체', ...CATEGORY_MAINS.filter(main => {
+      if (main === '전체') return false;
+      return locationsForCategoryFilter.some(l => {
+        // categoryMain이 직접 있는 경우
+        if (l.categoryMain === main) return true;
+        // categorySub가 있으면 그것으로부터 대분류 역추론
+        if (l.categorySub) {
+          const inferredMain = getMainFromSub(l.categorySub);
+          if (inferredMain === main) return true;
+        }
+        return false;
+      });
+    })];
+  })();
+
+  // 선택된 대분류의 소분류 목록 (데이터에 있는 소분류만 표시)
+  const availableCategorySubs: CategorySub[] = (() => {
+    if (selectedCategoryMain === '전체' || !selectedCategoryMain) {
+      return [];
+    }
+    if (!locationsForCategoryFilter || locationsForCategoryFilter.length === 0) {
+      return [];
+    }
+    try {
+      const subs = getCategorySubsByMain(selectedCategoryMain);
+      if (!subs || subs.length === 0) {
+        return [];
+      }
+      return subs.filter(sub => {
+        return locationsForCategoryFilter.some(l => {
+          // categorySub가 직접 있는 경우
+          if (l.categorySub === sub) return true;
+          // categoryMain이 선택된 대분류와 일치하는 경우 (소분류가 없어도 해당 대분류에 속함)
+          if (l.categoryMain === selectedCategoryMain) return true;
+          return false;
+        });
+      });
+    } catch (error) {
+      console.error('Error getting category subs:', error, { selectedCategoryMain });
+      return [];
+    }
+  })();
 
   // Filtered locations
   const filteredLocations = locations.filter(location => {
     const province = getLocationProvince(location);
     const matchesProvince = selectedProvince === '전체' || province === selectedProvince;
     const matchesDistrict = selectedDistrict === '전체' || location.region === selectedDistrict;
-    const matchesCategory = selectedCategory === '전체' || location.category === selectedCategory;
+    
+    // 카테고리 필터링: categoryMain과 categorySub만 사용
+    let matchesCategory = true;
+    
+    if (selectedCategoryMain !== '전체') {
+      // 대분류 매칭
+      let locationMain: CategoryMain | null = null;
+      
+      // 1. categoryMain이 직접 있는 경우
+      if (location.categoryMain) {
+        locationMain = location.categoryMain;
+      }
+      // 2. categorySub가 있으면 그것으로부터 대분류 역추론
+      else if (location.categorySub) {
+        locationMain = getMainFromSub(location.categorySub);
+      }
+      
+      // 대분류가 없거나 일치하지 않으면 제외
+      if (!locationMain || locationMain !== selectedCategoryMain) {
+        matchesCategory = false;
+      } 
+      // 대분류가 일치하는 경우
+      else {
+        // 소분류도 선택된 경우
+        if (selectedCategorySub !== '전체') {
+          // 소분류 매칭 - categorySub만 확인
+          if (!location.categorySub || location.categorySub !== selectedCategorySub) {
+            matchesCategory = false;
+          }
+        }
+        // 소분류가 '전체'인 경우는 모두 포함 (이미 대분류 일치 확인됨)
+      }
+    }
+    
     const matchesEvent = !selectedEventTag ||
       (location.eventTags && location.eventTags.includes(selectedEventTag));
     return matchesProvince && matchesDistrict && matchesCategory && matchesEvent;
@@ -107,9 +193,49 @@ export default function App() {
     ).length;
   };
 
-  const getCategoryCount = (category: Category | '전체'): number => {
-    if (category === '전체') return locationsForCategoryFilter.length;
-    return locationsForCategoryFilter.filter(l => l.category === category).length;
+  const getCategoryMainCount = (main: CategoryMain | '전체'): number => {
+    if (!locationsForCategoryFilter || locationsForCategoryFilter.length === 0) {
+      return main === '전체' ? 0 : 0;
+    }
+    
+    if (main === '전체') return locationsForCategoryFilter.length;
+    
+    try {
+      // 대분류 카운트는 해당 대분류에 속한 모든 소분류의 합계
+      const subsForMain = getCategorySubsByMain(main);
+      return locationsForCategoryFilter.filter(l => {
+        // 1. categoryMain이 직접 일치하는 경우
+        if (l.categoryMain === main) return true;
+        
+        // 2. categorySub가 해당 대분류의 소분류 중 하나인 경우
+        if (l.categorySub && subsForMain.includes(l.categorySub)) return true;
+        
+        // 3. categorySub만 있고 categoryMain이 없는 경우, 역추론으로 확인
+        if (l.categorySub && !l.categoryMain) {
+          const inferredMain = getMainFromSub(l.categorySub);
+          if (inferredMain === main) return true;
+        }
+        
+        return false;
+      }).length;
+    } catch (error) {
+      console.error('Error getting category main count:', error);
+      return 0;
+    }
+  };
+
+  const getCategorySubCount = (sub: CategorySub): number => {
+    if (!locationsForCategoryFilter || locationsForCategoryFilter.length === 0) {
+      return 0;
+    }
+    try {
+      return locationsForCategoryFilter.filter(l => {
+        return l.categorySub === sub;
+      }).length;
+    } catch (error) {
+      console.error('Error getting category sub count:', error);
+      return 0;
+    }
   };
 
   // Data fetching
@@ -121,7 +247,7 @@ export default function App() {
       console.error('Error fetching locations:', error);
     }
   };
-
+  
   // Add location
   const handleAddLocation = async (newLocation: {
     name: string;
@@ -223,19 +349,27 @@ export default function App() {
   const handleProvinceChange = (province: Province | '전체') => {
     setSelectedProvince(province);
     setSelectedDistrict('전체');
-    setSelectedCategory('전체');
+    setSelectedCategoryMain('전체');
+    setSelectedCategorySub('전체');
     setSelectedEventTag(null);
     setVisibleLocations(10);
   };
 
   const handleDistrictChange = (district: string | '전체') => {
     setSelectedDistrict(district);
-    setSelectedCategory('전체');
+    setSelectedCategoryMain('전체');
+    setSelectedCategorySub('전체');
     setVisibleLocations(10);
   };
 
-  const handleCategoryChange = (category: Category | '전체') => {
-    setSelectedCategory(category);
+  const handleCategoryMainChange = (main: CategoryMain | '전체') => {
+    setSelectedCategoryMain(main);
+    setSelectedCategorySub('전체'); // 대분류 변경 시 소분류 초기화
+    setVisibleLocations(10);
+  };
+
+  const handleCategorySubChange = (sub: CategorySub | '전체') => {
+    setSelectedCategorySub(sub);
     setVisibleLocations(10);
   };
 
@@ -273,13 +407,17 @@ export default function App() {
     onProvinceChange: handleProvinceChange,
     selectedDistrict,
     onDistrictChange: handleDistrictChange,
-    selectedCategory,
-    onCategoryChange: handleCategoryChange,
+    selectedCategoryMain,
+    onCategoryMainChange: handleCategoryMainChange,
+    availableCategoryMains,
+    getCategoryMainCount,
+    selectedCategorySub,
+    onCategorySubChange: handleCategorySubChange,
+    availableCategorySubs,
+    getCategorySubCount,
     availableDistricts,
-    categories,
     getProvinceCount,
     getDistrictCount,
-    getCategoryCount,
     visibleLocations,
     onShowMore: handleShowMore,
     onOpenAddModal: () => setIsModalOpen(true),
@@ -314,10 +452,10 @@ export default function App() {
       )}
 
       {/* Add Location Modal */}
-      {isModalOpen && (
-        <AddLocationModal
-          onClose={() => setIsModalOpen(false)}
-          onSave={handleAddLocation}
+        {isModalOpen && (
+          <AddLocationModal
+            onClose={() => setIsModalOpen(false)}
+            onSave={handleAddLocation}
           existingLocations={locations.map(loc => ({
             id: loc.id,
             name: loc.name,

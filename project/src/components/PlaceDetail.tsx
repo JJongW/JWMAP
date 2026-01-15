@@ -110,7 +110,9 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
           >
             <X size={24} className="text-gray-600" />
           </button>
-          <span className="text-sm font-medium text-gray-500">{location.category}</span>
+          <span className="text-sm font-medium text-gray-500">
+            {location.categorySub || location.categoryMain || '미분류'}
+          </span>
           <div className="w-10" /> {/* Spacer */}
         </div>
 
@@ -275,7 +277,7 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
               </button>
               <div className="absolute bottom-4 left-4">
                 <span className="px-3 py-1.5 bg-orange-500 text-white text-sm font-medium rounded-lg">
-                  {location.category}
+                  {location.categorySub || location.categoryMain || '미분류'}
                 </span>
               </div>
             </div>
@@ -285,7 +287,7 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
           {(!location.imageUrl || imageError) && (
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <span className="px-3 py-1.5 bg-orange-500 text-white text-sm font-medium rounded-lg">
-                {location.category}
+                {location.categorySub || location.categoryMain || '미분류'}
               </span>
               <button
                 onClick={onClose}

@@ -1,5 +1,5 @@
 import { Search, X, List } from 'lucide-react';
-import type { Province, Category } from '../types/location';
+import type { Province, CategoryMain } from '../types/location';
 import { PROVINCES } from '../types/location';
 
 interface MobileOverlayProps {
@@ -13,9 +13,9 @@ interface MobileOverlayProps {
   // Filters
   selectedProvince: Province | '전체';
   onProvinceChange: (province: Province | '전체') => void;
-  selectedCategory: Category | '전체';
-  onCategoryChange: (category: Category | '전체') => void;
-  categories: (Category | '전체')[];
+  selectedCategoryMain: CategoryMain | '전체';
+  onCategoryMainChange: (main: CategoryMain | '전체') => void;
+  availableCategoryMains: CategoryMain[];
   getProvinceCount: (province: Province | '전체') => number;
 
   // Mode switch
@@ -30,9 +30,9 @@ export function MobileOverlay({
   onSearchReset,
   selectedProvince,
   onProvinceChange,
-  selectedCategory,
-  onCategoryChange,
-  categories,
+  selectedCategoryMain,
+  onCategoryMainChange,
+  availableCategoryMains,
   getProvinceCount,
   onViewList,
 }: MobileOverlayProps) {
@@ -116,18 +116,18 @@ export function MobileOverlay({
             {/* Divider */}
             <div className="w-px bg-gray-200 flex-shrink-0 my-1" />
 
-            {/* Category chips */}
-            {categories.slice(0, 4).map((category) => (
+            {/* Category Main chips */}
+            {availableCategoryMains.slice(0, 4).map((main) => (
               <button
-                key={category}
-                onClick={() => onCategoryChange(category)}
+                key={main}
+                onClick={() => onCategoryMainChange(main)}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap shadow transition-colors flex-shrink-0 ${
-                  selectedCategory === category
+                  selectedCategoryMain === main
                     ? 'bg-orange-500 text-white'
                     : 'bg-white/95 backdrop-blur-sm text-gray-600 border border-gray-100'
                 }`}
               >
-                {category}
+                {main}
               </button>
             ))}
           </div>

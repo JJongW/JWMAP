@@ -76,11 +76,24 @@ export function LocationList({
 
               {/* Content */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-semibold text-gray-900 truncate">{location.name}</h3>
                   <span className="px-1.5 py-0.5 bg-orange-100 text-orange-600 text-xs font-medium rounded flex-shrink-0">
-                    {location.category}
+                    {location.categorySub || location.categoryMain || '미분류'}
                   </span>
+                  {/* Event Tags */}
+                  {location.eventTags && location.eventTags.length > 0 && (
+                    <>
+                      {location.eventTags.map((eventTag, idx) => (
+                        <span
+                          key={idx}
+                          className="px-1.5 py-0.5 bg-black text-white text-xs font-medium rounded flex-shrink-0"
+                        >
+                          {eventTag}
+                        </span>
+                      ))}
+                    </>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {getLocationProvince(location)
@@ -178,9 +191,24 @@ export function LocationList({
                     <MapPin className="w-8 h-8 text-gray-300" />
                   </div>
                 )}
-                <span className="absolute top-2 left-2 px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded-lg">
-                  {location.category}
-                </span>
+                <div className="absolute top-2 left-2 flex items-center gap-1.5 flex-wrap">
+                  <span className="px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded-lg">
+                    {location.categorySub || location.categoryMain || '미분류'}
+                  </span>
+                  {/* Event Tags */}
+                  {location.eventTags && location.eventTags.length > 0 && (
+                    <>
+                      {location.eventTags.map((eventTag, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-1 bg-black text-white text-xs font-medium rounded-lg"
+                        >
+                          {eventTag}
+                        </span>
+                      ))}
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Content */}

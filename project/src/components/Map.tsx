@@ -101,7 +101,9 @@ export function Map(props: MapProps) {
     // 새 마커 생성
     locations.forEach(location => {
       try {
-        const markerImage = createMarkerImage(location.category);
+        // categorySub 우선, 없으면 categoryMain 사용
+        const categoryForMarker = location.categorySub || location.categoryMain || '';
+        const markerImage = createMarkerImage(categoryForMarker);
         const marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(location.lat, location.lon),
           title: location.name,

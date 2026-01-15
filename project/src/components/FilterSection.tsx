@@ -1,5 +1,5 @@
 import { CategoryButton } from './CategoryButton';
-import type { Province, Category } from '../types/location';
+import type { Province, CategoryMain, CategorySub } from '../types/location';
 import { PROVINCES } from '../types/location';
 
 interface FilterSectionProps {
@@ -14,11 +14,17 @@ interface FilterSectionProps {
   availableDistricts: string[];
   getDistrictCount: (district: string) => number;
 
-  // Category filter
-  selectedCategory: Category | '전체';
-  onCategoryChange: (category: Category | '전체') => void;
-  categories: (Category | '전체')[];
-  getCategoryCount: (category: Category | '전체') => number;
+  // Category filter (대분류)
+  selectedCategoryMain: CategoryMain | '전체';
+  onCategoryMainChange: (main: CategoryMain | '전체') => void;
+  availableCategoryMains: CategoryMain[];
+  getCategoryMainCount: (main: CategoryMain | '전체') => number;
+
+  // Category filter (소분류)
+  selectedCategorySub: CategorySub | '전체';
+  onCategorySubChange: (sub: CategorySub | '전체') => void;
+  availableCategorySubs: CategorySub[];
+  getCategorySubCount: (sub: CategorySub) => number;
 
   // Optional: compact mode for mobile overlay
   compact?: boolean;
@@ -32,10 +38,14 @@ export function FilterSection({
   onDistrictChange,
   availableDistricts,
   getDistrictCount,
-  selectedCategory,
-  onCategoryChange,
-  categories,
-  getCategoryCount,
+  selectedCategoryMain,
+  onCategoryMainChange,
+  availableCategoryMains,
+  getCategoryMainCount,
+  selectedCategorySub,
+  onCategorySubChange,
+  availableCategorySubs,
+  getCategorySubCount,
   compact = false,
 }: FilterSectionProps) {
   if (compact) {
@@ -72,19 +82,19 @@ export function FilterSection({
         {/* Divider */}
         <div className="w-px bg-gray-200 flex-shrink-0" />
 
-        {/* Category chips */}
+        {/* Category Main chips */}
         <div className="flex gap-1.5 flex-shrink-0">
-          {categories.slice(0, 6).map(category => (
+          {availableCategoryMains.slice(0, 6).map(main => (
             <button
-              key={category}
-              onClick={() => onCategoryChange(category)}
+              key={main}
+              onClick={() => onCategoryMainChange(main)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                selectedCategory === category
+                selectedCategoryMain === main
                   ? 'bg-orange-500 text-white'
                   : 'bg-gray-100 text-gray-600'
               }`}
             >
-              {category}
+              {main}
             </button>
           ))}
         </div>
@@ -149,23 +159,52 @@ export function FilterSection({
         </div>
       )}
 
-      {/* Category Section */}
+      {/* Category Main Section */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-          종류
+          종류 (대분류)
         </h2>
         <div className="flex flex-wrap gap-2">
-          {categories.map(category => (
+          {availableCategoryMains.map(main => (
             <CategoryButton
-              key={category}
-              category={category}
-              isActive={selectedCategory === category}
-              onClick={() => onCategoryChange(category)}
-              count={getCategoryCount(category)}
+              key={main}
+              category={main}
+              isActive={selectedCategoryMain === main}
+              onClick={() => {
+                onCategoryMainChange(main);
+                onCategorySubChange('전체'); // 대분류 변경 시 소분류 초기화
+              }}
+              count={getCategoryMainCount(main)}
             />
           ))}
         </div>
       </div>
+
+      {/* Category Sub Section - 대분류 선택 시에만 표시 */}
+      {selectedCategoryMain !== '전체' && availableCategorySubs.length > 0 && (
+        <div className="bg-white p-4 rounded-2xl border border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            {selectedCategoryMain} 세부 종류
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            <CategoryButton
+              category={`${selectedCategoryMain} 전체`}
+              isActive={selectedCategorySub === '전체'}
+              onClick={() => onCategorySubChange('전체')}
+              count={getCategoryMainCount(selectedCategoryMain)}
+            />
+            {availableCategorySubs.map(sub => (
+              <CategoryButton
+                key={sub}
+                category={sub}
+                isActive={selectedCategorySub === sub}
+                onClick={() => onCategorySubChange(sub)}
+                count={getCategorySubCount(sub)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -98,7 +98,9 @@ export function PlacePreview({
           >
             <ArrowLeft size={20} className="text-gray-600" />
           </button>
-          <span className="text-sm text-gray-500">{location.category}</span>
+          <span className="text-sm text-gray-500">
+            {location.categorySub || location.categoryMain || '미분류'}
+          </span>
         </div>
       )}
 

@@ -71,6 +71,9 @@ export const locationApi = {
         created_at: item.created_at,
         // visit_date를 curator_visited_at으로도 매핑 (UI 호환성)
         curator_visited_at: item.visit_date,
+        // 카테고리 대분류/소분류 (새 구조)
+        categoryMain: item.category_main || item.categoryMain,
+        categorySub: item.category_sub || item.categorySub,
       };
     });
   },
@@ -82,6 +85,8 @@ export const locationApi = {
       eventTags: inputEventTags,
       imageUrl,
       tags: inputTags,
+      categoryMain,
+      categorySub,
       curator_visited_at,  // UI용 필드는 제외
       curator_visit_slot,
       disclosure,
@@ -92,6 +97,8 @@ export const locationApi = {
       ...rest,
       event_tags: inputEventTags || [],
       tags: inputTags || [],
+      category_main: categoryMain,
+      category_sub: categorySub,
     };
 
     // imageUrl이 있고 빈 문자열이 아니면 저장
@@ -161,6 +168,9 @@ export const locationApi = {
       last_verified_at: data.last_verified_at,
       created_at: data.created_at,
       curator_visited_at: data.visit_date,
+      // 카테고리 대분류/소분류
+      categoryMain: data.category_main || data.categoryMain,
+      categorySub: data.category_sub || data.categorySub,
     };
   },
 
@@ -181,6 +191,8 @@ export const locationApi = {
       eventTags: inputEventTags,
       imageUrl,
       tags: inputTags,
+      categoryMain,
+      categorySub,
       curator_visited_at,
       curator_visit_slot,
       disclosure,
@@ -195,6 +207,14 @@ export const locationApi = {
 
     if (inputTags !== undefined) {
       supabaseData.tags = inputTags;
+    }
+
+    if (categoryMain !== undefined) {
+      supabaseData.category_main = categoryMain;
+    }
+
+    if (categorySub !== undefined) {
+      supabaseData.category_sub = categorySub;
     }
 
     // imageUrl 처리

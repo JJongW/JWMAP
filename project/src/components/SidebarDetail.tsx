@@ -164,7 +164,9 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
           >
             <ArrowLeft size={20} className="text-gray-600" />
           </button>
-          <span className="text-sm font-medium text-gray-500">{currentLocation.category}</span>
+          <span className="text-sm font-medium text-gray-500">
+            {currentLocation.categorySub || currentLocation.category || '미분류'}
+          </span>
         </div>
         {!isEditMode && (onUpdate || onDelete) && (
           <button

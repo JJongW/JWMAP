@@ -28,7 +28,7 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
   const [isEditing, setIsEditing] = useState(false);
   const [editedRating, setEditedRating] = useState(location.rating);
   const [editedImageUrl, setEditedImageUrl] = useState(location.imageUrl);
-  const [editedCategory, setEditedCategory] = useState(location.category);
+  const [editedCategory, setEditedCategory] = useState(location.categorySub || location.categoryMain || '');
   const [editedMemo, setEditedMemo] = useState(location.memo);
   const [editedFeatures, setEditedFeatures] = useState<Features>(location.features || {});
   const [imageError, setImageError] = useState(false);
@@ -37,7 +37,7 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
     setIsEditing(false);
     setEditedRating(location.rating);
     setEditedImageUrl(location.imageUrl);
-    setEditedCategory(location.category);
+    setEditedCategory(location.categorySub || location.categoryMain || '');
     setEditedMemo(location.memo);
     setEditedFeatures(location.features || {});
     setImageError(false);
@@ -216,10 +216,10 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
     }, 700);
   };
 
-  const categories: Location['category'][] = [
-    '한식', '중식', '일식', '라멘', '양식', '분식', '호프집', '칵테일바',
-    '와인바', '아시안', '돈까스', '회', '피자', '베이커리', '카페', '카공카페', '버거',
-  ];
+  // 카테고리 표시용 헬퍼 함수 (categorySub 우선, 없으면 category)
+  const getDisplayCategory = (loc: Location): string => {
+    return loc.categorySub || loc.category || '미분류';
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -241,7 +241,7 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
         {/* 카테고리 배지 */}
         <div className="absolute top-3 left-3">
           <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-500 text-white">
-            {editedCategory}
+            {location.categorySub || editedCategory}
           </span>
         </div>
       </div>
@@ -290,13 +290,16 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
           </p>
         )}
 
-        {/* 카테고리 선택 (수정 모드) */}
+        {/* 카테고리 선택 (수정 모드) - 레거시 호환을 위해 category 필드만 수정 */}
         {isEditing && (
           <CustomSelect
             label="종류"
             value={editedCategory}
             onChange={(value) => setEditedCategory(value as Location['category'])}
-            options={categories}
+            options={[
+              '한식', '중식', '일식', '라멘', '양식', '분식', '호프집', '칵테일바',
+              '와인바', '아시안', '돈까스', '회', '피자', '베이커리', '카페', '카공카페', '버거',
+            ]}
             placeholder="종류를 선택하세요"
           />
         )}

@@ -6,7 +6,7 @@ import { LocationList } from '../LocationList';
 import { SidebarDetail } from '../SidebarDetail';
 import { Sidebar } from './Sidebar';
 import { clickLogApi } from '../../utils/supabase';
-import type { Location, Province, Category } from '../../types/location';
+import type { Location, Province, CategoryMain, CategorySub } from '../../types/location';
 
 interface DesktopLayoutProps {
   // Data
@@ -35,13 +35,17 @@ interface DesktopLayoutProps {
   onProvinceChange: (province: Province | '전체') => void;
   selectedDistrict: string | '전체';
   onDistrictChange: (district: string | '전체') => void;
-  selectedCategory: Category | '전체';
-  onCategoryChange: (category: Category | '전체') => void;
+  selectedCategoryMain: CategoryMain | '전체';
+  onCategoryMainChange: (main: CategoryMain | '전체') => void;
+  availableCategoryMains: CategoryMain[];
+  getCategoryMainCount: (main: CategoryMain | '전체') => number;
+  selectedCategorySub: CategorySub | '전체';
+  onCategorySubChange: (sub: CategorySub | '전체') => void;
+  availableCategorySubs: CategorySub[];
+  getCategorySubCount: (sub: CategorySub) => number;
   availableDistricts: string[];
-  categories: (Category | '전체')[];
   getProvinceCount: (province: Province | '전체') => number;
   getDistrictCount: (district: string) => number;
-  getCategoryCount: (category: Category | '전체') => number;
 
   // Pagination
   visibleLocations: number;
@@ -75,13 +79,17 @@ export function DesktopLayout({
   onProvinceChange,
   selectedDistrict,
   onDistrictChange,
-  selectedCategory,
-  onCategoryChange,
+  selectedCategoryMain,
+  onCategoryMainChange,
+  availableCategoryMains,
+  getCategoryMainCount,
+  selectedCategorySub,
+  onCategorySubChange,
+  availableCategorySubs,
+  getCategorySubCount,
   availableDistricts,
-  categories,
   getProvinceCount,
   getDistrictCount,
-  getCategoryCount,
   visibleLocations,
   onShowMore,
   onOpenAddModal,
@@ -185,10 +193,14 @@ export function DesktopLayout({
                 onDistrictChange={onDistrictChange}
                 availableDistricts={availableDistricts}
                 getDistrictCount={getDistrictCount}
-                selectedCategory={selectedCategory}
-                onCategoryChange={onCategoryChange}
-                categories={categories}
-                getCategoryCount={getCategoryCount}
+                selectedCategoryMain={selectedCategoryMain}
+                onCategoryMainChange={onCategoryMainChange}
+                availableCategoryMains={availableCategoryMains}
+                getCategoryMainCount={getCategoryMainCount}
+                selectedCategorySub={selectedCategorySub}
+                onCategorySubChange={onCategorySubChange}
+                availableCategorySubs={availableCategorySubs}
+                getCategorySubCount={getCategorySubCount}
               />
 
               {/* Location List */}

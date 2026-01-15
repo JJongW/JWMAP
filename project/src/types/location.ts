@@ -100,25 +100,113 @@ export function inferProvinceFromRegion(region: string): Province | null {
 // Region은 이제 string으로 유연하게 처리 (하위 호환성 + 확장성)
 export type Region = string;
 
-export type Category =
+// 카테고리 대분류
+export type CategoryMain =
   | '전체'
-  | '한식'
-  | '중식'
-  | '일식'
-  | '라멘'
-  | '양식'
-  | '분식'
-  | '호프집'
-  | '칵테일바'
-  | '와인바'
-  | '아시안'
-  | '돈까스'
-  | '회'
-  | '피자'
-  | '베이커리'
+  | '밥'
+  | '면'
+  | '국물'
+  | '고기요리'
+  | '해산물'
+  | '간편식'
+  | '양식·퓨전'
+  | '디저트'
   | '카페'
-  | '카공카페'
-  | '버거';
+  | '술안주';
+
+// 카테고리 소분류
+export type CategorySub =
+  // 밥류
+  | '덮밥'
+  | '정식'
+  | '도시락'
+  | '백반'
+  | '돈까스'
+  | '한식'
+  | '카레'
+  // 면류
+  | '라멘'
+  | '국수'
+  | '파스타'
+  | '쌀국수'
+  | '우동'
+  | '냉면'
+  | '소바'
+  // 국물요리
+  | '국밥'
+  | '찌개'
+  | '탕'
+  | '전골'
+  // 고기요리
+  | '구이'
+  | '스테이크'
+  | '바비큐'
+  | '수육'
+  // 해산물
+  | '해산물요리'
+  | '회'
+  | '해물찜'
+  | '해물탕'
+  | '조개/굴'
+  // 간편식
+  | '김밥'
+  | '샌드위치'
+  | '토스트'
+  | '햄버거'
+  | '타코'
+  | '분식'
+  // 양식·퓨전
+  | '베트남'
+  | '아시안'
+  | '인도'
+  | '양식'
+  | '중식'
+  | '프랑스'
+  | '파스타'
+  | '피자'
+  | '리조또'
+  | '브런치'
+  // 디저트
+  | '케이크'
+  | '베이커리'
+  | '도넛'
+  | '아이스크림'
+  // 카페·음료
+  | '커피'
+  | '차'
+  | '논커피'
+  | '와인바/바'
+  | '카공카페'  // 카공(공부) 카페
+  // 술안주
+  | '이자카야'
+  | '포차'
+  | '안주 전문';
+
+// 카테고리 계층 구조
+export const CATEGORY_HIERARCHY: Record<CategoryMain, CategorySub[]> = {
+  '전체': [],
+  '밥': ['덮밥', '정식', '도시락', '백반', '돈까스', '한식', '카레'],
+  '면': ['라멘', '국수', '파스타', '쌀국수', '우동', '냉면', '소바'],
+  '국물': ['국밥', '찌개', '탕', '전골'],
+  '고기요리': ['구이', '스테이크', '바비큐', '수육'],
+  '해산물': ['해산물요리', '회', '해물찜', '해물탕', '조개/굴'],
+  '간편식': ['김밥', '샌드위치', '토스트', '햄버거', '타코', '분식'],
+  '양식·퓨전': ['베트남', '아시안', '인도', '양식', '중식', '프랑스', '파스타', '피자', '리조또', '브런치'],
+  '디저트': ['케이크', '베이커리', '도넛', '아이스크림'],
+  '카페': ['커피', '차', '논커피', '와인바/바', '카공카페'],
+  '술안주': ['이자카야', '포차', '안주 전문'],
+};
+
+// 모든 대분류 목록
+export const CATEGORY_MAINS: CategoryMain[] = Object.keys(CATEGORY_HIERARCHY) as CategoryMain[];
+
+// 특정 대분류의 소분류 목록 가져오기
+export function getCategorySubsByMain(main: CategoryMain): CategorySub[] {
+  return CATEGORY_HIERARCHY[main] || [];
+}
+
+// 기존 Category 타입 (하위 호환성 유지)
+export type Category = string; // 기존 데이터 호환을 위해 string으로 유지
 
 export interface Features {
   solo_ok?: boolean;       // 혼밥 가능
@@ -144,7 +232,9 @@ export interface Location {
   province?: Province;    // 대분류 (시/도)
   region: Region;         // 소분류 (구/동)
   sub_region?: string;    // 세부 지역
-  category: Category;
+  category: Category;     // 기존 호환성 (레거시)
+  categoryMain?: CategoryMain;  // 카테고리 대분류 (새 구조)
+  categorySub?: CategorySub;    // 카테고리 소분류 (새 구조)
   lon: number;
   lat: number;
   memo: string;

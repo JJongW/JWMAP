@@ -3,8 +3,8 @@ import { X, Sparkles, Loader2 } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
 import { ImageUpload } from './ImageUpload';
 import { PlaceSearch } from './PlaceSearch';
-import type { Features, Province } from '../types/location';
-import { PROVINCES, REGION_HIERARCHY } from '../types/location';
+import type { Features, Province, CategoryMain, CategorySub } from '../types/location';
+import { PROVINCES, REGION_HIERARCHY, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from '../types/location';
 import type { LLMSuggestions, TagSuggestion } from '../schemas/llmSuggestions';
 import { featureLabels, tagTypeLabels } from '../schemas/llmSuggestions';
 
@@ -21,7 +21,9 @@ interface AddLocationModalProps {
     name: string;
     province?: Province;
     region: string;
-    category: string;
+    category: string; // 레거시 호환
+    categoryMain?: CategoryMain;
+    categorySub?: CategorySub;
     address: string;
     imageUrl: string;
     rating: number;
@@ -41,7 +43,9 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     name: '',
     province: '' as Province | '',
     region: '',
-    category: '',
+    category: '', // 레거시 호환
+    categoryMain: '' as CategoryMain | '',
+    categorySub: '' as CategorySub | '',
     address: '',
     imageUrl: '',
     rating: 0,
@@ -107,11 +111,10 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     ? REGION_HIERARCHY[formData.province] || []
     : [];
 
-  const categories = [
-    '한식', '중식', '일식', '라멘', '양식', '분식', '호프집', '칵테일바',
-    '와인바', '아시안', '돈까스', '회', '피자', '베이커리', '카페', '카공카페', '버거',
-    '프랑스음식', '고기요리', '퓨전음식', '베트남'
-  ];
+  // 선택된 카테고리 대분류에 따른 소분류 목록
+  const availableCategorySubs = formData.categoryMain && formData.categoryMain !== '전체'
+    ? getCategorySubsByMain(formData.categoryMain)
+    : [];
 
   // 주소를 좌표로 변환 (카카오 지오코딩)
   const geocodeAddress = async (address: string): Promise<{ lat: number; lon: number } | null> => {
@@ -544,7 +547,7 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
 
   const handleFeatureToggle = (key: keyof Features) => {
     setFeatures((prev) => ({
-      ...prev,
+          ...prev,
       [key]: !prev[key],
     }));
   };
@@ -585,8 +588,14 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
 
   const handleSubmit = async () => {
     // 필수 항목 검증
-    if (!formData.name || !formData.province || !formData.region || !formData.category) {
-      alert('장소명, 시/도, 세부 지역, 종류는 필수 항목입니다.');
+    if (!formData.name || !formData.province || !formData.region || !formData.categoryMain) {
+      alert('장소명, 시/도, 세부 지역, 카테고리 대분류는 필수 항목입니다.');
+      return;
+    }
+
+    // 소분류가 있는 경우 필수 검증
+    if (formData.categoryMain !== '전체' && availableCategorySubs.length > 0 && !formData.categorySub) {
+      alert('카테고리 소분류를 선택해주세요.');
       return;
     }
 
@@ -639,6 +648,9 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     onSave({
       ...formData,
       province: formData.province as Province,
+      categoryMain: formData.categoryMain as CategoryMain,
+      categorySub: formData.categorySub || undefined,
+      category: formData.categorySub || formData.categoryMain || formData.category, // 소분류 우선, 없으면 대분류
       memo: formData.short_desc || formData.memo, // short_desc를 memo로 사용
       lat: finalLat,
       lon: finalLon,
@@ -648,7 +660,8 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     onClose();
   };
 
-  const isFormValid = formData.name && formData.province && formData.region && formData.category && formData.address.trim();
+  const isFormValid = formData.name && formData.province && formData.region && formData.categoryMain && formData.address.trim() &&
+    (formData.categoryMain === '전체' || availableCategorySubs.length === 0 || formData.categorySub);
 
   // 추천된 features 라벨 표시
   const getSuggestedFeaturesText = (): string => {
@@ -749,10 +762,10 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
           {/* 직접 입력 옵션 */}
           {!formData.kakao_place_id && (
             <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   또는 직접 입력
-                </label>
+            </label>
                 <input
                   type="text"
                   value={formData.name}
@@ -828,15 +841,36 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
             />
           )}
 
-          {/* 종류 */}
+          {/* 카테고리 대분류 */}
           <CustomSelect
-            label="종류"
+            label="카테고리 (대분류)"
             required
-            value={formData.category}
-            onChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
-            options={categories}
-            placeholder="종류를 선택하세요"
+            value={formData.categoryMain}
+            onChange={(value) => setFormData((prev) => ({
+              ...prev,
+              categoryMain: value as CategoryMain,
+              categorySub: '', // 대분류 변경 시 소분류 초기화
+              category: value, // 레거시 호환
+            }))}
+            options={CATEGORY_MAINS.filter(main => main !== '전체')}
+            placeholder="카테고리 대분류를 선택하세요"
           />
+
+          {/* 카테고리 소분류 - 대분류 선택 후에만 표시 */}
+          {formData.categoryMain && formData.categoryMain !== '전체' && availableCategorySubs.length > 0 && (
+            <CustomSelect
+              label="카테고리 (소분류)"
+              required
+              value={formData.categorySub}
+              onChange={(value) => setFormData((prev) => ({
+                ...prev,
+                categorySub: value as CategorySub,
+                category: value, // 레거시 호환 (소분류를 category에 저장)
+              }))}
+              options={availableCategorySubs}
+              placeholder="카테고리 소분류를 선택하세요"
+            />
+          )}
 
           {/* 한 줄 경험 입력 */}
           <div>
@@ -844,8 +878,8 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
               이곳은 어땠나요?
             </label>
             <div className="relative">
-              <input
-                type="text"
+            <input
+              type="text"
                 value={formData.short_desc}
                 onChange={(e) => setFormData((prev) => ({ ...prev, short_desc: e.target.value }))}
                 className="w-full px-4 py-2.5 pr-12 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
