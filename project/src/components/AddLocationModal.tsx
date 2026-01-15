@@ -227,6 +227,9 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
       '남양주시': '구리/남양주',
       '포천시': '포천/동두천',
       '동두천시': '포천/동두천',
+      '양주시': '양주',
+      '가평군': '가평',
+      '연천군': '연천',
     };
 
     // 인천 구별 매핑
