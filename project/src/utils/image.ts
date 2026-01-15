@@ -1,4 +1,12 @@
 /**
+ * HTTP URL을 HTTPS로 변환
+ */
+function ensureHttps(url: string): string {
+  if (!url) return '';
+  return url.replace(/^http:\/\//i, 'https://');
+}
+
+/**
  * Cloudinary 이미지 URL을 리사이즈된 버전으로 변환
  * @param url 원본 이미지 URL
  * @param width 최대 너비 (기본 480px)
@@ -12,10 +20,13 @@ export function getOptimizedImageUrl(
 ): string {
   if (!url) return '';
 
+  // HTTP -> HTTPS 변환
+  const secureUrl = ensureHttps(url);
+
   // Cloudinary URL 패턴 체크
   // 예: https://res.cloudinary.com/xxxxx/image/upload/v1234567890/image.jpg
-  const cloudinaryRegex = /^(https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload)(\/v\d+)?(\/.*)?$/;
-  const match = url.match(cloudinaryRegex);
+  const cloudinaryRegex = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload)(\/v\d+)?(\/.*)?$/;
+  const match = secureUrl.match(cloudinaryRegex);
 
   if (match) {
     const [, base, version = '', path = ''] = match;
@@ -24,8 +35,8 @@ export function getOptimizedImageUrl(
     return `${base}${transformation}${version}${path}`;
   }
 
-  // Cloudinary가 아닌 경우 원본 URL 반환
-  return url;
+  // Cloudinary가 아닌 경우 HTTPS 변환된 URL 반환
+  return secureUrl;
 }
 
 /**
