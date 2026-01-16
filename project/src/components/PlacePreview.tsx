@@ -1,8 +1,9 @@
-import { ArrowLeft, Star, MapPin, Navigation, ExternalLink, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Navigation, ExternalLink, ChevronRight, Share2 } from 'lucide-react';
 import type { Location, Province, Features } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import { getCardImageUrl } from '../utils/image';
 import { clickLogApi } from '../utils/supabase';
+import { shareToKakao } from '../utils/kakaoShare';
 
 interface PlacePreviewProps {
   location: Location;
@@ -87,20 +88,34 @@ export function PlacePreview({
     }, 700);
   };
 
+  // 카카오톡 공유
+  const handleShareKakao = () => {
+    shareToKakao(location);
+  };
+
   return (
     <div className={`flex flex-col ${className}`}>
       {/* Header with back button */}
       {onBack && (
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onBack}
+              className="p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <ArrowLeft size={20} className="text-gray-600" />
+            </button>
+            <span className="text-sm text-gray-500">
+              {location.categorySub || location.categoryMain || '미분류'}
+            </span>
+          </div>
           <button
-            onClick={onBack}
-            className="p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            onClick={handleShareKakao}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            title="카카오톡 공유"
           >
-            <ArrowLeft size={20} className="text-gray-600" />
+            <Share2 size={18} className="text-gray-600" />
           </button>
-          <span className="text-sm text-gray-500">
-            {location.categorySub || location.categoryMain || '미분류'}
-          </span>
         </div>
       )}
 
@@ -188,6 +203,13 @@ export function PlacePreview({
 
       {/* Sticky CTA Row */}
       <div className="flex-shrink-0 px-4 py-3 border-t border-gray-100 bg-white flex gap-2">
+        <button
+          onClick={handleShareKakao}
+          className="py-3 px-4 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center"
+          title="카카오톡 공유"
+        >
+          <Share2 size={18} />
+        </button>
         <button
           onClick={handleOpenNaver}
           className="flex-1 py-3 bg-green-500 text-white font-medium rounded-xl hover:bg-green-600 transition-colors flex items-center justify-center gap-2"

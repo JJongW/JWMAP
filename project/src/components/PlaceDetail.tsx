@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, MapPin, Star, Copy, Check, ChevronDown, ChevronUp, Navigation, ExternalLink } from 'lucide-react';
+import { X, MapPin, Star, Copy, Check, ChevronDown, ChevronUp, Navigation, ExternalLink, Share2 } from 'lucide-react';
 import type { Location, Review, Features } from '../types/location';
 import { reviewApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
+import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
@@ -56,6 +57,11 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
     } catch (err) {
       console.error('주소 복사 실패:', err);
     }
+  };
+
+  // 카카오톡 공유
+  const handleShareKakao = () => {
+    shareToKakao(location);
   };
 
   // 네이버 지도 열기
@@ -113,7 +119,13 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
           <span className="text-sm font-medium text-gray-500">
             {location.categorySub || location.categoryMain || '미분류'}
           </span>
-          <div className="w-10" /> {/* Spacer */}
+          <button
+            onClick={handleShareKakao}
+            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
+            title="카카오톡 공유"
+          >
+            <Share2 size={22} className="text-gray-600" />
+          </button>
         </div>
 
         {/* 스크롤 가능한 컨텐츠 */}
@@ -225,18 +237,25 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
         {/* Sticky 하단 CTA */}
         <div className="flex-shrink-0 bg-white border-t border-gray-100 p-4 flex gap-3">
           <button
+            onClick={handleShareKakao}
+            className="py-3.5 px-4 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center"
+            title="카카오톡 공유"
+          >
+            <Share2 size={20} />
+          </button>
+          <button
             onClick={handleOpenNaver}
             className="flex-1 py-3.5 bg-green-500 text-white font-medium rounded-xl hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
           >
             <Navigation size={18} />
-            네이버지도 열기
+            네이버지도
           </button>
           <button
             onClick={handleOpenKakao}
             className="flex-1 py-3.5 bg-yellow-400 text-gray-900 font-medium rounded-xl hover:bg-yellow-500 transition-colors flex items-center justify-center gap-2"
           >
             <ExternalLink size={18} />
-            카카오맵 열기
+            카카오맵
           </button>
         </div>
 
@@ -269,12 +288,21 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
                 loading="lazy"
                 onError={() => setImageError(true)}
               />
-              <button
-                onClick={onClose}
-                className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur rounded-xl flex items-center justify-center hover:bg-white transition-colors"
-              >
-                <X size={20} className="text-gray-600" />
-              </button>
+              <div className="absolute top-4 right-4 flex gap-2">
+                <button
+                  onClick={handleShareKakao}
+                  className="w-10 h-10 bg-white/90 backdrop-blur rounded-xl flex items-center justify-center hover:bg-white transition-colors"
+                  title="카카오톡 공유"
+                >
+                  <Share2 size={18} className="text-gray-600" />
+                </button>
+                <button
+                  onClick={onClose}
+                  className="w-10 h-10 bg-white/90 backdrop-blur rounded-xl flex items-center justify-center hover:bg-white transition-colors"
+                >
+                  <X size={20} className="text-gray-600" />
+                </button>
+              </div>
               <div className="absolute bottom-4 left-4">
                 <span className="px-3 py-1.5 bg-orange-500 text-white text-sm font-medium rounded-lg">
                   {location.categorySub || location.categoryMain || '미분류'}
@@ -289,12 +317,21 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
               <span className="px-3 py-1.5 bg-orange-500 text-white text-sm font-medium rounded-lg">
                 {location.categorySub || location.categoryMain || '미분류'}
               </span>
-              <button
-                onClick={onClose}
-                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
-              >
-                <X size={20} className="text-gray-600" />
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleShareKakao}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
+                  title="카카오톡 공유"
+                >
+                  <Share2 size={18} className="text-gray-600" />
+                </button>
+                <button
+                  onClick={onClose}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
+                >
+                  <X size={20} className="text-gray-600" />
+                </button>
+              </div>
             </div>
           )}
 
@@ -385,18 +422,25 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
             {/* 지도 버튼 (PC) */}
             <div className="flex gap-3 pt-2">
               <button
+                onClick={handleShareKakao}
+                className="py-3 px-4 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center"
+                title="카카오톡 공유"
+              >
+                <Share2 size={18} />
+              </button>
+              <button
                 onClick={handleOpenNaver}
                 className="flex-1 py-3 bg-green-500 text-white font-medium rounded-xl hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
               >
                 <Navigation size={18} />
-                네이버지도 열기
+                네이버지도
               </button>
               <button
                 onClick={handleOpenKakao}
                 className="flex-1 py-3 bg-yellow-400 text-gray-900 font-medium rounded-xl hover:bg-yellow-500 transition-colors flex items-center justify-center gap-2"
               >
                 <ExternalLink size={18} />
-                카카오맵 열기
+                카카오맵
               </button>
             </div>
           </div>
