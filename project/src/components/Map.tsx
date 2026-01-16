@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Location } from '../types/location';
+import type { Location, CategoryMain, CategorySub } from '../types/location';
+import { CATEGORY_HIERARCHY } from '../types/location';
 
 interface MapProps {
   locations: Location[];
@@ -9,26 +10,32 @@ interface MapProps {
   className?: string;
 }
 
-// 카테고리별 마커 이미지 생성
-function createMarkerImage(category: string): kakao.maps.MarkerImage | null {
+// 카테고리 대분류별 마커 이미지 생성
+function createMarkerImage(categoryMain: string): kakao.maps.MarkerImage | null {
   if (typeof kakao === 'undefined' || !kakao.maps?.Size || !kakao.maps?.Point || !kakao.maps?.MarkerImage) {
     return null;
   }
 
-  let imageSrc: string | null = null;
+  const markerMap: Record<string, string> = {
+    '밥': '/rice_marker.svg',
+    '면': '/noodle_marker.svg',
+    '국물': '/bowl_marker.svg',
+    '고기요리': '/beef_marker.svg',
+    '해산물': '/fish_marker.svg',
+    '간편식': '/fast_marker.svg',
+    '양식·퓨전': '/sushi_marker.svg',
+    '디저트': '/desert_marker.svg',
+    '카페': '/cafe_marker.svg',
+    '술안주': '/beer_marker.svg',
+  };
 
-  if (category === '라멘') {
-    imageSrc = '/ramen-marker.svg';
-  } else if (category === '카공카페') {
-    imageSrc = '/note-marker.svg';
-  } else if (category === '카페') {
-    imageSrc = '/cafe-marker.svg';
-  }
+  const imageSrc = markerMap[categoryMain];
 
   if (imageSrc) {
     try {
-      const imageSize = new kakao.maps.Size(64, 69);
-      const imageOption = { offset: new kakao.maps.Point(27, 69) };
+      // 마커 크기 축소 (64x69 -> 48x52)
+      const imageSize = new kakao.maps.Size(48, 52);
+      const imageOption = { offset: new kakao.maps.Point(24, 52) };
       return new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
     } catch {
       return null;
@@ -101,9 +108,30 @@ export function Map(props: MapProps) {
     // 새 마커 생성
     locations.forEach(location => {
       try {
-        // categorySub 우선, 없으면 categoryMain 사용
-        const categoryForMarker = location.categorySub || location.categoryMain || '';
-        const markerImage = createMarkerImage(categoryForMarker);
+        // categoryMain을 기준으로 마커 이미지 선택
+        // categoryMain이 없으면 categorySub로부터 역추론
+        let categoryMain = location.categoryMain;
+        if (!categoryMain && location.categorySub) {
+          // categorySub로부터 대분류 역추론
+          for (const [main, subs] of Object.entries(CATEGORY_HIERARCHY) as [CategoryMain, CategorySub[]][]) {
+            if (main !== '전체' && subs.includes(location.categorySub)) {
+              categoryMain = main;
+              break;
+            }
+          }
+        }
+        
+        // 디버깅: 카공카페인 경우 로그 출력
+        if (location.categorySub === '카공카페') {
+          console.log('카공카페 마커 생성:', {
+            name: location.name,
+            categoryMain,
+            categorySub: location.categorySub,
+            hasMarkerImage: !!createMarkerImage(categoryMain || ''),
+          });
+        }
+        
+        const markerImage = createMarkerImage(categoryMain || '');
         const marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(location.lat, location.lon),
           title: location.name,

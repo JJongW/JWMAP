@@ -226,7 +226,7 @@ LLM-powered natural language search.
 ## Important Patterns
 
 1. **State Management:** React hooks in App.tsx
-2. **Map Markers:** Custom SVG markers in `/public` for categories (ramen, cafe, note)
+2. **Map Markers:** Custom SVG markers in `/public` for categorieMain
 3. **Deeplinks:** Kakao/Naver map app links with 700ms web fallback
 4. **Filtering:** Region -> Category cascade, event tag filtering
 5. **Responsive:** Mobile-first, breakpoint at 768px

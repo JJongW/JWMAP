@@ -35,7 +35,6 @@ Place {
   id: string
   name: string
   region: string        // e.g. "서울 용산구"
-  category: string[]    // e.g. ["한식","술집"]
   address?: string
   memo: string          // personal experience note
   tags?: string[]       // short keywords
