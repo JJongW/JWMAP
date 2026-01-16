@@ -121,16 +121,6 @@ export function Map(props: MapProps) {
           }
         }
         
-        // 디버깅: 카공카페인 경우 로그 출력
-        if (location.categorySub === '카공카페') {
-          console.log('카공카페 마커 생성:', {
-            name: location.name,
-            categoryMain,
-            categorySub: location.categorySub,
-            hasMarkerImage: !!createMarkerImage(categoryMain || ''),
-          });
-        }
-        
         const markerImage = createMarkerImage(categoryMain || '');
         const marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(location.lat, location.lon),

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Star, MapPin, Copy, Check, Navigation, ExternalLink, Edit2 } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Copy, Check, Navigation, ExternalLink, Edit2, Share2 } from 'lucide-react';
 import type { Location, Review, Features } from '../types/location';
 import { reviewApi, clickLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
+import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
@@ -119,6 +120,11 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
     }, 700);
   };
 
+  // 카카오톡 공유
+  const handleShareKakao = () => {
+    shareToKakao(currentLocation);
+  };
+
   // Get active features
   const activeFeatures = currentLocation.features
     ? Object.entries(currentLocation.features)
@@ -168,14 +174,25 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
             {currentLocation.categorySub || currentLocation.category || '미분류'}
           </span>
         </div>
-        {!isEditMode && (onUpdate || onDelete) && (
-          <button
-            onClick={() => setIsEditMode(true)}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-            title="수정"
-          >
-            <Edit2 size={18} className="text-gray-600" />
-          </button>
+        {!isEditMode && (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleShareKakao}
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              title="카카오톡 공유"
+            >
+              <Share2 size={18} className="text-gray-600" />
+            </button>
+            {(onUpdate || onDelete) && (
+              <button
+                onClick={() => setIsEditMode(true)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                title="수정"
+              >
+                <Edit2 size={18} className="text-gray-600" />
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -314,6 +331,13 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
       {/* Sticky CTA Row - Only show in view mode */}
       {!isEditMode && (
         <div className="flex-shrink-0 px-4 py-3 border-t border-gray-100 bg-white flex gap-2">
+          <button
+            onClick={handleShareKakao}
+            className="py-3 px-4 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center"
+            title="카카오톡 공유"
+          >
+            <Share2 size={18} />
+          </button>
           <button
             onClick={handleOpenNaver}
             className="flex-1 py-3 bg-green-500 text-white font-medium rounded-xl hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
