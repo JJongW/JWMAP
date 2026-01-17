@@ -119,13 +119,7 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
           <span className="text-sm font-medium text-accent/70">
             {location.categorySub || location.categoryMain || '미분류'}
           </span>
-          <button
-            onClick={handleShareKakao}
-            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-base transition-colors"
-            title="카카오톡 공유"
-          >
-            <Share2 size={22} className="text-accent/80" />
-          </button>
+          <div className="w-10" /> {/* 공간 확보를 위한 빈 div */}
         </div>
 
         {/* 스크롤 가능한 컨텐츠 */}
@@ -290,13 +284,6 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
               />
               <div className="absolute top-4 right-4 flex gap-2">
                 <button
-                  onClick={handleShareKakao}
-                  className="w-10 h-10 bg-white/90 backdrop-blur rounded-xl flex items-center justify-center hover:bg-white transition-colors"
-                  title="카카오톡 공유"
-                >
-                  <Share2 size={18} className="text-accent/80" />
-                </button>
-                <button
                   onClick={onClose}
                   className="w-10 h-10 bg-white/90 backdrop-blur rounded-xl flex items-center justify-center hover:bg-white transition-colors"
                 >
@@ -317,21 +304,12 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
               <span className="px-3 py-1.5 bg-point text-white text-sm font-medium rounded-lg">
                 {location.categorySub || location.categoryMain || '미분류'}
               </span>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleShareKakao}
-                  className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-base transition-colors"
-                  title="카카오톡 공유"
-                >
-                  <Share2 size={18} className="text-accent/80" />
-                </button>
-                <button
-                  onClick={onClose}
-                  className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-base transition-colors"
-                >
-                  <X size={20} className="text-accent/80" />
-                </button>
-              </div>
+              <button
+                onClick={onClose}
+                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-base transition-colors"
+              >
+                <X size={20} className="text-accent/80" />
+              </button>
             </div>
           )}
 

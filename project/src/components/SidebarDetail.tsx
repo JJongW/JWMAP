@@ -176,13 +176,6 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
         </div>
         {!isEditMode && (
           <div className="flex items-center gap-1">
-            <button
-              onClick={handleShareKakao}
-              className="p-1.5 rounded-lg hover:bg-base transition-colors"
-              title="카카오톡 공유"
-            >
-              <Share2 size={18} className="text-accent/80" />
-            </button>
             {(onUpdate || onDelete) && (
               <button
                 onClick={() => setIsEditMode(true)}

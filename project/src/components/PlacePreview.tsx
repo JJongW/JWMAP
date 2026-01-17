@@ -109,13 +109,6 @@ export function PlacePreview({
               {location.categorySub || location.categoryMain || '미분류'}
             </span>
           </div>
-          <button
-            onClick={handleShareKakao}
-            className="p-2 rounded-lg hover:bg-base transition-colors"
-            title="카카오톡 공유"
-          >
-            <Share2 size={18} className="text-accent/80" />
-          </button>
         </div>
       )}
 
