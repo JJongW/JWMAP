@@ -26,6 +26,7 @@ export default function App() {
   // Selection state
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [previewLocation, setPreviewLocation] = useState<Location | null>(null);
+  const [detailLocation, setDetailLocation] = useState<Location | null>(null); // 모바일 디테일 뷰용
   const [hoveredLocationId, setHoveredLocationId] = useState<string | null>(null);
 
   // UI Mode state (mobile)
@@ -401,14 +402,13 @@ export default function App() {
     setVisibleLocations(prev => prev + 10);
   };
 
-  // Open detail - 모바일은 sheet로, PC는 SidebarDetail로
+  // Open detail - 모바일은 페이지로, PC는 SidebarDetail로
   const handleOpenDetail = (location: Location) => {
     setSelectedLocation(location);
     setPreviewLocation(location);
     if (isMobile) {
-      // 모바일: sheet를 full로 열기
-      setBottomSheetState('full');
-      setSheetMode('preview');
+      // 모바일: 페이지 형식으로 디테일 뷰 표시
+      setDetailLocation(location);
     }
     // PC: previewLocation이 설정되면 자동으로 SidebarDetail이 표시됨
   };
@@ -434,11 +434,8 @@ export default function App() {
         setPreviewLocation(location);
         
         if (isMobile) {
-          // 모바일: sheet를 full로 열고 preview 모드로 설정
-          // browse 모드에서도 sheet가 표시되도록 하기 위해 상태 설정
-          setBottomSheetState('full');
-          setSheetMode('preview');
-          // URL 파라미터로 접근한 경우에는 항상 sheet가 표시되도록 보장
+          // 모바일: 페이지 형식으로 디테일 뷰 표시
+          setDetailLocation(location);
         }
         // PC: previewLocation이 설정되면 자동으로 SidebarDetail이 표시됨
         
@@ -458,6 +455,8 @@ export default function App() {
     onSelectLocation: setSelectedLocation,
     previewLocation,
     onPreviewLocation: setPreviewLocation,
+    detailLocation,
+    onDetailLocationChange: setDetailLocation,
     onOpenDetail: handleOpenDetail,
     isSearchMode,
     onSearchResults: handleSearchResults,

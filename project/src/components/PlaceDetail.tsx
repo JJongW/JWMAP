@@ -123,7 +123,7 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
         </div>
 
         {/* 스크롤 가능한 컨텐츠 */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overscroll-none">
           {/* 커버 이미지 */}
           {location.imageUrl && !imageError && (
             <div className="relative h-48 bg-base">

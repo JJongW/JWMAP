@@ -5,6 +5,7 @@ import { TopSearchBar } from '../TopSearchBar';
 import { FilterSection } from '../FilterSection';
 import { LocationList } from '../LocationList';
 import { PlacePreview } from '../PlacePreview';
+import { PlaceDetail } from '../PlaceDetail';
 import { MobileOverlay } from '../MobileOverlay';
 import { BottomSheet } from './BottomSheet';
 import { EventTagFilter } from '../EventTagFilter';
@@ -34,6 +35,8 @@ interface MobileLayoutProps {
   onSelectLocation: (location: Location | null) => void;
   previewLocation: Location | null;
   onPreviewLocation: (location: Location | null) => void;
+  detailLocation: Location | null;
+  onDetailLocationChange: (location: Location | null) => void;
   onOpenDetail: (location: Location) => void;
 
   // Search
@@ -87,6 +90,8 @@ export function MobileLayout({
   onSelectLocation,
   previewLocation,
   onPreviewLocation,
+  detailLocation,
+  onDetailLocationChange,
   onOpenDetail,
   isSearchMode,
   onSearchResults,
@@ -146,14 +151,13 @@ export function MobileLayout({
       search_id: currentSearchId,
     });
     if (isExplore) {
+      // explore 모드: preview sheet 표시
       onPreviewLocation(location);
       onSheetModeChange('preview');
       onBottomSheetStateChange('half');
     } else {
-      // browse 모드: preview로 설정하고 sheet를 full로 열기
-      onPreviewLocation(location);
-      onSheetModeChange('preview');
-      onBottomSheetStateChange('full');
+      // browse 모드: 페이지 형식으로 디테일 뷰 표시
+      onOpenDetail(location);
     }
   };
 
@@ -385,21 +389,13 @@ export function MobileLayout({
         )}
       </div>
 
-      {/* Bottom Sheet - Browse Mode (페이지 이동 형식) - 항상 full로 표시 */}
-      {isBrowse && previewLocation && bottomSheetState !== 'closed' && (
-        <BottomSheet
-          state="full"
-          onStateChange={onBottomSheetStateChange}
-        >
-          {sheetMode === 'preview' && (
-            <PlacePreview
-              location={previewLocation}
-              onBack={handleBackFromPreview}
-              onOpenDetail={() => onOpenDetail(previewLocation)}
-              searchId={currentSearchId}
-            />
-          )}
-        </BottomSheet>
+      {/* Mobile Detail View - 페이지 형식 */}
+      {detailLocation && (
+        <PlaceDetail
+          location={detailLocation}
+          onClose={() => onDetailLocationChange(null)}
+          isMobile={true}
+        />
       )}
     </div>
   );
