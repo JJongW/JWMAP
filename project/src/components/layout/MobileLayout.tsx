@@ -221,7 +221,7 @@ export function MobileLayout({
     <div className="relative min-h-screen">
       {/* ===== BROWSE MODE ===== */}
       <div
-        className={`min-h-screen bg-base transition-opacity duration-200 ${
+        className={`min-h-screen bg-white transition-opacity duration-200 ${
           isBrowse ? 'opacity-100' : 'opacity-0 pointer-events-none fixed inset-0 z-10'
         }`}
         style={{
@@ -329,7 +329,7 @@ export function MobileLayout({
 
       {/* ===== EXPLORE MODE ===== */}
       <div
-        className={`fixed inset-0 bg-base transition-opacity duration-200 ${
+        className={`fixed inset-0 bg-white transition-opacity duration-200 ${
           isExplore ? 'opacity-100 z-20' : 'opacity-0 pointer-events-none z-0'
         }`}
       >

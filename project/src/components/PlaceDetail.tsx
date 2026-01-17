@@ -107,7 +107,7 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
   // 모바일 레이아웃
   if (isMobile) {
     return (
-      <div className="fixed inset-0 z-50 bg-base overflow-hidden flex flex-col">
+      <div className="fixed inset-0 z-50 bg-white overflow-hidden flex flex-col">
         {/* 상단 헤더 */}
         <div className="bg-white border-b border-base px-4 py-3 flex items-center justify-between flex-shrink-0">
           <button
