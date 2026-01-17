@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { MobileLayout } from './components/layout/MobileLayout';
 import { DesktopLayout } from './components/layout/DesktopLayout';
 import { AddLocationModal } from './components/AddLocationModal';
-import { PlaceDetail } from './components/PlaceDetail';
 import { Footer } from './components/Footer';
 import type { Location, Features, Province, CategoryMain, CategorySub } from './types/location';
 import { REGION_HIERARCHY, inferProvinceFromRegion, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from './types/location';
@@ -27,7 +26,6 @@ export default function App() {
   // Selection state
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [previewLocation, setPreviewLocation] = useState<Location | null>(null);
-  const [detailLocation, setDetailLocation] = useState<Location | null>(null);
   const [hoveredLocationId, setHoveredLocationId] = useState<string | null>(null);
 
   // UI Mode state (mobile)
@@ -379,9 +377,16 @@ export default function App() {
     setVisibleLocations(prev => prev + 10);
   };
 
-  // Open detail modal
+  // Open detail - 모바일은 sheet로, PC는 SidebarDetail로
   const handleOpenDetail = (location: Location) => {
-    setDetailLocation(location);
+    setSelectedLocation(location);
+    setPreviewLocation(location);
+    if (isMobile) {
+      // 모바일: sheet를 full로 열기
+      setBottomSheetState('full');
+      setSheetMode('preview');
+    }
+    // PC: previewLocation이 설정되면 자동으로 SidebarDetail이 표시됨
   };
 
   // Load data on mount
@@ -400,15 +405,23 @@ export default function App() {
       // 해당 locationId를 가진 장소 찾기
       const location = locations.find(loc => loc.id === locationId);
       if (location) {
-        // 상세 모달 열기
-        setDetailLocation(location);
+        // 선택된 장소 설정
+        setSelectedLocation(location);
+        setPreviewLocation(location);
+        
+        if (isMobile) {
+          // 모바일: sheet를 full로 열고 preview 모드로 설정
+          setBottomSheetState('full');
+          setSheetMode('preview');
+        }
+        // PC: previewLocation이 설정되면 자동으로 SidebarDetail이 표시됨
         
         // URL에서 쿼리 파라미터 제거 (히스토리 업데이트)
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
       }
     }
-  }, [locations]);
+  }, [locations, isMobile]);
 
   // Common layout props
   const layoutProps = {
@@ -487,14 +500,7 @@ export default function App() {
         />
       )}
 
-      {/* Place Detail Modal */}
-      {detailLocation && (
-        <PlaceDetail
-          location={detailLocation}
-          onClose={() => setDetailLocation(null)}
-          isMobile={isMobile}
-        />
-      )}
+      {/* Place Detail Modal - 더 이상 사용하지 않음 (모바일은 sheet, PC는 SidebarDetail 사용) */}
 
       <SpeedInsights />
     </>

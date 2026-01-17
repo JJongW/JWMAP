@@ -139,7 +139,9 @@ export function MobileLayout({
     if (isExplore) {
       onPreviewLocation(location);
       onSheetModeChange('preview');
+      onBottomSheetStateChange('half');
     } else {
+      // browse 모드에서도 sheet로 표시
       onOpenDetail(location);
     }
   };
