@@ -180,10 +180,8 @@ export function MobileLayout({
     if (isExplore) {
       onSheetModeChange('list');
       onBottomSheetStateChange('half');
-    } else {
-      // browse 모드: sheet 닫기
-      onBottomSheetStateChange('closed');
     }
+    // browse 모드에서는 detailLocation을 사용하므로 별도 처리 불필요
     onPreviewLocation(null);
   };
 
@@ -201,10 +199,11 @@ export function MobileLayout({
     onPreviewLocation(null);
   };
 
-  // sheet가 열려있을 때 body scroll 막기
+  // explore 모드에서 sheet가 열려있을 때만 body scroll 막기
   useEffect(() => {
-    const isSheetOpen = (isBrowse && previewLocation && bottomSheetState !== 'closed') || 
-                        (isExplore && bottomSheetState !== 'closed');
+    // browse 모드는 페이지 형식이므로 항상 스크롤 가능
+    // explore 모드에서만 sheet가 열려있을 때 스크롤 막기
+    const isSheetOpen = isExplore && (bottomSheetState === 'half' || bottomSheetState === 'full');
     
     if (isSheetOpen) {
       document.body.style.overflow = 'hidden';
@@ -215,7 +214,7 @@ export function MobileLayout({
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isBrowse, isExplore, previewLocation, bottomSheetState]);
+  }, [isExplore, bottomSheetState]);
 
   return (
     <div className="relative min-h-screen">
@@ -225,8 +224,7 @@ export function MobileLayout({
           isBrowse ? 'opacity-100' : 'opacity-0 pointer-events-none fixed inset-0 z-10'
         }`}
         style={{
-          overflow: ((isBrowse && previewLocation && bottomSheetState !== 'closed') || 
-                     (isExplore && bottomSheetState !== 'closed')) ? 'hidden' : 'auto'
+          overflow: 'auto'
         }}
       >
         {/* Header */}
@@ -266,10 +264,6 @@ export function MobileLayout({
         <main 
           className="px-4 py-4 space-y-4 pb-20"
           style={{
-            overflow: ((isBrowse && previewLocation && bottomSheetState !== 'closed') || 
-                       (isExplore && bottomSheetState !== 'closed')) ? 'hidden' : 'auto',
-            height: ((isBrowse && previewLocation && bottomSheetState !== 'closed') || 
-                     (isExplore && bottomSheetState !== 'closed')) ? 'calc(100vh - 64px)' : 'auto',
             position: 'relative',
           }}
         >
