@@ -263,8 +263,8 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
 
               {/* One-liner (Verdict) */}
               {currentLocation.short_desc && (
-                <div className="bg-point/10 rounded-xl p-4">
-                  <p className="text-base font-medium text-accent leading-relaxed">
+                <div className="bg-[#FF8A3D] rounded-xl p-4">
+                  <p className="text-base font-medium text-[#FFF7ED] leading-relaxed">
                     "{currentLocation.short_desc}"
                   </p>
                 </div>

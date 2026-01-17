@@ -157,8 +157,8 @@ export function PlacePreview({
 
           {/* One-liner (highlighted) */}
           {location.short_desc && (
-            <div className="bg-point/10 rounded-xl p-3">
-              <p className="text-sm font-medium text-accent">"{location.short_desc}"</p>
+            <div className="bg-[#FF8A3D] rounded-xl p-3">
+              <p className="text-sm font-medium text-[#FFF7ED]">"{location.short_desc}"</p>
             </div>
           )}
 

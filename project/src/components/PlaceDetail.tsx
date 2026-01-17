@@ -185,8 +185,8 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
 
             {/* 큐레이터 원라이너 (Verdict) */}
             {location.short_desc && (
-              <div className="bg-point/10 rounded-2xl p-4">
-                <p className="text-lg font-medium text-accent leading-relaxed">
+              <div className="bg-[#FF8A3D] rounded-2xl p-4">
+                <p className="text-lg font-medium text-[#FFF7ED] leading-relaxed">
                   "{location.short_desc}"
                 </p>
               </div>
@@ -375,8 +375,8 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
 
             {/* 큐레이터 원라이너 */}
             {location.short_desc && (
-              <div className="bg-point/10 rounded-2xl p-5">
-                <p className="text-xl font-medium text-accent leading-relaxed">
+              <div className="bg-[#FF8A3D] rounded-2xl p-5">
+                <p className="text-xl font-medium text-[#FFF7ED] leading-relaxed">
                   "{location.short_desc}"
                 </p>
               </div>
