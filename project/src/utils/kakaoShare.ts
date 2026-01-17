@@ -127,6 +127,9 @@ export function shareToKakao(location: Location): boolean {
 
   // 현재 페이지 URL
   const currentUrl = window.location.origin;
+  
+  // 장소 ID를 포함한 공유 URL 생성
+  const shareUrl = `${currentUrl}?locationId=${location.id}`;
 
   // 이미지 URL (없으면 기본 이미지)
   const imageUrl = location.imageUrl
@@ -150,16 +153,16 @@ export function shareToKakao(location: Location): boolean {
         description: description,
         imageUrl: imageUrl,
         link: {
-          mobileWebUrl: currentUrl,
-          webUrl: currentUrl,
+          mobileWebUrl: shareUrl,
+          webUrl: shareUrl,
         },
       },
       buttons: [
         {
           title: '오늘 오디가?에서 보기',
           link: {
-            mobileWebUrl: currentUrl,
-            webUrl: currentUrl,
+            mobileWebUrl: shareUrl,
+            webUrl: shareUrl,
           },
         },
       ],

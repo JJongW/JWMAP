@@ -389,6 +389,27 @@ export default function App() {
     fetchLocations();
   }, []);
 
+  // URL 쿼리 파라미터에서 locationId 확인하고 상세 화면 열기
+  useEffect(() => {
+    if (locations.length === 0) return; // locations가 로드되지 않았으면 대기
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const locationId = urlParams.get('locationId');
+
+    if (locationId) {
+      // 해당 locationId를 가진 장소 찾기
+      const location = locations.find(loc => loc.id === locationId);
+      if (location) {
+        // 상세 모달 열기
+        setDetailLocation(location);
+        
+        // URL에서 쿼리 파라미터 제거 (히스토리 업데이트)
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+  }, [locations]);
+
   // Common layout props
   const layoutProps = {
     locations,
