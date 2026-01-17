@@ -199,10 +199,17 @@ export function MobileLayout({
     onPreviewLocation(null);
   };
 
-  // explore 모드에서 sheet가 열려있을 때만 body scroll 막기
+  // detailLocation이 열려있을 때 또는 explore 모드에서 sheet가 열려있을 때 body scroll 막기
   useEffect(() => {
-    // browse 모드는 페이지 형식이므로 항상 스크롤 가능
-    // explore 모드에서만 sheet가 열려있을 때 스크롤 막기
+    // detailLocation이 열려있으면 페이지 형식이므로 body 스크롤 막기
+    if (detailLocation) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+    
+    // explore 모드에서 sheet가 열려있을 때 스크롤 막기
     const isSheetOpen = isExplore && (bottomSheetState === 'half' || bottomSheetState === 'full');
     
     if (isSheetOpen) {
@@ -214,7 +221,7 @@ export function MobileLayout({
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isExplore, bottomSheetState]);
+  }, [isExplore, bottomSheetState, detailLocation]);
 
   return (
     <div className="relative min-h-screen">
@@ -222,9 +229,11 @@ export function MobileLayout({
       <div
         className={`min-h-screen bg-white transition-opacity duration-200 ${
           isBrowse ? 'opacity-100' : 'opacity-0 pointer-events-none fixed inset-0 z-10'
+        } ${
+          detailLocation ? 'pointer-events-none overflow-hidden' : ''
         }`}
         style={{
-          overflow: 'auto'
+          overflow: detailLocation ? 'hidden' : 'auto'
         }}
       >
         {/* Header */}
