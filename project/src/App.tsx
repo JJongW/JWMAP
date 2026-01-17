@@ -411,8 +411,10 @@ export default function App() {
         
         if (isMobile) {
           // 모바일: sheet를 full로 열고 preview 모드로 설정
+          // browse 모드에서도 sheet가 표시되도록 하기 위해 상태 설정
           setBottomSheetState('full');
           setSheetMode('preview');
+          // URL 파라미터로 접근한 경우에는 항상 sheet가 표시되도록 보장
         }
         // PC: previewLocation이 설정되면 자동으로 SidebarDetail이 표시됨
         
@@ -421,6 +423,7 @@ export default function App() {
         window.history.replaceState({}, '', newUrl);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locations, isMobile]);
 
   // Common layout props

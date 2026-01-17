@@ -141,8 +141,10 @@ export function MobileLayout({
       onSheetModeChange('preview');
       onBottomSheetStateChange('half');
     } else {
-      // browse 모드에서도 sheet로 표시
-      onOpenDetail(location);
+      // browse 모드: preview로 설정하고 sheet를 full로 열기
+      onPreviewLocation(location);
+      onSheetModeChange('preview');
+      onBottomSheetStateChange('full');
     }
   };
 
@@ -162,7 +164,13 @@ export function MobileLayout({
 
   // Handle back from preview
   const handleBackFromPreview = () => {
-    onSheetModeChange('list');
+    if (isExplore) {
+      onSheetModeChange('list');
+      onBottomSheetStateChange('half');
+    } else {
+      // browse 모드: sheet 닫기
+      onBottomSheetStateChange('closed');
+    }
     onPreviewLocation(null);
   };
 
@@ -302,7 +310,7 @@ export function MobileLayout({
           />
         )}
 
-        {/* Bottom Sheet */}
+        {/* Bottom Sheet - Explore Mode */}
         {isExplore && (
           <BottomSheet
             state={bottomSheetState}
@@ -329,6 +337,23 @@ export function MobileLayout({
           </BottomSheet>
         )}
       </div>
+
+      {/* Bottom Sheet - Browse Mode (페이지 이동 형식) */}
+      {isBrowse && previewLocation && (
+        <BottomSheet
+          state={bottomSheetState}
+          onStateChange={onBottomSheetStateChange}
+        >
+          {sheetMode === 'preview' && (
+            <PlacePreview
+              location={previewLocation}
+              onBack={handleBackFromPreview}
+              onOpenDetail={() => onOpenDetail(previewLocation)}
+              searchId={currentSearchId}
+            />
+          )}
+        </BottomSheet>
+      )}
     </div>
   );
 }
