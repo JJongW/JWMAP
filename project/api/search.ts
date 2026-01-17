@@ -105,6 +105,7 @@ Available regions (use exact strings):
 2. "맛집" 검색 시: 특정 카테고리 지정 없이 지역만 필터링
 3. 카테고리 제외: "카페 제외", "술집 빼고" 같은 표현을 excludeCategoryMain에 반영
 4. 키워드: 음식 이름, 태그로 사용될 수 있는 단어들을 keywords에 포함
+5. 장소 이름: 사용자가 입력한 텍스트가 장소 이름일 수 있으므로, 명확한 지역/카테고리 표현이 아닌 경우 keywords에 포함
 
 한국어 자연스러운 표현 매핑:
 - "밥집", "밥 먹을 곳", "밥 먹고 싶어", "밥 먹을래" → categoryMain: ["밥"]
@@ -328,6 +329,7 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
   }
 
   // Keyword matching: include tag matches OR text matches
+  // 키워드가 없어도 원본 쿼리 텍스트로 검색할 수 있도록 처리
   if (query.keywords && query.keywords.length > 0) {
     const keywordLower = query.keywords.map((k) => k.toLowerCase());
     results = results.filter((loc) => {
@@ -427,6 +429,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const parsed = await parseQuery(text);
     const llmMs = Date.now() - llmStart;
     console.log(`[${traceId}] LLM parsed in ${llmMs}ms:`, JSON.stringify(parsed));
+
+    // 원본 쿼리 텍스트를 키워드로도 추가 (장소 이름 검색을 위해)
+    if (!parsed.keywords || parsed.keywords.length === 0) {
+      parsed.keywords = [text.trim()];
+    } else {
+      // 키워드가 있어도 원본 텍스트를 추가 (부분 일치를 위해)
+      parsed.keywords.push(text.trim());
+    }
 
     // 2. Search locations
     const dbStart = Date.now();
