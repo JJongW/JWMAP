@@ -197,6 +197,7 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
             location={currentLocation}
             onDelete={handleLocationDelete}
             onUpdate={handleLocationUpdate}
+            initialEditing={true}
           />
         ) : (
           /* View Mode - Original detail view */

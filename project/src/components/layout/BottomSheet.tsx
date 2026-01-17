@@ -12,7 +12,7 @@ interface BottomSheetProps {
 const SNAP_HEIGHTS: Record<BottomSheetState, number> = {
   collapsed: 12,  // 12vh (약 80-100px)
   half: 50,       // 50vh
-  full: 88,       // 88vh
+  full: 100,      // 100vh (풀스크린)
 };
 
 export function BottomSheet({
@@ -78,28 +78,42 @@ export function BottomSheet({
 
   // Calculate display height
   const displayHeight = isDragging
-    ? Math.max(10, Math.min(92, startHeightRef.current + dragOffset))
+    ? Math.max(10, Math.min(100, startHeightRef.current + dragOffset))
     : getHeight();
 
+  // full 상태일 때는 rounded 제거 및 top-0
+  const isFull = state === 'full' || (isDragging && startHeightRef.current + dragOffset > 95);
+  
   return (
-    <div
-      className={`fixed left-0 right-0 bottom-0 bg-white rounded-t-2xl z-40 flex flex-col ${className}`}
-      style={{
-        height: `${displayHeight}vh`,
-        transition: isDragging ? 'none' : 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.15)',
-      }}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Drag Handle */}
+    <>
+      {/* Backdrop - full 상태일 때만 표시 */}
+      {isFull && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40"
+          onClick={() => onStateChange('closed')}
+        />
+      )}
       <div
-        data-sheet-handle
-        className="flex-shrink-0 py-3 cursor-grab active:cursor-grabbing touch-none"
+        className={`fixed left-0 right-0 bottom-0 bg-white z-50 flex flex-col ${isFull ? 'rounded-none' : 'rounded-t-2xl'} ${className}`}
+        style={{
+          height: `${displayHeight}vh`,
+          top: isFull ? 0 : 'auto',
+          transition: isDragging ? 'none' : 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          boxShadow: isFull ? 'none' : '0 -4px 20px rgba(0, 0, 0, 0.15)',
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto" />
-      </div>
+        {/* Drag Handle - full 상태가 아닐 때만 표시 */}
+        {!isFull && (
+          <div
+            data-sheet-handle
+            className="flex-shrink-0 py-3 cursor-grab active:cursor-grabbing touch-none"
+          >
+            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto" />
+          </div>
+        )}
 
       {/* Content */}
       <div
@@ -112,5 +126,6 @@ export function BottomSheet({
         {children}
       </div>
     </div>
+    </>
   );
 }

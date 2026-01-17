@@ -7,6 +7,7 @@ import { LocationList } from '../LocationList';
 import { PlacePreview } from '../PlacePreview';
 import { MobileOverlay } from '../MobileOverlay';
 import { BottomSheet } from './BottomSheet';
+import { EventTagFilter } from '../EventTagFilter';
 import { clickLogApi } from '../../utils/supabase';
 import type { Location, Province, CategoryMain, CategorySub } from '../../types/location';
 import type { UiMode, BottomSheetState, SheetMode } from '../../types/ui';
@@ -66,6 +67,11 @@ interface MobileLayoutProps {
 
   // Header actions
   onOpenAddModal: () => void;
+
+  // Event Tag Filter
+  availableEventTags: string[];
+  selectedEventTag: string | null;
+  onEventTagToggle: (tag: string | null) => void;
 }
 
 export function MobileLayout({
@@ -106,6 +112,9 @@ export function MobileLayout({
   visibleLocations,
   onShowMore,
   onOpenAddModal,
+  availableEventTags,
+  selectedEventTag,
+  onEventTagToggle,
 }: MobileLayoutProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [mapReady, setMapReady] = useState(false);
@@ -188,6 +197,22 @@ export function MobileLayout({
     onPreviewLocation(null);
   };
 
+  // sheet가 열려있을 때 body scroll 막기
+  useEffect(() => {
+    const isSheetOpen = (isBrowse && previewLocation && bottomSheetState !== 'closed') || 
+                        (isExplore && bottomSheetState !== 'closed');
+    
+    if (isSheetOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isBrowse, isExplore, previewLocation, bottomSheetState]);
+
   return (
     <div className="relative min-h-screen">
       {/* ===== BROWSE MODE ===== */}
@@ -195,6 +220,10 @@ export function MobileLayout({
         className={`min-h-screen bg-base transition-opacity duration-200 ${
           isBrowse ? 'opacity-100' : 'opacity-0 pointer-events-none fixed inset-0 z-10'
         }`}
+        style={{
+          overflow: ((isBrowse && previewLocation && bottomSheetState !== 'closed') || 
+                     (isExplore && bottomSheetState !== 'closed')) ? 'hidden' : 'auto'
+        }}
       >
         {/* Header */}
         <header className="sticky top-0 z-20 bg-white border-b border-base">
@@ -230,7 +259,16 @@ export function MobileLayout({
         </header>
 
         {/* Main Content */}
-        <main className="px-4 py-4 space-y-4 pb-20">
+        <main 
+          className="px-4 py-4 space-y-4 pb-20"
+          style={{
+            overflow: ((isBrowse && previewLocation && bottomSheetState !== 'closed') || 
+                       (isExplore && bottomSheetState !== 'closed')) ? 'hidden' : 'auto',
+            height: ((isBrowse && previewLocation && bottomSheetState !== 'closed') || 
+                     (isExplore && bottomSheetState !== 'closed')) ? 'calc(100vh - 64px)' : 'auto',
+            position: 'relative',
+          }}
+        >
           {/* Search Bar */}
           <TopSearchBar
             onResults={(places) => {
@@ -243,6 +281,15 @@ export function MobileLayout({
             isSearchMode={isSearchMode}
             onSearchIdChange={onSearchIdChange}
           />
+
+          {/* Event Tag Filter */}
+          {!isSearchMode && (
+            <EventTagFilter
+              availableEventTags={availableEventTags}
+              selectedEventTag={selectedEventTag}
+              onEventTagToggle={onEventTagToggle}
+            />
+          )}
 
           {/* Filters */}
           <FilterSection
@@ -338,10 +385,10 @@ export function MobileLayout({
         )}
       </div>
 
-      {/* Bottom Sheet - Browse Mode (페이지 이동 형식) */}
-      {isBrowse && previewLocation && (
+      {/* Bottom Sheet - Browse Mode (페이지 이동 형식) - 항상 full로 표시 */}
+      {isBrowse && previewLocation && bottomSheetState !== 'closed' && (
         <BottomSheet
-          state={bottomSheetState}
+          state="full"
           onStateChange={onBottomSheetStateChange}
         >
           {sheetMode === 'preview' && (

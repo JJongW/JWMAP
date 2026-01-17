@@ -372,6 +372,30 @@ export default function App() {
     setVisibleLocations(10);
   };
 
+  // 이벤트 태그 토글 핸들러
+  const handleEventTagToggle = (tag: string | null) => {
+    setSelectedEventTag(tag);
+    setVisibleLocations(10);
+  };
+
+  // 사용 가능한 이벤트 태그 목록 추출
+  const availableEventTags: string[] = (() => {
+    const eventTagSet = new Set<string>();
+    locations.forEach(location => {
+      if (location.eventTags && Array.isArray(location.eventTags)) {
+        location.eventTags.forEach(tag => {
+          if (tag && tag.trim()) {
+            eventTagSet.add(tag.trim());
+          }
+        });
+      }
+    });
+    // "흑백요리사 시즌2", "천하제빵 시즌1" 순서 유지
+    const orderedTags = ['흑백요리사 시즌2', '천하제빵 시즌1'];
+    const otherTags = Array.from(eventTagSet).filter(tag => !orderedTags.includes(tag));
+    return [...orderedTags.filter(tag => eventTagSet.has(tag)), ...otherTags];
+  })();
+
   // Pagination
   const handleShowMore = () => {
     setVisibleLocations(prev => prev + 10);
@@ -461,6 +485,10 @@ export default function App() {
     onOpenAddModal: () => setIsModalOpen(true),
     onUpdate: handleUpdate,
     onDelete: handleDelete,
+    // Event Tag Filter
+    availableEventTags,
+    selectedEventTag,
+    onEventTagToggle: handleEventTagToggle,
   };
 
   return (

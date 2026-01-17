@@ -11,6 +11,7 @@ interface LocationCardProps {
   location: Location;
   onDelete: (id: string) => void;
   onUpdate?: (updatedLocation: Location) => void;
+  initialEditing?: boolean; // 초기 편집 모드로 시작할지 여부
 }
 
 const featureOptions: { key: keyof Features; label: string }[] = [
@@ -25,8 +26,8 @@ const featureOptions: { key: keyof Features; label: string }[] = [
   { key: 'late_night', label: '심야 영업' },
 ];
 
-export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps) {
-  const [isEditing, setIsEditing] = useState(false);
+export function LocationCard({ location, onDelete, onUpdate, initialEditing = false }: LocationCardProps) {
+  const [isEditing, setIsEditing] = useState(initialEditing);
   const [editedRating, setEditedRating] = useState(location.rating);
   const [editedImageUrl, setEditedImageUrl] = useState(location.imageUrl);
   const [editedCategoryMain, setEditedCategoryMain] = useState<CategoryMain | ''>(location.categoryMain || '');
@@ -36,7 +37,10 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
-    setIsEditing(false);
+    // initialEditing이 true인 경우 편집 모드 유지, false인 경우에만 편집 모드 해제
+    if (!initialEditing) {
+      setIsEditing(false);
+    }
     setEditedRating(location.rating);
     setEditedImageUrl(location.imageUrl);
     setEditedCategoryMain(location.categoryMain || '');
@@ -44,7 +48,7 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
     setEditedMemo(location.memo);
     setEditedFeatures(location.features || {});
     setImageError(false);
-  }, [location]);
+  }, [location, initialEditing]);
   
   // 대분류에 따른 소분류 목록
   const availableCategorySubs = editedCategoryMain && editedCategoryMain !== '전체'

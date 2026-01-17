@@ -4,6 +4,7 @@ import { TopSearchBar } from '../TopSearchBar';
 import { FilterSection } from '../FilterSection';
 import { LocationList } from '../LocationList';
 import { SidebarDetail } from '../SidebarDetail';
+import { EventTagFilter } from '../EventTagFilter';
 import { Sidebar } from './Sidebar';
 import { clickLogApi } from '../../utils/supabase';
 import type { Location, Province, CategoryMain, CategorySub } from '../../types/location';
@@ -57,6 +58,11 @@ interface DesktopLayoutProps {
   // Location actions
   onUpdate?: (updatedLocation: Location) => void;
   onDelete?: (id: string) => void;
+
+  // Event Tag Filter
+  availableEventTags: string[];
+  selectedEventTag: string | null;
+  onEventTagToggle: (tag: string | null) => void;
 }
 
 export function DesktopLayout({
@@ -95,6 +101,9 @@ export function DesktopLayout({
   onOpenAddModal,
   onUpdate,
   onDelete,
+  availableEventTags,
+  selectedEventTag,
+  onEventTagToggle,
 }: DesktopLayoutProps) {
   // Handle location select from list
   const handleLocationSelect = (location: Location) => {
@@ -183,6 +192,15 @@ export function DesktopLayout({
                 isSearchMode={isSearchMode}
                 onSearchIdChange={onSearchIdChange}
               />
+
+              {/* Event Tag Filter */}
+              {!isSearchMode && (
+                <EventTagFilter
+                  availableEventTags={availableEventTags}
+                  selectedEventTag={selectedEventTag}
+                  onEventTagToggle={onEventTagToggle}
+                />
+              )}
 
               {/* Filters */}
               <FilterSection
