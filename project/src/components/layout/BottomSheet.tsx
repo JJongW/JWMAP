@@ -34,21 +34,35 @@ export function BottomSheet({
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
     const isHandle = target.closest('[data-sheet-handle]');
-    const contentScrollTop = contentRef.current?.scrollTop ?? 0;
+    const content = contentRef.current;
+    const contentScrollTop = content?.scrollTop ?? 0;
+    const isAtTop = contentScrollTop === 0;
 
     // Only start drag from handle or when content is at top
-    if (isHandle || contentScrollTop === 0) {
-      setIsDragging(true);
-      startYRef.current = e.touches[0].clientY;
-      startHeightRef.current = SNAP_HEIGHTS[state];
+    // 드래그 핸들을 누르지 않았고 스크롤 상단에 있지 않으면 드래그 시작 안 함
+    if (!isHandle && !isAtTop) {
+      return;
     }
+
+    // full 상태에서 드래그 핸들이 없을 때는 드래그 시작 안 함
+    // 아래로 당기는 동작 (pull-to-refresh)은 방지
+    if (state === 'full' && !isHandle) {
+      return;
+    }
+
+    setIsDragging(true);
+    startYRef.current = e.touches[0].clientY;
+    startHeightRef.current = SNAP_HEIGHTS[state];
   }, [state]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDragging) return;
 
-    // 스크롤 중일 때는 드래그를 중단
     const content = contentRef.current;
+    const currentY = e.touches[0].clientY;
+    const deltaY = startYRef.current - currentY; // Positive = drag up, Negative = drag down
+
+    // 스크롤 중일 때는 드래그를 중단
     if (content) {
       const isScrollable = content.scrollHeight > content.clientHeight;
       const isAtTop = content.scrollTop === 0;
@@ -60,14 +74,26 @@ export function BottomSheet({
         setDragOffset(0);
         return;
       }
+
+      // full 상태에서 아래로 당기는 동작 (pull-to-refresh)은 방지
+      if (state === 'full' && deltaY < 0 && isAtTop) {
+        setIsDragging(false);
+        setDragOffset(0);
+        e.preventDefault();
+        return;
+      }
     }
 
-    const currentY = e.touches[0].clientY;
-    const deltaY = startYRef.current - currentY; // Positive = drag up
     const deltaVh = (deltaY / window.innerHeight) * 100;
 
+    // 드래그 중일 때만 preventDefault (스크롤 방지)
+    if (Math.abs(deltaVh) > 1) {
+      e.preventDefault();
+    }
+
+    // 아래로 드래그할 때만 허용 (위로 드래그는 sheet를 닫는 동작)
     setDragOffset(deltaVh);
-  }, [isDragging]);
+  }, [isDragging, state]);
 
   const handleTouchEnd = useCallback(() => {
     if (!isDragging) return;
@@ -136,6 +162,40 @@ export function BottomSheet({
         className="flex-1 overflow-y-auto overscroll-none"
         style={{
           touchAction: isDragging ? 'none' : 'pan-y',
+          overscrollBehavior: 'none',
+          // @ts-expect-error - WebkitOverflowScrolling is not in React.CSSProperties
+          WebkitOverflowScrolling: 'touch',
+        }}
+        onTouchStart={(e) => {
+          // 스크롤 컨테이너에서 pull-to-refresh 방지
+          const content = contentRef.current;
+          if (content && content.scrollTop === 0) {
+            const touch = e.touches[0];
+            const startY = touch.clientY;
+            let moved = false;
+            
+            // 아래로 당기는 동작 감지 및 방지
+            const handleMove = (moveEvent: TouchEvent) => {
+              if (moveEvent.touches.length === 0) return;
+              const currentY = moveEvent.touches[0].clientY;
+              const deltaY = currentY - startY;
+              
+              // 아래로 당기는 동작 감지 (10px 이상)
+              if (deltaY > 10) {
+                moved = true;
+                moveEvent.preventDefault();
+                moveEvent.stopPropagation();
+              }
+            };
+            
+            const handleEnd = () => {
+              document.removeEventListener('touchmove', handleMove, { capture: true });
+              document.removeEventListener('touchend', handleEnd, { capture: true });
+            };
+            
+            document.addEventListener('touchmove', handleMove, { passive: false, capture: true });
+            document.addEventListener('touchend', handleEnd, { capture: true });
+          }
         }}
       >
         {children}

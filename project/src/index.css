@@ -68,11 +68,19 @@
 
 /* 기본 배경색 설정 (Soft Cream) */
 @layer base {
+  html {
+    /* pull-to-refresh 완전히 비활성화 */
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
   body {
     @apply bg-base;
     /* 모바일에서 overscroll 방지 */
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
+    /* iOS에서 pull-to-refresh 방지 */
+    overscroll-behavior: none;
   }
   
   /* 모든 스크롤 가능한 요소에서 overscroll 방지 */
