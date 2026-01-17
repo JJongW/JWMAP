@@ -113,7 +113,7 @@ export function PlacePreview({
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-none">
         {/* Image (if available) */}
         {location.imageUrl && (
           <div className="h-32 bg-base">

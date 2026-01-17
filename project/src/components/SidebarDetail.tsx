@@ -190,7 +190,7 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-none">
         {isEditMode ? (
           /* Edit Mode - Use LocationCard for editing */
           <LocationCard

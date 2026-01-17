@@ -70,5 +70,21 @@
 @layer base {
   body {
     @apply bg-base;
+    /* 모바일에서 overscroll 방지 */
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 모든 스크롤 가능한 요소에서 overscroll 방지 */
+  * {
+    overscroll-behavior: none;
+  }
+}
+
+/* 스크롤 컨테이너에서 overscroll 방지 */
+@layer utilities {
+  .overscroll-none {
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
   }
 }

@@ -47,6 +47,21 @@ export function BottomSheet({
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDragging) return;
 
+    // 스크롤 중일 때는 드래그를 중단
+    const content = contentRef.current;
+    if (content) {
+      const isScrollable = content.scrollHeight > content.clientHeight;
+      const isAtTop = content.scrollTop === 0;
+      const isAtBottom = content.scrollTop + content.clientHeight >= content.scrollHeight - 1;
+      
+      // 스크롤이 가능하고, 상단이나 하단에 있지 않으면 드래그 중단
+      if (isScrollable && !isAtTop && !isAtBottom) {
+        setIsDragging(false);
+        setDragOffset(0);
+        return;
+      }
+    }
+
     const currentY = e.touches[0].clientY;
     const deltaY = startYRef.current - currentY; // Positive = drag up
     const deltaVh = (deltaY / window.innerHeight) * 100;
@@ -118,7 +133,7 @@ export function BottomSheet({
       {/* Content */}
       <div
         ref={contentRef}
-        className="flex-1 overflow-y-auto overscroll-contain"
+        className="flex-1 overflow-y-auto overscroll-none"
         style={{
           touchAction: isDragging ? 'none' : 'pan-y',
         }}
