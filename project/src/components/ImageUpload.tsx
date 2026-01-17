@@ -67,6 +67,44 @@ async function compressImage(
   });
 }
 
+// 2MB 미만으로 압축하는 함수 (반복 압축)
+async function compressToUnder2MB(
+  file: File,
+  initialMaxWidth: number,
+  initialMaxHeight: number,
+  initialQuality: number
+): Promise<Blob> {
+  const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+  let currentWidth = initialMaxWidth;
+  let currentHeight = initialMaxHeight;
+  let currentQuality = initialQuality;
+  let attempts = 0;
+  const MAX_ATTEMPTS = 10;
+
+  while (attempts < MAX_ATTEMPTS) {
+    const compressed = await compressImage(file, currentWidth, currentHeight, currentQuality);
+    
+    if (compressed.size <= MAX_SIZE) {
+      return compressed;
+    }
+
+    // 2MB를 넘으면 압축 강화
+    if (currentQuality > 0.3) {
+      // 품질을 낮춤
+      currentQuality = Math.max(0.3, currentQuality - 0.1);
+    } else {
+      // 품질이 최소치면 크기를 줄임
+      currentWidth = Math.round(currentWidth * 0.8);
+      currentHeight = Math.round(currentHeight * 0.8);
+    }
+
+    attempts++;
+  }
+
+  // 최대 시도 횟수에 도달하면 마지막 결과 반환
+  return await compressImage(file, currentWidth, currentHeight, currentQuality);
+}
+
 export function ImageUpload({
   value,
   onChange,
@@ -95,12 +133,6 @@ export function ImageUpload({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 파일 크기 체크 (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setError('파일 크기는 10MB 이하여야 합니다.');
-      return;
-    }
-
     // 이미지 타입 체크
     if (!file.type.startsWith('image/')) {
       setError('이미지 파일만 업로드 가능합니다.');
@@ -112,9 +144,9 @@ export function ImageUpload({
     setIsUploading(true);
 
     try {
-      // 이미지 압축
+      // 이미지 압축 (자동으로 2MB 미만으로 압축)
       const originalSize = file.size;
-      const compressedBlob = await compressImage(file, maxWidth, maxHeight, quality);
+      const compressedBlob = await compressToUnder2MB(file, maxWidth, maxHeight, quality);
       const compressedSize = compressedBlob.size;
 
       // 압축 정보 표시
@@ -263,7 +295,7 @@ export function ImageUpload({
             >
               <ImageIcon className="w-10 h-10 text-gray-300 mb-2" />
               <span className="text-sm text-gray-500">클릭하여 이미지 선택</span>
-              <span className="text-xs text-gray-400 mt-1">최대 10MB</span>
+              <span className="text-xs text-gray-400 mt-1">자동으로 2MB 미만으로 압축됩니다</span>
             </label>
           )}
         </div>
