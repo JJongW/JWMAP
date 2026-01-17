@@ -66,7 +66,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 기본 배경색 설정 (Warm Off-White) */
+/* 기본 배경색 설정 (Soft Cream) */
 @layer base {
   body {
     @apply bg-base;

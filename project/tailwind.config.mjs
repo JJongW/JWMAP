@@ -6,14 +6,14 @@ export default {
       colors: {
         // 새로운 색상 시스템
         base: {
-          DEFAULT: '#FAFAF7', // Warm Off-White (70%)
+          DEFAULT: '#FFF7ED', // Soft Cream (70%)
         },
         point: {
-          DEFAULT: '#E53935', // Tomato Red (20%)
-          hover: '#C62828',   // 더 어두운 토마토 레드 (hover용)
+          DEFAULT: '#FF8A3D', // Apricot Orange (20%)
+          hover: '#E67A35',   // 더 어두운 Apricot Orange (hover용)
         },
         accent: {
-          DEFAULT: '#2B2B2B', // Charcoal (10%)
+          DEFAULT: '#3A2F2A', // Espresso Brown (10%)
         },
         // 기존 primary 유지 (호환성)
         primary: {
