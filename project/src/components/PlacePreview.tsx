@@ -97,24 +97,24 @@ export function PlacePreview({
     <div className={`flex flex-col ${className}`}>
       {/* Header with back button */}
       {onBack && (
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-base">
           <div className="flex items-center gap-2">
             <button
               onClick={onBack}
-              className="p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1.5 -ml-1.5 rounded-lg hover:bg-base transition-colors"
             >
-              <ArrowLeft size={20} className="text-gray-600" />
+              <ArrowLeft size={20} className="text-accent/80" />
             </button>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-accent/70">
               {location.categorySub || location.categoryMain || '미분류'}
             </span>
           </div>
           <button
             onClick={handleShareKakao}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-lg hover:bg-base transition-colors"
             title="카카오톡 공유"
           >
-            <Share2 size={18} className="text-gray-600" />
+            <Share2 size={18} className="text-accent/80" />
           </button>
         </div>
       )}
@@ -123,7 +123,7 @@ export function PlacePreview({
       <div className="flex-1 overflow-y-auto">
         {/* Image (if available) */}
         {location.imageUrl && (
-          <div className="h-32 bg-gray-100">
+          <div className="h-32 bg-base">
             <img
               src={getCardImageUrl(location.imageUrl)}
               alt={location.name}
@@ -140,15 +140,15 @@ export function PlacePreview({
           {/* Title & Rating */}
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">{location.name}</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
+              <h2 className="text-lg font-bold text-accent">{location.name}</h2>
+              <p className="text-sm text-accent/70 mt-0.5">
                 {getLocationProvince(location)
                   ? `${getLocationProvince(location)} · ${location.region}`
                   : location.region}
               </p>
             </div>
             {location.rating > 0 && (
-              <div className="flex items-center gap-1 text-orange-500 flex-shrink-0">
+              <div className="flex items-center gap-1 text-point flex-shrink-0">
                 <Star size={16} className="fill-current" />
                 <span className="font-semibold">{location.rating.toFixed(1)}</span>
               </div>
@@ -157,8 +157,8 @@ export function PlacePreview({
 
           {/* One-liner (highlighted) */}
           {location.short_desc && (
-            <div className="bg-orange-50 rounded-xl p-3">
-              <p className="text-sm font-medium text-gray-900">"{location.short_desc}"</p>
+            <div className="bg-point/10 rounded-xl p-3">
+              <p className="text-sm font-medium text-accent">"{location.short_desc}"</p>
             </div>
           )}
 
@@ -168,7 +168,7 @@ export function PlacePreview({
               {activeFeatures.map(({ key, label }) => (
                 <span
                   key={key}
-                  className="px-2 py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-lg"
+                  className="px-2 py-1 bg-base text-accent/80 text-xs font-medium rounded-lg"
                 >
                   {label}
                 </span>
@@ -193,19 +193,19 @@ export function PlacePreview({
           {/* View Detail Button */}
           <button
             onClick={onOpenDetail}
-            className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 bg-base rounded-xl hover:bg-opacity-80 transition-colors"
           >
-            <span className="text-sm font-medium text-gray-700">상세 정보 보기</span>
-            <ChevronRight size={18} className="text-gray-400" />
+            <span className="text-sm font-medium text-accent">상세 정보 보기</span>
+            <ChevronRight size={18} className="text-accent/50" />
           </button>
         </div>
       </div>
 
       {/* Sticky CTA Row */}
-      <div className="flex-shrink-0 px-4 py-3 border-t border-gray-100 bg-white flex gap-2">
+      <div className="flex-shrink-0 px-4 py-3 border-t border-base bg-white flex gap-2">
         <button
           onClick={handleShareKakao}
-          className="py-3 px-4 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center"
+          className="py-3 px-4 bg-point text-white font-medium rounded-xl hover:bg-point-hover transition-colors flex items-center justify-center"
           title="카카오톡 공유"
         >
           <Share2 size={18} />

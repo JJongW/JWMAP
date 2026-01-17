@@ -139,21 +139,21 @@ export function DesktopLayout({
       {/* Left Sidebar */}
       <Sidebar width="w-[420px]">
         {/* Header */}
-        <div className="flex-shrink-0 px-5 py-4 border-b border-gray-100 bg-white">
+        <div className="flex-shrink-0 px-5 py-4 border-b border-base bg-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 bg-point rounded-xl flex items-center justify-center overflow-hidden">
                 <img
                   src="/logo.svg"
                   alt="오늘 오디가?"
                   className="w-full h-full object-contain"
                 />
               </div>
-              <h1 className="text-xl font-bold text-gray-900">오늘 오디가?</h1>
+              <h1 className="text-xl font-bold text-accent">오늘 오디가?</h1>
             </div>
             <button
               onClick={onOpenAddModal}
-              className="px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center gap-2"
+              className="px-4 py-2.5 bg-point text-white text-sm font-medium rounded-xl hover:bg-point-hover transition-colors flex items-center gap-2"
             >
               <Plus size={18} />
               추가

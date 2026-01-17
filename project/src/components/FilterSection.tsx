@@ -58,8 +58,8 @@ export function FilterSection({
             onClick={() => onProvinceChange('전체')}
             className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
               selectedProvince === '전체'
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-100 text-gray-600'
+                ? 'bg-point text-white'
+                : 'bg-base text-accent/80'
             }`}
           >
             전국
@@ -70,8 +70,8 @@ export function FilterSection({
               onClick={() => onProvinceChange(province)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                 selectedProvince === province
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-gray-100 text-gray-600'
+                  ? 'bg-point text-white'
+                  : 'bg-base text-accent/80'
               }`}
             >
               {province}
@@ -80,7 +80,7 @@ export function FilterSection({
         </div>
 
         {/* Divider */}
-        <div className="w-px bg-gray-200 flex-shrink-0" />
+        <div className="w-px bg-base flex-shrink-0" />
 
         {/* Category Main chips */}
         <div className="flex gap-1.5 flex-shrink-0">
@@ -90,8 +90,8 @@ export function FilterSection({
               onClick={() => onCategoryMainChange(main)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                 selectedCategoryMain === main
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-gray-100 text-gray-600'
+                  ? 'bg-point text-white'
+                  : 'bg-base text-accent/80'
               }`}
             >
               {main}
@@ -106,8 +106,8 @@ export function FilterSection({
   return (
     <div className="space-y-4">
       {/* Province Section */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-100">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+      <div className="bg-white p-4 rounded-2xl border border-base">
+        <h2 className="text-sm font-semibold text-accent/70 uppercase tracking-wide mb-3">
           지역 (시/도)
         </h2>
         <div className="flex flex-wrap gap-2">
@@ -135,8 +135,8 @@ export function FilterSection({
 
       {/* District Section - Province 선택 시에만 표시 */}
       {selectedProvince !== '전체' && availableDistricts.length > 0 && (
-        <div className="bg-white p-4 rounded-2xl border border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+        <div className="bg-white p-4 rounded-2xl border border-base">
+          <h2 className="text-sm font-semibold text-accent/70 uppercase tracking-wide mb-3">
             {selectedProvince} 세부 지역
           </h2>
           <div className="flex flex-wrap gap-2">
@@ -160,8 +160,8 @@ export function FilterSection({
       )}
 
       {/* Category Main Section */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-100">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+      <div className="bg-white p-4 rounded-2xl border border-base">
+        <h2 className="text-sm font-semibold text-accent/70 uppercase tracking-wide mb-3">
           종류 (대분류)
         </h2>
         <div className="flex flex-wrap gap-2">
@@ -182,8 +182,8 @@ export function FilterSection({
 
       {/* Category Sub Section - 대분류 선택 시에만 표시 */}
       {selectedCategoryMain !== '전체' && availableCategorySubs.length > 0 && (
-        <div className="bg-white p-4 rounded-2xl border border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+        <div className="bg-white p-4 rounded-2xl border border-base">
+          <h2 className="text-sm font-semibold text-accent/70 uppercase tracking-wide mb-3">
             {selectedCategoryMain} 세부 종류
           </h2>
           <div className="flex flex-wrap gap-2">

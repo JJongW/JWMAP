@@ -65,3 +65,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 기본 배경색 설정 (Warm Off-White) */
+@layer base {
+  body {
+    @apply bg-base;
+  }
+}

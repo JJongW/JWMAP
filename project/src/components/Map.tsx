@@ -159,7 +159,7 @@ export function Map(props: MapProps) {
   return (
     <div
       ref={mapContainer}
-      className={className || "w-full h-[350px] sm:h-[450px] lg:h-[500px] bg-gray-100 rounded-2xl border border-gray-100"}
+      className={className || "w-full h-[350px] sm:h-[450px] lg:h-[500px] bg-base rounded-2xl border border-base"}
     />
   );
 }

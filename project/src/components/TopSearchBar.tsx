@@ -98,7 +98,7 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
   };
 
   return (
-    <div className="bg-white p-4 rounded-2xl border border-gray-100">
+    <div className="bg-white p-4 rounded-2xl border border-base">
       <form onSubmit={handleSubmit} className="flex gap-2">
         <div className="relative flex-1">
           <input
@@ -106,18 +106,18 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="예: 서울 용산 혼밥 맛집"
-            className="w-full h-11 pl-10 pr-10 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all text-sm"
+            className="w-full h-11 pl-10 pr-10 rounded-xl border border-base focus:border-point focus:ring-2 focus:ring-point/20 outline-none transition-all text-sm"
             disabled={isLoading}
           />
           <Search
             size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-accent/50"
           />
           {query && !isLoading && (
             <button
               type="button"
               onClick={handleClear}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-accent/50 hover:text-accent/80 p-1"
               aria-label="검색어 지우기"
             >
               <X size={16} />
@@ -127,7 +127,7 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
         <button
           type="submit"
           disabled={isLoading || !query.trim()}
-          className="h-11 px-5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 min-w-[80px] justify-center"
+          className="h-11 px-5 bg-point text-white text-sm font-medium rounded-xl hover:bg-point-hover disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 min-w-[80px] justify-center"
         >
           {isLoading ? (
             <span className="text-sm">검색 중...</span>
@@ -139,7 +139,7 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
           <button
             type="button"
             onClick={handleReset}
-            className="h-11 px-4 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors flex items-center gap-2"
+            className="h-11 px-4 bg-base text-accent text-sm font-medium rounded-xl hover:bg-opacity-80 transition-colors flex items-center gap-2"
             title="필터로 다시 보기"
           >
             <RotateCcw size={16} />
@@ -150,8 +150,8 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
 
       {/* Status messages */}
       {isLoading && (
-        <p className="mt-3 text-sm text-gray-500 flex items-center gap-2">
-          <span className="inline-block w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        <p className="mt-3 text-sm text-accent/70 flex items-center gap-2">
+          <span className="inline-block w-4 h-4 border-2 border-point border-t-transparent rounded-full animate-spin" />
           검색 중입니다...
         </p>
       )}
@@ -163,7 +163,7 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
       )}
 
       {hasEmptyResults && !isLoading && (
-        <p className="mt-3 text-sm text-gray-500">
+        <p className="mt-3 text-sm text-accent/70">
           아직 등록된 장소가 없어요. 다른 지역/키워드로 검색해보세요.
         </p>
       )}

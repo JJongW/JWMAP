@@ -227,9 +227,9 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
 
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-2xl border border-base overflow-hidden">
       {/* 이미지 영역 */}
-      <div className="relative h-48 bg-gray-100">
+      <div className="relative h-48 bg-base">
         {editedImageUrl && !imageError ? (
           <img
             src={getCardImageUrl(editedImageUrl)}
@@ -240,12 +240,12 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <ImageIcon className="w-12 h-12 text-gray-300" />
+            <ImageIcon className="w-12 h-12 text-accent/30" />
           </div>
         )}
         {/* 카테고리 배지 */}
         <div className="absolute top-3 left-3">
-          <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-orange-500 text-white">
+          <span className="px-3 py-1.5 rounded-lg text-xs font-medium bg-point text-white">
             {isEditing ? (editedCategorySub || editedCategoryMain || '미분류') : (location.categorySub || location.categoryMain || '미분류')}
           </span>
         </div>
@@ -255,8 +255,8 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
       <div className="p-5 space-y-4">
         {/* 제목 & 평점 */}
         <div className="flex justify-between items-start">
-          <h3 className="text-lg font-bold text-gray-900">{location.name}</h3>
-          <div className="flex items-center gap-1 text-orange-500">
+          <h3 className="text-lg font-bold text-accent">{location.name}</h3>
+          <div className="flex items-center gap-1 text-point">
             <Star size={16} className="fill-current" />
             {isEditing ? (
               <input
@@ -266,7 +266,7 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
                 min="0"
                 max="5"
                 onChange={(e) => setEditedRating(parseFloat(e.target.value))}
-                className="w-14 border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700"
+                className="w-14 border border-base rounded-lg px-2 py-1 text-sm text-accent"
               />
             ) : (
               <span className="text-sm font-semibold">{editedRating?.toFixed(1) || '0.0'}</span>
@@ -275,8 +275,8 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
         </div>
 
         {/* 주소 */}
-        <p className="text-gray-500 text-sm flex items-center gap-1.5">
-          <MapPin size={14} className="text-gray-400" />
+        <p className="text-accent/70 text-sm flex items-center gap-1.5">
+          <MapPin size={14} className="text-accent/50" />
           {location.address}
         </p>
 
@@ -285,12 +285,12 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
           <textarea
             value={editedMemo}
             onChange={(e) => setEditedMemo(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="w-full border border-base rounded-xl px-3 py-2 text-sm text-accent resize-none focus:outline-none focus:ring-2 focus:ring-point focus:border-transparent"
             placeholder="메모를 입력하세요"
             rows={3}
           />
         ) : (
-          <p className="text-gray-600 text-sm bg-gray-50 rounded-xl p-3">
+          <p className="text-accent/80 text-sm bg-base rounded-xl p-3">
             {location.memo || '메모가 없습니다.'}
           </p>
         )}
@@ -332,7 +332,7 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
         {/* 특징 (수정 모드) */}
         {isEditing && (
           <div>
-            <label className="text-xs font-medium text-gray-500 mb-2 block">특징</label>
+            <label className="text-xs font-medium text-accent/70 mb-2 block">특징</label>
             <div className="flex flex-wrap gap-1.5">
               {featureOptions.map((option) => (
                 <button
@@ -341,8 +341,8 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
                   onClick={() => handleFeatureToggle(option.key)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                     editedFeatures[option.key]
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ? 'bg-point text-white'
+                      : 'bg-base text-accent/80 hover:bg-opacity-80'
                   }`}
                 >
                   {option.label}
@@ -360,7 +360,7 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
               .map((option) => (
                 <span
                   key={option.key}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-orange-100 text-orange-700"
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-point/20 text-point"
                 >
                   {option.label}
                 </span>
@@ -388,14 +388,14 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
             <>
               <button
                 onClick={() => setIsEditing(false)}
-                className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 px-4 py-2.5 bg-base text-accent/80 text-sm font-medium rounded-xl hover:bg-opacity-80 transition-colors flex items-center justify-center gap-1.5"
               >
                 <X size={16} />
                 취소
               </button>
               <button
                 onClick={handleSave}
-                className="flex-1 px-4 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 px-4 py-2.5 bg-point text-white text-sm font-medium rounded-xl hover:bg-point-hover transition-colors flex items-center justify-center gap-1.5"
               >
                 <Check size={16} />
                 저장
@@ -405,14 +405,14 @@ export function LocationCard({ location, onDelete, onUpdate }: LocationCardProps
             <>
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex-1 px-3 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 px-3 py-2.5 bg-base text-accent/80 text-sm font-medium rounded-xl hover:bg-opacity-80 transition-colors flex items-center justify-center gap-1.5"
               >
                 <Edit2 size={15} />
                 수정
               </button>
               <button
                 onClick={handleKakaoMapSearch}
-                className="flex-1 px-2.5 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center gap-1.5"
+                className="flex-1 px-2.5 py-2.5 bg-point text-white text-sm font-medium rounded-xl hover:bg-point-hover transition-colors flex items-center justify-center gap-1.5"
                 title="카카오맵에서 보기"
               >
                 <ExternalLink size={15} />

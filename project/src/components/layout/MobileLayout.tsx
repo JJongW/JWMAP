@@ -182,35 +182,35 @@ export function MobileLayout({
     <div className="relative min-h-screen">
       {/* ===== BROWSE MODE ===== */}
       <div
-        className={`min-h-screen bg-gray-50 transition-opacity duration-200 ${
+        className={`min-h-screen bg-base transition-opacity duration-200 ${
           isBrowse ? 'opacity-100' : 'opacity-0 pointer-events-none fixed inset-0 z-10'
         }`}
       >
         {/* Header */}
-        <header className="sticky top-0 z-20 bg-white border-b border-gray-100">
+        <header className="sticky top-0 z-20 bg-white border-b border-base">
           <div className="px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-orange-500 rounded-xl flex items-center justify-center overflow-hidden">
+                <div className="w-9 h-9 bg-point rounded-xl flex items-center justify-center overflow-hidden">
                   <img
                     src="/logo.svg"
                     alt="오늘 오디가?"
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <h1 className="text-lg font-bold text-gray-900">오늘 오디가?</h1>
+                <h1 className="text-lg font-bold text-accent">오늘 오디가?</h1>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleViewMap}
-                  className="px-3 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors flex items-center gap-1.5"
+                  className="px-3 py-2 bg-base text-accent text-sm font-medium rounded-xl hover:bg-opacity-80 transition-colors flex items-center gap-1.5"
                 >
                   <MapIcon size={16} />
                   지도
                 </button>
                 <button
                   onClick={onOpenAddModal}
-                  className="p-2 bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition-colors"
+                  className="p-2 bg-point text-white rounded-xl hover:bg-point-hover transition-colors"
                 >
                   <Plus size={18} />
                 </button>
@@ -268,7 +268,7 @@ export function MobileLayout({
 
       {/* ===== EXPLORE MODE ===== */}
       <div
-        className={`fixed inset-0 bg-gray-100 transition-opacity duration-200 ${
+        className={`fixed inset-0 bg-base transition-opacity duration-200 ${
           isExplore ? 'opacity-100 z-20' : 'opacity-0 pointer-events-none z-0'
         }`}
       >

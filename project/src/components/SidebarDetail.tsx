@@ -162,15 +162,15 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
   return (
     <div className="flex flex-col h-full">
       {/* Header with back button */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-base bg-white">
         <div className="flex items-center gap-2">
           <button
             onClick={onBack}
-            className="p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-1.5 -ml-1.5 rounded-lg hover:bg-base transition-colors"
           >
-            <ArrowLeft size={20} className="text-gray-600" />
+            <ArrowLeft size={20} className="text-accent/80" />
           </button>
-          <span className="text-sm font-medium text-gray-500">
+          <span className="text-sm font-medium text-accent/70">
             {currentLocation.categorySub || currentLocation.category || '미분류'}
           </span>
         </div>
@@ -178,18 +178,18 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
           <div className="flex items-center gap-1">
             <button
               onClick={handleShareKakao}
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-base transition-colors"
               title="카카오톡 공유"
             >
-              <Share2 size={18} className="text-gray-600" />
+              <Share2 size={18} className="text-accent/80" />
             </button>
             {(onUpdate || onDelete) && (
               <button
                 onClick={() => setIsEditMode(true)}
-                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-base transition-colors"
                 title="수정"
               >
-                <Edit2 size={18} className="text-gray-600" />
+                <Edit2 size={18} className="text-accent/80" />
               </button>
             )}
           </div>
@@ -210,7 +210,7 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
           <>
             {/* Cover Image - Square */}
             {currentLocation.imageUrl && !imageError && (
-              <div className="relative aspect-square bg-gray-100">
+              <div className="relative aspect-square bg-base">
                 <img
                   src={getDetailImageUrl(currentLocation.imageUrl)}
                   alt={currentLocation.name}
@@ -226,29 +226,29 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
               {/* Title & Rating */}
               <div>
                 <div className="flex items-start justify-between">
-                  <h2 className="text-xl font-bold text-gray-900">{currentLocation.name}</h2>
+                  <h2 className="text-xl font-bold text-accent">{currentLocation.name}</h2>
                   {currentLocation.rating > 0 && (
-                    <div className="flex items-center gap-1 text-orange-500 flex-shrink-0 ml-3">
+                    <div className="flex items-center gap-1 text-point flex-shrink-0 ml-3">
                       <Star size={18} className="fill-current" />
                       <span className="font-semibold text-lg">{currentLocation.rating.toFixed(1)}</span>
                     </div>
                   )}
                 </div>
-                <p className="text-sm text-gray-500 mt-1">{currentLocation.region}</p>
+                <p className="text-sm text-accent/70 mt-1">{currentLocation.region}</p>
 
                 {/* Address with copy */}
                 <div className="flex items-center gap-2 mt-2">
-                  <MapPin size={14} className="text-gray-400 flex-shrink-0" />
-                  <span className="text-sm text-gray-600 flex-1">{currentLocation.address}</span>
+                  <MapPin size={14} className="text-accent/50 flex-shrink-0" />
+                  <span className="text-sm text-accent/80 flex-1">{currentLocation.address}</span>
                   <button
                     onClick={handleCopyAddress}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-base transition-colors"
                     title="주소 복사"
                   >
                     {copied ? (
                       <Check size={16} className="text-green-500" />
                     ) : (
-                      <Copy size={16} className="text-gray-400" />
+                      <Copy size={16} className="text-accent/50" />
                     )}
                   </button>
                 </div>
@@ -263,8 +263,8 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
 
               {/* One-liner (Verdict) */}
               {currentLocation.short_desc && (
-                <div className="bg-orange-50 rounded-xl p-4">
-                  <p className="text-base font-medium text-gray-900 leading-relaxed">
+                <div className="bg-point/10 rounded-xl p-4">
+                  <p className="text-base font-medium text-accent leading-relaxed">
                     "{currentLocation.short_desc}"
                   </p>
                 </div>
@@ -276,7 +276,7 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
                   {activeFeatures.map(({ key, label }) => (
                     <span
                       key={key}
-                      className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl"
+                      className="px-3 py-1.5 bg-base text-accent text-sm font-medium rounded-xl"
                     >
                       {label}
                     </span>
@@ -300,8 +300,8 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
 
               {/* Memo (if different from short_desc) */}
               {currentLocation.memo && currentLocation.memo !== currentLocation.short_desc && (
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <p className="text-sm text-gray-600 leading-relaxed">{currentLocation.memo}</p>
+                <div className="bg-base rounded-xl p-4">
+                  <p className="text-sm text-accent/80 leading-relaxed">{currentLocation.memo}</p>
                 </div>
               )}
 
@@ -316,7 +316,7 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
               {/* Add Review Button */}
               <button
                 onClick={() => setIsAddReviewOpen(true)}
-                className="w-full py-3 bg-white border-2 border-dashed border-gray-300 text-gray-600 font-medium rounded-xl hover:border-orange-400 hover:text-orange-500 transition-colors"
+                className="w-full py-3 bg-white border-2 border-dashed border-base text-accent/80 font-medium rounded-xl hover:border-point hover:text-point transition-colors"
               >
                 나도 다녀왔어요
               </button>
@@ -330,10 +330,10 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
 
       {/* Sticky CTA Row - Only show in view mode */}
       {!isEditMode && (
-        <div className="flex-shrink-0 px-4 py-3 border-t border-gray-100 bg-white flex gap-2">
+        <div className="flex-shrink-0 px-4 py-3 border-t border-base bg-white flex gap-2">
           <button
             onClick={handleShareKakao}
-            className="py-3 px-4 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center"
+            className="py-3 px-4 bg-point text-white font-medium rounded-xl hover:bg-point-hover transition-colors flex items-center justify-center"
             title="카카오톡 공유"
           >
             <Share2 size={18} />
