@@ -221,6 +221,16 @@ async function getLocationIdsByTags(keywords: string[]): Promise<Set<string>> {
 async function searchLocations(query: LLMQuery): Promise<Location[]> {
   let dbQuery = supabase.from('locations').select('*');
 
+  // 키워드가 있고 region/category 필터가 없거나 약한 경우, 전체에서 검색
+  const hasKeywords = query.keywords && query.keywords.length > 0;
+  const hasRegionFilter = query.region && query.region.length > 0;
+  const hasCategoryFilter = (query.categoryMain && query.categoryMain.length > 0) || 
+                           (query.categorySub && query.categorySub.length > 0) ||
+                           (query.category && query.category.length > 0);
+
+  // 키워드가 있고 필터가 약하면 전체에서 검색하도록 필터 완화
+  const shouldRelaxFilters = hasKeywords && !hasRegionFilter && !hasCategoryFilter;
+
   // Filter by region
   if (query.region && query.region.length > 0) {
     const regions = query.region.filter((r) => r !== '서울 전체');
@@ -255,7 +265,9 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
   }
 
   // Execute query (제외 필터는 나중에 적용)
-  const { data, error } = await dbQuery.order('rating', { ascending: false }).limit(100);
+  // 키워드 검색을 위해서는 더 많은 결과를 가져와야 함
+  const limit = hasKeywords ? 200 : 100;
+  const { data, error } = await dbQuery.order('rating', { ascending: false }).limit(limit);
 
   if (error) {
     console.error('Supabase query error:', error);
@@ -329,10 +341,9 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
   }
 
   // Keyword matching: include tag matches OR text matches
-  // 키워드가 없어도 원본 쿼리 텍스트로 검색할 수 있도록 처리
   if (query.keywords && query.keywords.length > 0) {
     const keywordLower = query.keywords.map((k) => k.toLowerCase());
-    results = results.filter((loc) => {
+    const filteredResults = results.filter((loc) => {
       // Include if matched by tags
       if (tagMatchedIds.has(loc.id)) {
         return true;
@@ -341,6 +352,55 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
       const searchText = `${loc.name} ${loc.memo || ''} ${loc.shortDesc || ''}`.toLowerCase();
       return keywordLower.some((kw) => searchText.includes(kw));
     });
+
+    // 키워드 매칭 결과가 없고, region/category 필터가 있었던 경우 전체에서 재검색
+    if (filteredResults.length === 0 && (hasRegionFilter || hasCategoryFilter)) {
+      // 필터 없이 전체에서 키워드 검색
+      const { data: allData } = await supabase
+        .from('locations')
+        .select('*')
+        .order('rating', { ascending: false })
+        .limit(200);
+
+      if (allData) {
+        const allResults: Location[] = allData.map((item: Record<string, unknown>) => ({
+          id: item.id as string,
+          name: item.name as string,
+          region: item.region as string,
+          subRegion: item.sub_region as string | undefined,
+          category: item.category as string,
+          lon: item.lon as number,
+          lat: item.lat as number,
+          address: item.address as string,
+          memo: item.memo as string,
+          shortDesc: item.short_desc as string | undefined,
+          features: item.features as Record<string, boolean> | undefined,
+          rating: item.rating as number,
+          priceLevel: item.price_level as number | undefined,
+          naverPlaceId: item.naver_place_id as string | undefined,
+          kakaoPlaceId: item.kakao_place_id as string | undefined,
+          imageUrl: (item.image_url || item.imageUrl) as string,
+          eventTags: (item.event_tags || item.eventTags) as string[] | undefined,
+          visitDate: (item.visit_date || item.visitDate) as string | undefined,
+          categoryMain: item.category_main as string | undefined,
+          categorySub: item.category_sub as string | undefined,
+          tags: item.tags as string[] | undefined,
+        }));
+
+        // 키워드로 필터링
+        results = allResults.filter((loc) => {
+          if (tagMatchedIds.has(loc.id)) {
+            return true;
+          }
+          const searchText = `${loc.name} ${loc.memo || ''} ${loc.shortDesc || ''}`.toLowerCase();
+          return keywordLower.some((kw) => searchText.includes(kw));
+        });
+      } else {
+        results = filteredResults;
+      }
+    } else {
+      results = filteredResults;
+    }
 
     // Boost tag-matched results to top
     results.sort((a, b) => {
