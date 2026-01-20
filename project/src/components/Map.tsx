@@ -21,7 +21,7 @@ function createMarkerImage(categoryMain: string): kakao.maps.MarkerImage | null 
 
   const markerMap: Record<string, string> = {
     '밥': '/rice_marker.svg',
-    '면': '/noodle_marker.svg',
+    '면': '/nooddle_marker.svg', // 파일명이 nooddle_marker.svg로 되어있음
     '국물': '/bowl_marker.svg',
     '고기요리': '/beef_marker.svg',
     '해산물': '/fish_marker.svg',
