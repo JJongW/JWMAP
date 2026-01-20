@@ -162,6 +162,30 @@ interface Review {
   features?: Features;
   created_at: string;
 }
+
+// 검색 Intent (api/search.ts)
+type SearchIntent =
+  | 'DISCOVER_RECOMMEND' | 'SEARCH_BY_FOOD' | 'SEARCH_BY_CATEGORY'
+  | 'SEARCH_BY_REGION' | 'SEARCH_BY_CONSTRAINTS' | 'SEARCH_BY_CONTEXT'
+  | 'COMPARE_OPTIONS' | 'RANDOM_PICK' | 'FIND_NEAR_ME' | 'FIND_OPEN_NOW'
+  | 'FIND_LATE_NIGHT' | 'FIND_BEST_FOR' | 'ASK_DETAILS' | 'ASK_SIMILAR_TO'
+  | 'ASK_EXCLUDE' | 'CLARIFY_QUERY';
+
+// 검색 Slots (api/search.ts)
+interface SearchSlots {
+  region: string | null;
+  sub_region: string | null;
+  place_name: string | null;
+  category_main: string | null;
+  category_sub: string | null;
+  exclude_category_main: string[] | null;
+  time_of_day: '아침' | '점심' | '저녁' | '야식' | '심야' | '브런치' | null;
+  visit_context: '혼밥' | '혼술' | '데이트' | '접대' | '가족모임' | ... | null;
+  constraints: SearchConstraint[];
+  keywords: string[];
+  count: number | null;
+  open_now: boolean | null;
+}
 ```
 
 ## Database (Supabase)
@@ -227,32 +251,136 @@ interface Review {
 
 ```json
 // Request
-{ "text": "용산 혼밥 맛집" }
+{
+  "text": "용산 혼밥 맛집",
+  "uiRegion": "용산/이태원/한남"  // optional, UI에서 선택된 지역
+}
 
-// Response
+// Response (Enhanced)
 {
   "places": [Location, ...],
+
+  // Intent & Slots (새 구조)
+  "intent": "SEARCH_BY_CONSTRAINTS",
+  "slots": {
+    "region": "용산/이태원/한남",
+    "sub_region": null,
+    "place_name": null,
+    "category_main": null,
+    "category_sub": null,
+    "exclude_category_main": ["카페"],
+    "time_of_day": null,
+    "visit_context": "혼밥",
+    "constraints": [],
+    "keywords": ["맛집"],
+    "count": null,
+    "open_now": null
+  },
+
+  // Legacy query (하위 호환)
   "query": {
     "region": ["용산/이태원/한남"],
-    "categoryMain": [],
     "excludeCategoryMain": ["카페"],
     "keywords": ["혼밥", "맛집"],
-    "constraints": { "solo_ok": true },
-    "sort": "relevance"
+    "constraints": { "solo_ok": true }
   },
+
+  // Actions for frontend
+  "actions": {
+    "mode": "browse",
+    "should_show_map": true,
+    "result_limit": 50,
+    "fallback_applied": false,
+    "fallback_notes": [],
+    "fallback_level": 0
+  },
+
+  // UI hints
+  "ui_hints": {
+    "message_type": "success",
+    "message": "15개의 장소를 찾았어요!"
+  },
+
   "traceId": "uuid",
   "timing": { "llmMs": 245, "dbMs": 32, "totalMs": 285 }
 }
 ```
 
+### Search Intent Types (16가지)
+
+| Intent | 설명 | 예시 |
+|--------|------|------|
+| DISCOVER_RECOMMEND | 추천 요청 | "맛집 추천해줘" |
+| SEARCH_BY_FOOD | 특정 음식 검색 | "라멘 먹고 싶어" |
+| SEARCH_BY_CATEGORY | 카테고리 검색 | "밥집", "면집" |
+| SEARCH_BY_REGION | 지역 검색 | "강남 맛집" |
+| SEARCH_BY_CONSTRAINTS | 조건 검색 | "혼밥 가능한 곳" |
+| SEARCH_BY_CONTEXT | 상황 검색 | "데이트 장소" |
+| COMPARE_OPTIONS | 비교 | "A vs B" |
+| RANDOM_PICK | 랜덤 | "아무거나" |
+| FIND_NEAR_ME | 근처 검색 | "근처 맛집" |
+| FIND_OPEN_NOW | 영업중 검색 | "지금 열린 곳" |
+| FIND_LATE_NIGHT | 야식 검색 | "야식 맛집" |
+| FIND_BEST_FOR | 용도 검색 | "~하기 좋은 곳" |
+| ASK_DETAILS | 장소 질문 | "히코 어때?" |
+| ASK_SIMILAR_TO | 유사 검색 | "~랑 비슷한 곳" |
+| ASK_EXCLUDE | 제외 검색 | "카페 빼고" |
+| CLARIFY_QUERY | 불명확 | 파싱 실패 시 |
+
+### Visit Context Types
+
+| Context | 설명 |
+|---------|------|
+| 혼밥 | 혼자 식사 (카페 자동 제외) |
+| 혼술 | 혼자 음주 |
+| 데이트 | 연인과 식사 |
+| 접대 | 비즈니스 식사 |
+| 가족모임 | 가족 식사 |
+| 친구모임 | 친구들과 식사 |
+| 회식 | 회사 모임 |
+| 소개팅 | 첫 만남 |
+| 생일/기념일 | 특별한 날 |
+| 카공 | 카페에서 공부 |
+| 반려동물_동반 | 펫 프렌들리 |
+
+### Search Constraints
+
+| Constraint | 설명 |
+|------------|------|
+| 웨이팅_없음 | 바로 입장 |
+| 예약_가능 | 예약 가능 |
+| 주차_가능 | 주차 가능 |
+| 좌석_넉넉 | 넓은 좌석 |
+| 오래_앉기 | 장시간 가능 |
+| 조용한 | 조용한 분위기 |
+| 빠른_회전 | 빠른 식사 |
+| 가성비 | 가격 대비 좋음 |
+| 비싼_곳_제외 | 저렴한 곳만 |
+| 체인점_제외 | 로컬 맛집만 |
+
+### 5-Level Fallback Strategy
+
+검색 결과가 없을 때 자동으로 조건을 완화:
+
+| Level | Action | 예시 |
+|-------|--------|------|
+| 0 | 원본 쿼리 | - |
+| 1 | 비핵심 조건 제거 | 체인점_제외, 가성비 제거 |
+| 2 | 웨이팅 조건 제거 | 웨이팅_없음 제거 |
+| 3 | 카테고리 확장 | 라멘 → 면 전체 |
+| 4 | 지역 확장 | 한남동 → 용산 → 서울 전체 |
+| 5 | 인기 장소 | 조건 무시, 평점순 추천 |
+
 **파이프라인:**
-1. LLM이 자연어 → `LLMQuery` 파싱 (Gemini Flash)
-2. region, categoryMain/Sub 필터링
-3. excludeCategoryMain으로 카테고리 제외
-4. features/constraints 필터링
-5. tags/keywords 매칭 및 부스팅
-6. 결과 정렬 (태그 매치 > 평점)
-7. search_logs에 로깅
+1. LLM이 자연어 → Intent + Slots 파싱 (Gemini Flash)
+2. Slots를 Legacy Query로 변환 (하위 호환)
+3. region, categoryMain/Sub 필터링
+4. excludeCategoryMain으로 카테고리 제외
+5. visit_context/constraints 필터링
+6. tags/keywords 매칭 및 부스팅
+7. 결과 없으면 5-Level Fallback 적용
+8. UI hints 및 actions 생성
+9. search_logs에 로깅
 
 ## Map Markers
 
