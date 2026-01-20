@@ -4,7 +4,80 @@ import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { randomUUID } from 'crypto';
 
-// Types
+// ============================================
+// Enhanced Search Types
+// ============================================
+
+// Search Intent Classification
+type SearchIntent =
+  | 'DISCOVER_RECOMMEND'    // 추천해줘, 맛집 알려줘
+  | 'SEARCH_BY_FOOD'        // 라멘 먹고 싶어
+  | 'SEARCH_BY_CATEGORY'    // 밥집, 면집
+  | 'SEARCH_BY_REGION'      // 강남 맛집
+  | 'SEARCH_BY_CONSTRAINTS' // 혼밥 가능한 곳
+  | 'SEARCH_BY_CONTEXT'     // 데이트 장소
+  | 'COMPARE_OPTIONS'       // A vs B
+  | 'RANDOM_PICK'           // 아무거나, 랜덤
+  | 'FIND_NEAR_ME'          // 근처 맛집
+  | 'FIND_OPEN_NOW'         // 지금 열린 곳
+  | 'FIND_LATE_NIGHT'       // 야식, 심야영업
+  | 'FIND_BEST_FOR'         // ~하기 좋은 곳
+  | 'ASK_DETAILS'           // ~가 어때?
+  | 'ASK_SIMILAR_TO'        // ~랑 비슷한 곳
+  | 'ASK_EXCLUDE'           // ~빼고
+  | 'CLARIFY_QUERY';        // 불명확한 쿼리
+
+// Time of day context
+type TimeOfDay = '아침' | '점심' | '저녁' | '야식' | '심야' | '브런치';
+
+// Visit context
+type VisitContext =
+  | '혼밥' | '혼술' | '데이트' | '접대' | '가족모임' | '친구모임'
+  | '회식' | '소개팅' | '생일' | '기념일' | '카공' | '반려동물_동반';
+
+// Search constraints
+type SearchConstraint =
+  | '웨이팅_없음' | '예약_가능' | '주차_가능' | '좌석_넉넉' | '오래_앉기'
+  | '조용한' | '빠른_회전' | '가성비' | '비싼_곳_제외' | '체인점_제외'
+  | '관광지_제외' | '비건' | '채식' | '매운맛' | '담백';
+
+// Enhanced LLM Query Interface
+interface EnhancedLLMQuery {
+  intent: SearchIntent;
+  slots: {
+    region: string | null;
+    sub_region: string | null;
+    place_name: string | null;
+    category_main: string | null;
+    category_sub: string | null;
+    exclude_category_main: string[] | null;
+    time_of_day: TimeOfDay | null;
+    visit_context: VisitContext | null;
+    constraints: SearchConstraint[];
+    keywords: string[];
+    count: number | null;
+    open_now: boolean | null;
+  };
+}
+
+// Search Actions for Frontend
+interface SearchActions {
+  mode: 'browse' | 'explore';
+  should_show_map: boolean;
+  result_limit: number;
+  fallback_applied: boolean;
+  fallback_notes: string[];
+  fallback_level: number;
+}
+
+// UI Hints for Frontend
+interface UIHints {
+  message_type: 'success' | 'no_results_soft' | 'need_clarification';
+  message: string;
+  suggestions?: string[];
+}
+
+// Legacy LLM Query (for backward compatibility)
 interface LLMQuery {
   region?: string[];
   subRegion?: string[];
@@ -65,97 +138,222 @@ const llm = new ChatGoogleGenerativeAI({
   apiKey: process.env.GOOGLE_API_KEY || '',
 });
 
-// LLM prompt for query parsing
-const SYSTEM_PROMPT = `You are a query parser for a Seoul restaurant discovery service.
-Your job is to convert natural language Korean queries into structured JSON.
+// ============================================
+// Enhanced LLM Prompt for Query Parsing
+// ============================================
+const SYSTEM_PROMPT = `You are a query parser for a Seoul restaurant discovery service called "오늘 오디가?".
+Your job is to understand user intent and extract structured data from natural language Korean queries.
 
-Available regions (use exact strings):
-- "서울 전체" (all Seoul)
-- "강남", "서초", "잠실/송파/강동", "영등포/여의도/강서", "건대/성수/왕십리"
-- "종로/중구", "홍대/합정/마포/연남", "용산/이태원/한남", "성북/노원/중랑"
-- "구로/관악/동작", "신촌/연희", "창동/도봉산", "회기/청량리", "강동/고덕"
-- "연신내/구파발", "마곡/김포", "미아/수유/북한산", "목동/양천", "금천/가산"
+=== INTENT CLASSIFICATION (16 types) ===
+Choose ONE that best matches the query:
+- DISCOVER_RECOMMEND: 추천해줘, 맛집 알려줘, 좋은 곳
+- SEARCH_BY_FOOD: specific food (라멘 먹고 싶어, 스테이크 어디)
+- SEARCH_BY_CATEGORY: category type (밥집, 면집, 카페)
+- SEARCH_BY_REGION: region focus (강남 맛집, 홍대 맛집)
+- SEARCH_BY_CONSTRAINTS: feature focus (혼밥 가능한 곳, 주차 되는 곳)
+- SEARCH_BY_CONTEXT: context focus (데이트 장소, 회식 장소)
+- COMPARE_OPTIONS: A vs B, A랑 B 비교
+- RANDOM_PICK: 아무거나, 랜덤, 뭐 먹지
+- FIND_NEAR_ME: 근처 맛집, 가까운 곳
+- FIND_OPEN_NOW: 지금 열린 곳, 영업 중
+- FIND_LATE_NIGHT: 야식, 심야영업, 새벽
+- FIND_BEST_FOR: ~하기 좋은 곳
+- ASK_DETAILS: specific place question (히코 어때?, ~는 어떤 곳?)
+- ASK_SIMILAR_TO: ~랑 비슷한 곳, ~같은 곳
+- ASK_EXCLUDE: ~빼고, ~제외
+- CLARIFY_QUERY: unclear or incomplete query
 
-카테고리 대분류 (categoryMain):
-- "밥" (덮밥, 정식, 도시락, 백반, 돈까스, 한식, 카레)
-- "면" (라멘, 국수, 파스타, 쌀국수, 우동, 냉면, 소바)
-- "국물" (국밥, 찌개, 탕, 전골)
-- "고기요리" (구이, 스테이크, 바비큐, 수육)
-- "해산물" (해산물요리, 회, 해물찜, 해물탕, 조개/굴)
-- "간편식" (김밥, 샌드위치, 토스트, 햄버거, 타코, 분식)
-- "양식·퓨전" (베트남, 아시안, 인도, 양식, 중식, 프랑스, 파스타, 피자, 리조또, 브런치)
-- "디저트" (케이크, 베이커리, 도넛, 아이스크림)
-- "카페" (커피, 차, 논커피, 와인바/바, 카공카페)
-- "술안주" (이자카야, 포차, 안주 전문)
+=== REGION MAPPING (use exact strings) ===
+- "서울 전체" - all of Seoul
+- "강남" - 강남역, 강남구
+- "서초" - 서초구, 교대, 양재
+- "잠실/송파/강동" - 잠실, 송파구, 강동구, 천호
+- "영등포/여의도/강서" - 영등포, 여의도, 강서구, 마곡
+- "건대/성수/왕십리" - 건대, 성수동, 왕십리, 성동구
+- "종로/중구" - 종로, 중구, 을지로, 명동
+- "홍대/합정/마포/연남" - 홍대, 합정, 마포구, 연남동
+- "용산/이태원/한남" - 용산구, 이태원, 한남동
+- "성북/노원/중랑" - 성북구, 노원구, 중랑구
+- "구로/관악/동작" - 구로, 관악, 동작, 신림, 사당
+- "신촌/연희" - 신촌, 연희동, 이대
+- "창동/도봉산" - 창동, 도봉구
+- "회기/청량리" - 회기, 청량리, 동대문구
+- "강동/고덕" - 강동구, 고덕
+- "연신내/구파발" - 연신내, 구파발, 은평구
+- "마곡/김포" - 마곡, 김포공항
+- "미아/수유/북한산" - 미아, 수유, 북한산
+- "목동/양천" - 목동, 양천구
+- "금천/가산" - 금천구, 가산디지털단지
 
-카테고리 소분류 (categorySub):
-- 밥: "덮밥", "정식", "도시락", "백반", "돈까스", "한식", "카레"
-- 면: "라멘", "국수", "파스타", "쌀국수", "우동", "냉면", "소바"
-- 국물: "국밥", "찌개", "탕", "전골"
-- 고기요리: "구이", "스테이크", "바비큐", "수육"
-- 해산물: "해산물요리", "회", "해물찜", "해물탕", "조개/굴"
-- 간편식: "김밥", "샌드위치", "토스트", "햄버거", "타코", "분식"
-- 양식·퓨전: "베트남", "아시안", "인도", "양식", "중식", "프랑스", "파스타", "피자", "리조또", "브런치"
-- 디저트: "케이크", "베이커리", "도넛", "아이스크림"
-- 카페: "커피", "차", "논커피", "와인바/바", "카공카페"
-- 술안주: "이자카야", "포차", "안주 전문"
+=== CATEGORY MAPPING ===
+대분류 (category_main):
+- "밥" → 덮밥, 정식, 도시락, 백반, 돈까스, 한식, 카레
+- "면" → 라멘, 국수, 파스타, 쌀국수, 우동, 냉면, 소바
+- "국물" → 국밥, 찌개, 탕, 전골
+- "고기요리" → 구이, 스테이크, 바비큐, 수육
+- "해산물" → 해산물요리, 회, 해물찜, 해물탕, 조개/굴
+- "간편식" → 김밥, 샌드위치, 토스트, 햄버거, 타코, 분식
+- "양식·퓨전" → 베트남, 아시안, 인도, 양식, 중식, 프랑스, 피자, 리조또, 브런치
+- "디저트" → 케이크, 베이커리, 도넛, 아이스크림
+- "카페" → 커피, 차, 논커피, 와인바/바, 카공카페
+- "술안주" → 이자카야, 포차, 안주 전문
 
-중요한 규칙:
-1. "혼밥" 검색 시: solo_ok를 true로 설정하고, excludeCategoryMain에 ["카페"]를 추가 (카페 제외, 음식점만)
-2. "맛집" 검색 시: 특정 카테고리 지정 없이 지역만 필터링
-3. 카테고리 제외: "카페 제외", "술집 빼고" 같은 표현을 excludeCategoryMain에 반영
-4. 키워드: 음식 이름, 태그로 사용될 수 있는 단어들을 keywords에 포함
-5. 장소 이름: 사용자가 입력한 텍스트가 장소 이름일 수 있으므로, 명확한 지역/카테고리 표현이 아닌 경우 keywords에 포함
+=== VISIT CONTEXT ===
+- "혼밥" - eating alone (implies excluding cafe)
+- "혼술" - drinking alone
+- "데이트" - romantic setting
+- "접대" - business hosting
+- "가족모임" - family gathering
+- "친구모임" - friends hangout
+- "회식" - company dinner
+- "소개팅" - blind date
+- "생일" - birthday celebration
+- "기념일" - anniversary
+- "카공" - cafe for studying
+- "반려동물_동반" - pet friendly
 
-한국어 자연스러운 표현 매핑:
-- "밥집", "밥 먹을 곳", "밥 먹고 싶어", "밥 먹을래" → categoryMain: ["밥"]
-- "면집", "면 먹을 곳", "면 먹고 싶어" → categoryMain: ["면"]
-- "국물집", "국물 먹을 곳" → categoryMain: ["국물"]
-- "고기집", "고기 먹을 곳", "고기 먹고 싶어" → categoryMain: ["고기요리"]
-- "회집", "회 먹을 곳", "해산물 먹을 곳" → categoryMain: ["해산물"]
-- "카페", "커피숍", "카페 가고 싶어" → categoryMain: ["카페"]
-- "술집", "술 마실 곳", "안주 먹을 곳" → categoryMain: ["술안주"]
-- "맛집" → 카테고리 지정 없이 지역만 필터링 (이미 규칙 2에 있음)
-- "추천해줘", "추천", "알려줘", "보여줘", "어디가 좋아" → 무시 (의미 없는 표현)
+=== SEARCH CONSTRAINTS ===
+- "웨이팅_없음" - no wait, 바로 입장
+- "예약_가능" - reservation available
+- "주차_가능" - parking available
+- "좌석_넉넉" - spacious seating
+- "오래_앉기" - can stay long
+- "조용한" - quiet atmosphere
+- "빠른_회전" - quick meal
+- "가성비" - good value
+- "비싼_곳_제외" - exclude expensive
+- "체인점_제외" - exclude chains
+- "관광지_제외" - exclude tourist traps
+- "비건" - vegan
+- "채식" - vegetarian
+- "매운맛" - spicy
+- "담백" - mild/light
 
-Constraints you can detect:
-- solo_ok: mentions eating alone, 혼밥, 혼술, 혼자 먹기
-- quiet: mentions quiet, 조용한, 분위기 좋은
-- no_wait: mentions no waiting, 웨이팅 없는, 바로 입장
-- price_level: 1=cheap, 2=moderate, 3=expensive, 4=very expensive
+=== TIME OF DAY ===
+- "아침" - morning/breakfast
+- "점심" - lunch
+- "저녁" - dinner
+- "야식" - late night snack
+- "심야" - very late, past midnight
+- "브런치" - brunch
 
-Output ONLY valid JSON matching this schema:
+=== NATURAL LANGUAGE MAPPING ===
+Korean expressions to structured fields:
+- "밥집", "밥 먹을 곳", "밥 먹고 싶어" → category_main: "밥"
+- "면집", "면 먹을래", "국수 먹을래" → category_main: "면"
+- "고기집", "고기 먹을래" → category_main: "고기요리"
+- "회집", "횟집", "해산물" → category_main: "해산물"
+- "술집", "한잔 하자", "안주" → category_main: "술안주"
+- "카페 가자", "커피숍" → category_main: "카페"
+- "맛집" → generic, don't set category
+- "추천해줘", "알려줘", "보여줘" → ignore (no semantic value)
+- "[place name] 어때?", "[place name] 어떤 곳?" → ASK_DETAILS intent, put name in place_name
+
+=== OUTPUT JSON SCHEMA ===
 {
-  "region": ["string array of matched regions"],
-  "subRegion": ["optional finer locations like 한남동, 이태원역"],
-  "categoryMain": ["string array of category mains like 밥, 면, 카페"],
-  "categorySub": ["string array of category subs like 라멘, 회"],
-  "excludeCategoryMain": ["string array of category mains to exclude like 카페"],
-  "keywords": ["extracted food types, dish names, or tags"],
-  "constraints": {
-    "solo_ok": boolean or null,
-    "quiet": boolean or null,
-    "no_wait": boolean or null,
-    "price_level": number 1-4 or null
-  },
-  "sort": "relevance" or "rating"
+  "intent": "ONE_OF_16_INTENTS",
+  "slots": {
+    "region": "exact region string or null",
+    "sub_region": "finer location like 한남동 or null",
+    "place_name": "if asking about specific place, else null",
+    "category_main": "one category main or null",
+    "category_sub": "specific sub-category or null",
+    "exclude_category_main": ["categories to exclude"],
+    "time_of_day": "time context or null",
+    "visit_context": "visit context or null",
+    "constraints": ["array of constraints"],
+    "keywords": ["food names, dish names, tags"],
+    "count": number or null,
+    "open_now": boolean or null
+  }
 }
 
-Examples:
-- "용산 맛집" → {"region": ["용산/이태원/한남"]}
-- "용산 밥집 추천해줘" → {"region": ["용산/이태원/한남"], "categoryMain": ["밥"]}
-- "용산 밥집" → {"region": ["용산/이태원/한남"], "categoryMain": ["밥"]}
-- "용산 밥 먹을 곳" → {"region": ["용산/이태원/한남"], "categoryMain": ["밥"]}
-- "용산 혼밥" → {"region": ["용산/이태원/한남"], "constraints": {"solo_ok": true}, "excludeCategoryMain": ["카페"]}
-- "강남 라멘" → {"region": ["강남"], "categorySub": ["라멘"]}
-- "강남 면집 추천" → {"region": ["강남"], "categoryMain": ["면"]}
-- "홍대 카페 제외" → {"region": ["홍대/합정/마포/연남"], "excludeCategoryMain": ["카페"]}
-- "용산 고기집 알려줘" → {"region": ["용산/이태원/한남"], "categoryMain": ["고기요리"]}
+=== EXAMPLES ===
+"용산 맛집" → {"intent": "SEARCH_BY_REGION", "slots": {"region": "용산/이태원/한남", "keywords": ["맛집"]}}
 
-If a field is not mentioned, omit it or set to null. Never invent data.`;
+"용산 혼밥" → {"intent": "SEARCH_BY_CONSTRAINTS", "slots": {"region": "용산/이태원/한남", "visit_context": "혼밥", "exclude_category_main": ["카페"]}}
 
-// Parse query using LangChain
-async function parseQuery(text: string): Promise<LLMQuery> {
+"강남 라멘" → {"intent": "SEARCH_BY_FOOD", "slots": {"region": "강남", "category_sub": "라멘", "keywords": ["라멘"]}}
+
+"홍대 데이트 맛집" → {"intent": "SEARCH_BY_CONTEXT", "slots": {"region": "홍대/합정/마포/연남", "visit_context": "데이트"}}
+
+"히코 어때?" → {"intent": "ASK_DETAILS", "slots": {"place_name": "히코", "keywords": ["히코"]}}
+
+"야식 맛집" → {"intent": "FIND_LATE_NIGHT", "slots": {"time_of_day": "야식"}}
+
+"카페 빼고 맛집" → {"intent": "ASK_EXCLUDE", "slots": {"exclude_category_main": ["카페"]}}
+
+"강남 면집 추천" → {"intent": "SEARCH_BY_CATEGORY", "slots": {"region": "강남", "category_main": "면"}}
+
+"웨이팅 없는 곳" → {"intent": "SEARCH_BY_CONSTRAINTS", "slots": {"constraints": ["웨이팅_없음"]}}
+
+"주차 가능한 고기집" → {"intent": "SEARCH_BY_CONSTRAINTS", "slots": {"category_main": "고기요리", "constraints": ["주차_가능"]}}
+
+=== RULES ===
+1. "혼밥" always adds visit_context: "혼밥" AND exclude_category_main: ["카페"]
+2. If user mentions a specific place name (not food/category), use ASK_DETAILS intent
+3. Always include the original food/dish names in keywords for tag matching
+4. If unsure about region, use null (system will use UI context or default)
+5. Only set fields you're confident about - don't invent data
+
+Output ONLY valid JSON. No explanation.`;
+
+// Sub-region to region mapping
+const SUB_REGION_TO_REGION: Record<string, string> = {
+  '한남동': '용산/이태원/한남',
+  '이태원': '용산/이태원/한남',
+  '이태원역': '용산/이태원/한남',
+  '한남역': '용산/이태원/한남',
+  '성수동': '건대/성수/왕십리',
+  '연남동': '홍대/합정/마포/연남',
+  '합정동': '홍대/합정/마포/연남',
+  '서교동': '홍대/합정/마포/연남',
+  '망원동': '홍대/합정/마포/연남',
+  '을지로': '종로/중구',
+  '명동': '종로/중구',
+  '삼청동': '종로/중구',
+  '연희동': '신촌/연희',
+  '송리단길': '잠실/송파/강동',
+  '석촌': '잠실/송파/강동',
+};
+
+// Category sub to main mapping
+const CATEGORY_SUB_TO_MAIN: Record<string, string> = {
+  '덮밥': '밥', '정식': '밥', '도시락': '밥', '백반': '밥', '돈까스': '밥', '한식': '밥', '카레': '밥',
+  '라멘': '면', '국수': '면', '파스타': '면', '쌀국수': '면', '우동': '면', '냉면': '면', '소바': '면',
+  '국밥': '국물', '찌개': '국물', '탕': '국물', '전골': '국물',
+  '구이': '고기요리', '스테이크': '고기요리', '바비큐': '고기요리', '수육': '고기요리',
+  '해산물요리': '해산물', '회': '해산물', '해물찜': '해산물', '해물탕': '해산물', '조개/굴': '해산물',
+  '김밥': '간편식', '샌드위치': '간편식', '토스트': '간편식', '햄버거': '간편식', '타코': '간편식', '분식': '간편식',
+  '베트남': '양식·퓨전', '아시안': '양식·퓨전', '인도': '양식·퓨전', '양식': '양식·퓨전', '중식': '양식·퓨전',
+  '프랑스': '양식·퓨전', '피자': '양식·퓨전', '리조또': '양식·퓨전', '브런치': '양식·퓨전',
+  '케이크': '디저트', '베이커리': '디저트', '도넛': '디저트', '아이스크림': '디저트',
+  '커피': '카페', '차': '카페', '논커피': '카페', '와인바/바': '카페', '카공카페': '카페',
+  '이자카야': '술안주', '포차': '술안주', '안주 전문': '술안주',
+};
+
+// ============================================
+// Enhanced Query Parsing
+// ============================================
+async function parseEnhancedQuery(text: string): Promise<EnhancedLLMQuery> {
+  const defaultQuery: EnhancedLLMQuery = {
+    intent: 'CLARIFY_QUERY',
+    slots: {
+      region: null,
+      sub_region: null,
+      place_name: null,
+      category_main: null,
+      category_sub: null,
+      exclude_category_main: null,
+      time_of_day: null,
+      visit_context: null,
+      constraints: [],
+      keywords: [],
+      count: null,
+      open_now: null,
+    },
+  };
+
   try {
     const messages = [
       new SystemMessage(SYSTEM_PROMPT),
@@ -171,14 +369,82 @@ async function parseQuery(text: string): Promise<LLMQuery> {
     // Extract JSON from response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return {};
+      return defaultQuery;
     }
 
-    return JSON.parse(jsonMatch[0]) as LLMQuery;
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // Ensure proper structure
+    return {
+      intent: parsed.intent || 'CLARIFY_QUERY',
+      slots: {
+        region: parsed.slots?.region || null,
+        sub_region: parsed.slots?.sub_region || null,
+        place_name: parsed.slots?.place_name || null,
+        category_main: parsed.slots?.category_main || null,
+        category_sub: parsed.slots?.category_sub || null,
+        exclude_category_main: parsed.slots?.exclude_category_main || null,
+        time_of_day: parsed.slots?.time_of_day || null,
+        visit_context: parsed.slots?.visit_context || null,
+        constraints: parsed.slots?.constraints || [],
+        keywords: parsed.slots?.keywords || [],
+        count: parsed.slots?.count || null,
+        open_now: parsed.slots?.open_now || null,
+      },
+    };
   } catch (error) {
-    console.error('LLM parsing error:', error);
-    return {};
+    console.error('Enhanced LLM parsing error:', error);
+    return defaultQuery;
   }
+}
+
+// Convert enhanced query to legacy LLMQuery for compatibility
+function toLegacyQuery(enhanced: EnhancedLLMQuery): LLMQuery {
+  const legacy: LLMQuery = {
+    keywords: enhanced.slots.keywords || [],
+    sort: 'relevance',
+  };
+
+  if (enhanced.slots.region) {
+    legacy.region = [enhanced.slots.region];
+  }
+  if (enhanced.slots.sub_region) {
+    legacy.subRegion = [enhanced.slots.sub_region];
+  }
+  if (enhanced.slots.category_main) {
+    legacy.categoryMain = [enhanced.slots.category_main];
+  }
+  if (enhanced.slots.category_sub) {
+    legacy.categorySub = [enhanced.slots.category_sub];
+  }
+  if (enhanced.slots.exclude_category_main) {
+    legacy.excludeCategoryMain = enhanced.slots.exclude_category_main;
+  }
+
+  // Map constraints
+  const constraints: LLMQuery['constraints'] = {};
+  if (enhanced.slots.visit_context === '혼밥' || enhanced.slots.visit_context === '혼술') {
+    constraints.solo_ok = true;
+  }
+  if (enhanced.slots.constraints.includes('조용한')) {
+    constraints.quiet = true;
+  }
+  if (enhanced.slots.constraints.includes('웨이팅_없음')) {
+    constraints.no_wait = true;
+  }
+  if (enhanced.slots.constraints.includes('가성비') || enhanced.slots.constraints.includes('비싼_곳_제외')) {
+    constraints.price_level = 2;
+  }
+  if (Object.keys(constraints).length > 0) {
+    legacy.constraints = constraints;
+  }
+
+  // Add place name to keywords if present
+  if (enhanced.slots.place_name) {
+    legacy.keywords = [...(legacy.keywords || []), enhanced.slots.place_name];
+  }
+
+  return legacy;
 }
 
 // Get location IDs that match keywords via tags (locations.tags 배열 직접 검색)
@@ -227,9 +493,6 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
   const hasCategoryFilter = (query.categoryMain && query.categoryMain.length > 0) || 
                            (query.categorySub && query.categorySub.length > 0) ||
                            (query.category && query.category.length > 0);
-
-  // 키워드가 있고 필터가 약하면 전체에서 검색하도록 필터 완화
-  const shouldRelaxFilters = hasKeywords && !hasRegionFilter && !hasCategoryFilter;
 
   // Filter by region
   if (query.region && query.region.length > 0) {
@@ -422,6 +685,300 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
   return results.slice(0, 50);
 }
 
+// ============================================
+// Fallback Search Strategy (5 levels)
+// ============================================
+
+interface FallbackResult {
+  places: Location[];
+  fallback_applied: boolean;
+  fallback_notes: string[];
+  fallback_level: number;
+}
+
+// Non-critical constraints that can be dropped first
+const NON_CRITICAL_CONSTRAINTS: SearchConstraint[] = [
+  '체인점_제외', '관광지_제외', '가성비', '비싼_곳_제외', '빠른_회전'
+];
+
+async function searchWithFallback(
+  enhanced: EnhancedLLMQuery,
+  originalText: string,
+  uiRegion?: string
+): Promise<FallbackResult> {
+  const fallbackNotes: string[] = [];
+
+  // Create working copy of slots
+  const workingSlots = { ...enhanced.slots };
+
+  // Add original text to keywords for place name search
+  if (!workingSlots.keywords.includes(originalText.trim())) {
+    workingSlots.keywords = [...workingSlots.keywords, originalText.trim()];
+  }
+
+  // Use UI region as fallback if no region specified
+  if (!workingSlots.region && uiRegion && uiRegion !== '서울 전체') {
+    workingSlots.region = uiRegion;
+  }
+
+  // Level 0: Original query
+  let legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+  let places = await searchLocations(legacyQuery);
+
+  if (places.length > 0) {
+    return {
+      places,
+      fallback_applied: false,
+      fallback_notes: [],
+      fallback_level: 0,
+    };
+  }
+
+  // Level 1: Drop non-critical constraints
+  if (workingSlots.constraints.length > 0) {
+    const originalConstraints = [...workingSlots.constraints];
+    workingSlots.constraints = workingSlots.constraints.filter(
+      c => !NON_CRITICAL_CONSTRAINTS.includes(c)
+    );
+    if (workingSlots.constraints.length < originalConstraints.length) {
+      fallbackNotes.push('일부 조건을 완화했어요');
+      legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+      places = await searchLocations(legacyQuery);
+      if (places.length > 0) {
+        return {
+          places,
+          fallback_applied: true,
+          fallback_notes: fallbackNotes,
+          fallback_level: 1,
+        };
+      }
+    }
+  }
+
+  // Level 2: Soften wait and other critical constraints
+  if (workingSlots.constraints.includes('웨이팅_없음' as SearchConstraint)) {
+    workingSlots.constraints = workingSlots.constraints.filter(c => c !== '웨이팅_없음');
+    fallbackNotes.push('웨이팅 조건을 제외했어요');
+    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+    places = await searchLocations(legacyQuery);
+    if (places.length > 0) {
+      return {
+        places,
+        fallback_applied: true,
+        fallback_notes: fallbackNotes,
+        fallback_level: 2,
+      };
+    }
+  }
+
+  // Clear remaining constraints
+  if (workingSlots.constraints.length > 0) {
+    workingSlots.constraints = [];
+    fallbackNotes.push('조건을 모두 완화했어요');
+    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+    places = await searchLocations(legacyQuery);
+    if (places.length > 0) {
+      return {
+        places,
+        fallback_applied: true,
+        fallback_notes: fallbackNotes,
+        fallback_level: 2,
+      };
+    }
+  }
+
+  // Level 3: Broaden category (category_sub → category_main)
+  if (workingSlots.category_sub) {
+    const categoryMain = CATEGORY_SUB_TO_MAIN[workingSlots.category_sub];
+    if (categoryMain) {
+      workingSlots.category_sub = null;
+      workingSlots.category_main = categoryMain;
+      fallbackNotes.push(`${enhanced.slots.category_sub} → ${categoryMain} 전체로 검색했어요`);
+      legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+      places = await searchLocations(legacyQuery);
+      if (places.length > 0) {
+        return {
+          places,
+          fallback_applied: true,
+          fallback_notes: fallbackNotes,
+          fallback_level: 3,
+        };
+      }
+    }
+  }
+
+  // Level 4: Broaden region (sub_region → region → 서울 전체)
+  if (workingSlots.sub_region) {
+    const broadRegion = SUB_REGION_TO_REGION[workingSlots.sub_region] || workingSlots.region;
+    workingSlots.sub_region = null;
+    workingSlots.region = broadRegion;
+    fallbackNotes.push(`${enhanced.slots.sub_region} → ${broadRegion} 전체로 검색했어요`);
+    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+    places = await searchLocations(legacyQuery);
+    if (places.length > 0) {
+      return {
+        places,
+        fallback_applied: true,
+        fallback_notes: fallbackNotes,
+        fallback_level: 4,
+      };
+    }
+  }
+
+  if (workingSlots.region && workingSlots.region !== '서울 전체') {
+    const oldRegion = workingSlots.region;
+    workingSlots.region = null; // 서울 전체로 검색
+    fallbackNotes.push(`${oldRegion} → 서울 전체로 검색했어요`);
+    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+    places = await searchLocations(legacyQuery);
+    if (places.length > 0) {
+      return {
+        places,
+        fallback_applied: true,
+        fallback_notes: fallbackNotes,
+        fallback_level: 4,
+      };
+    }
+  }
+
+  // Level 5: Curated safe picks (top-rated diverse recommendations)
+  workingSlots.category_main = null;
+  workingSlots.category_sub = null;
+  workingSlots.exclude_category_main = null;
+  fallbackNotes.push('조건에 맞는 장소가 없어 인기 장소를 보여드려요');
+
+  const { data: topRated } = await supabase
+    .from('locations')
+    .select('*')
+    .order('rating', { ascending: false })
+    .limit(20);
+
+  if (topRated && topRated.length > 0) {
+    places = topRated.map((item: Record<string, unknown>) => ({
+      id: item.id as string,
+      name: item.name as string,
+      region: item.region as string,
+      subRegion: item.sub_region as string | undefined,
+      category: item.category as string,
+      lon: item.lon as number,
+      lat: item.lat as number,
+      address: item.address as string,
+      memo: item.memo as string,
+      shortDesc: item.short_desc as string | undefined,
+      features: item.features as Record<string, boolean> | undefined,
+      rating: item.rating as number,
+      priceLevel: item.price_level as number | undefined,
+      naverPlaceId: item.naver_place_id as string | undefined,
+      kakaoPlaceId: item.kakao_place_id as string | undefined,
+      imageUrl: (item.image_url || item.imageUrl) as string,
+      eventTags: (item.event_tags || item.eventTags) as string[] | undefined,
+      visitDate: (item.visit_date || item.visitDate) as string | undefined,
+      categoryMain: item.category_main as string | undefined,
+      categorySub: item.category_sub as string | undefined,
+      tags: item.tags as string[] | undefined,
+    }));
+
+    return {
+      places,
+      fallback_applied: true,
+      fallback_notes: fallbackNotes,
+      fallback_level: 5,
+    };
+  }
+
+  // No results at all
+  return {
+    places: [],
+    fallback_applied: true,
+    fallback_notes: fallbackNotes,
+    fallback_level: 5,
+  };
+}
+
+// Generate UI hints based on results and intent
+function generateUIHints(
+  enhanced: EnhancedLLMQuery,
+  resultCount: number,
+  fallbackApplied: boolean,
+  fallbackNotes: string[]
+): UIHints {
+  if (resultCount === 0) {
+    return {
+      message_type: 'no_results_soft',
+      message: '조건에 맞는 장소를 찾지 못했어요.',
+      suggestions: [
+        '다른 지역으로 검색해보세요',
+        '조건을 줄여서 검색해보세요',
+        '비슷한 카테고리로 검색해보세요',
+      ],
+    };
+  }
+
+  if (enhanced.intent === 'CLARIFY_QUERY') {
+    return {
+      message_type: 'need_clarification',
+      message: '검색어가 명확하지 않아요.',
+      suggestions: [
+        '지역을 포함해서 검색해보세요 (예: 강남 라멘)',
+        '음식 종류를 명시해보세요 (예: 혼밥 맛집)',
+      ],
+    };
+  }
+
+  if (fallbackApplied && fallbackNotes.length > 0) {
+    return {
+      message_type: 'success',
+      message: fallbackNotes.join(' / '),
+    };
+  }
+
+  return {
+    message_type: 'success',
+    message: `${resultCount}개의 장소를 찾았어요!`,
+  };
+}
+
+// Generate search actions based on intent
+function generateSearchActions(
+  enhanced: EnhancedLLMQuery,
+  resultCount: number,
+  fallbackResult: FallbackResult
+): SearchActions {
+  let mode: 'browse' | 'explore' = 'browse';
+  let shouldShowMap = true;
+  let resultLimit = 50;
+
+  // Adjust based on intent
+  switch (enhanced.intent) {
+    case 'ASK_DETAILS':
+    case 'ASK_SIMILAR_TO':
+      mode = 'explore';
+      resultLimit = 10;
+      break;
+    case 'RANDOM_PICK':
+      resultLimit = 5;
+      break;
+    case 'COMPARE_OPTIONS':
+      resultLimit = 10;
+      break;
+    case 'FIND_NEAR_ME':
+      shouldShowMap = true;
+      resultLimit = 20;
+      break;
+    default:
+      break;
+  }
+
+  return {
+    mode,
+    should_show_map: shouldShowMap,
+    result_limit: resultLimit,
+    fallback_applied: fallbackResult.fallback_applied,
+    fallback_notes: fallbackResult.fallback_notes,
+    fallback_level: fallbackResult.fallback_level,
+  };
+}
+
 // Log search to database
 async function logSearch(
   traceId: string,
@@ -475,46 +1032,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed', traceId });
   }
 
-  const { text } = req.body || {};
+  const { text, uiRegion } = req.body || {};
 
   if (!text || typeof text !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid "text" field', traceId });
   }
 
-  console.log(`[${traceId}] Search request: "${text}"`);
+  console.log(`[${traceId}] Search request: "${text}"${uiRegion ? ` (UI region: ${uiRegion})` : ''}`);
 
   try {
-    // 1. Parse query with LLM
+    // 1. Parse query with enhanced LLM
     const llmStart = Date.now();
-    const parsed = await parseQuery(text);
+    const enhanced = await parseEnhancedQuery(text);
     const llmMs = Date.now() - llmStart;
-    console.log(`[${traceId}] LLM parsed in ${llmMs}ms:`, JSON.stringify(parsed));
+    console.log(`[${traceId}] Enhanced LLM parsed in ${llmMs}ms:`, JSON.stringify(enhanced));
 
-    // 원본 쿼리 텍스트를 키워드로도 추가 (장소 이름 검색을 위해)
-    if (!parsed.keywords || parsed.keywords.length === 0) {
-      parsed.keywords = [text.trim()];
-    } else {
-      // 키워드가 있어도 원본 텍스트를 추가 (부분 일치를 위해)
-      parsed.keywords.push(text.trim());
-    }
-
-    // 2. Search locations
+    // 2. Search with fallback strategy
     const dbStart = Date.now();
-    const places = await searchLocations(parsed);
+    const fallbackResult = await searchWithFallback(enhanced, text, uiRegion);
     const dbMs = Date.now() - dbStart;
-    console.log(`[${traceId}] DB search in ${dbMs}ms: ${places.length} results`);
+    console.log(`[${traceId}] Search with fallback in ${dbMs}ms: ${fallbackResult.places.length} results (level: ${fallbackResult.fallback_level})`);
 
     const totalMs = Date.now() - startTime;
-
     const timing: TimingMetrics = { llmMs, dbMs, totalMs };
 
-    // 3. Log search (async, don't wait)
-    logSearch(traceId, text, parsed, places.length, timing);
+    // 3. Generate actions and UI hints
+    const actions = generateSearchActions(enhanced, fallbackResult.places.length, fallbackResult);
+    const uiHints = generateUIHints(
+      enhanced,
+      fallbackResult.places.length,
+      fallbackResult.fallback_applied,
+      fallbackResult.fallback_notes
+    );
 
-    // 4. Return results
+    // 4. Convert to legacy query for logging
+    const legacyQuery = toLegacyQuery(enhanced);
+
+    // 5. Log search (async, don't wait)
+    logSearch(traceId, text, legacyQuery, fallbackResult.places.length, timing);
+
+    // 6. Return enhanced response
     return res.status(200).json({
-      places,
-      query: parsed,
+      // Core results
+      places: fallbackResult.places,
+
+      // Enhanced query info
+      intent: enhanced.intent,
+      slots: enhanced.slots,
+
+      // Legacy query (for backward compatibility)
+      query: legacyQuery,
+
+      // Actions for frontend
+      actions,
+
+      // UI hints
+      ui_hints: uiHints,
+
+      // Metadata
       traceId,
       timing,
     });

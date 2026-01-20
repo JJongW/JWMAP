@@ -1,7 +1,20 @@
 import { useState } from 'react';
-import { Search, X, RotateCcw } from 'lucide-react';
+import { Search, X, RotateCcw, Info } from 'lucide-react';
 import type { Location } from '../types/location';
 import { searchLogApi } from '../utils/supabase';
+
+// Enhanced response types from API
+interface UIHints {
+  message_type: 'success' | 'no_results_soft' | 'need_clarification';
+  message: string;
+  suggestions?: string[];
+}
+
+interface SearchActions {
+  fallback_applied: boolean;
+  fallback_notes: string[];
+  fallback_level: number;
+}
 
 interface TopSearchBarProps {
   onResults: (places: Location[]) => void;
@@ -9,13 +22,16 @@ interface TopSearchBarProps {
   onReset: () => void;
   isSearchMode: boolean;
   onSearchIdChange?: (searchId: string | null) => void; // 검색 ID 전달 (클릭 로그용)
+  uiRegion?: string; // 현재 UI에서 선택된 지역 (fallback 용도)
 }
 
-export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSearchIdChange }: TopSearchBarProps) {
+export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSearchIdChange, uiRegion }: TopSearchBarProps) {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasEmptyResults, setHasEmptyResults] = useState(false);
+  const [uiHints, setUiHints] = useState<UIHints | null>(null);
+  const [fallbackInfo, setFallbackInfo] = useState<{ applied: boolean; notes: string[] } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +42,8 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
     setIsLoading(true);
     setError(null);
     setHasEmptyResults(false);
+    setUiHints(null);
+    setFallbackInfo(null);
 
     const startTime = Date.now();
 
@@ -35,7 +53,10 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: trimmedQuery }),
+        body: JSON.stringify({
+          text: trimmedQuery,
+          uiRegion: uiRegion, // Send current UI region for fallback
+        }),
       });
 
       if (!response.ok) {
@@ -46,13 +67,28 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
       const places: Location[] = data.places || [];
       const totalMs = Date.now() - startTime;
 
+      // Handle enhanced response
+      const actions: SearchActions | undefined = data.actions;
+      const hints: UIHints | undefined = data.ui_hints;
+
+      // Set UI hints and fallback info
+      if (hints) {
+        setUiHints(hints);
+      }
+      if (actions?.fallback_applied) {
+        setFallbackInfo({
+          applied: actions.fallback_applied,
+          notes: actions.fallback_notes || [],
+        });
+      }
+
       // 검색 로그 기록
       const searchId = await searchLogApi.log({
         query: trimmedQuery,
-        parsed: data.parsed || {},
+        parsed: data.query || {},
         result_count: places.length,
-        llm_ms: data.llm_ms || 0,
-        db_ms: data.db_ms || 0,
+        llm_ms: data.timing?.llmMs || 0,
+        db_ms: data.timing?.dbMs || 0,
         total_ms: totalMs,
       });
 
@@ -87,6 +123,8 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
     setQuery('');
     setError(null);
     setHasEmptyResults(false);
+    setUiHints(null);
+    setFallbackInfo(null);
     onSearchIdChange?.(null); // 검색 ID 초기화
     onReset();
   };
@@ -95,6 +133,8 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
     setQuery('');
     setError(null);
     setHasEmptyResults(false);
+    setUiHints(null);
+    setFallbackInfo(null);
   };
 
   return (
@@ -162,7 +202,33 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
         </p>
       )}
 
-      {hasEmptyResults && !isLoading && (
+      {/* Fallback notes - shown when search applied fallback strategies */}
+      {!isLoading && fallbackInfo?.applied && fallbackInfo.notes.length > 0 && (
+        <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-200">
+          <p className="text-sm text-amber-700 flex items-center gap-2">
+            <Info size={14} className="flex-shrink-0" />
+            <span>{fallbackInfo.notes.join(' / ')}</span>
+          </p>
+        </div>
+      )}
+
+      {/* UI hints - shown based on search result type */}
+      {!isLoading && uiHints && uiHints.message_type !== 'success' && (
+        <div className="mt-3">
+          <p className="text-sm text-accent/70">
+            {uiHints.message}
+          </p>
+          {uiHints.suggestions && uiHints.suggestions.length > 0 && (
+            <ul className="mt-2 text-xs text-accent/60 space-y-1">
+              {uiHints.suggestions.map((suggestion, idx) => (
+                <li key={idx}>• {suggestion}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {hasEmptyResults && !isLoading && !uiHints && (
         <p className="mt-3 text-sm text-accent/70">
           아직 등록된 장소가 없어요. 다른 지역/키워드로 검색해보세요.
         </p>
