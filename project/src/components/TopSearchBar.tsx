@@ -139,8 +139,8 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
 
   return (
     <div className="bg-white p-4 rounded-2xl border border-base">
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <div className="relative flex-1">
+      <form onSubmit={handleSubmit} className="flex gap-2 items-center">
+        <div className="relative flex-1 min-w-0">
           <input
             type="text"
             value={query}
@@ -167,7 +167,7 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
         <button
           type="submit"
           disabled={isLoading || !query.trim()}
-          className="h-11 px-5 bg-point text-white text-sm font-medium rounded-xl hover:bg-point-hover disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2 min-w-[80px] justify-center"
+          className="h-10 px-3 bg-point text-white text-sm font-medium rounded-xl hover:bg-point-hover disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 flex-shrink-0"
         >
           {isLoading ? (
             <span className="text-sm">검색 중...</span>
@@ -179,11 +179,11 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
           <button
             type="button"
             onClick={handleReset}
-            className="h-11 px-4 bg-base text-accent text-sm font-medium rounded-xl hover:bg-opacity-80 transition-colors flex items-center gap-2"
+            className="h-10 w-10 p-0 bg-base text-accent rounded-xl hover:bg-opacity-80 transition-colors flex items-center justify-center flex-shrink-0"
             title="필터로 다시 보기"
+            aria-label="필터로 다시 보기"
           >
-            <RotateCcw size={16} />
-            <span className="hidden sm:inline">필터로 다시 보기</span>
+            <RotateCcw size={18} />
           </button>
         )}
       </form>
