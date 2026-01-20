@@ -245,7 +245,7 @@ Korean expressions to structured fields:
 - "고기집", "고기 먹을래" → category_main: "고기요리"
 - "회집", "횟집", "해산물" → category_main: "해산물"
 - "술집", "한잔 하자", "안주" → category_main: "술안주"
-- "카페 가자", "커피숍" → category_main: "카페"
+- "카페 가자", "커피숍", "카공카페", "카공 카페", "카공" → category_main: "카페" (and category_sub: "카공카페" if explicitly mentioned)
 - "맛집" → generic, don't set category
 - "추천해줘", "알려줘", "보여줘" → ignore (no semantic value)
 - "[place name] 어때?", "[place name] 어떤 곳?" → ASK_DETAILS intent, put name in place_name
@@ -290,6 +290,10 @@ Korean expressions to structured fields:
 
 "강남 면집 추천" → {"intent": "SEARCH_BY_CATEGORY", "slots": {"region": "강남", "category_main": "면"}}
 
+"카공카페" → {"intent": "SEARCH_BY_CATEGORY", "slots": {"category_main": "카페", "category_sub": "카공카페"}}
+
+"강남 카공카페" → {"intent": "SEARCH_BY_CATEGORY", "slots": {"region": "강남", "category_main": "카페", "category_sub": "카공카페"}}
+
 "웨이팅 없는 곳" → {"intent": "SEARCH_BY_CONSTRAINTS", "slots": {"constraints": ["웨이팅_없음"]}}
 
 "주차 가능한 고기집" → {"intent": "SEARCH_BY_CONSTRAINTS", "slots": {"category_main": "고기요리", "constraints": ["주차_가능"]}}
@@ -298,7 +302,8 @@ Korean expressions to structured fields:
 1. "혼밥" always adds visit_context: "혼밥" AND exclude_category_main: ["카페"]
 2. If user mentions a specific place name (not food/category), use ASK_DETAILS intent
 3. Always include the original food/dish names in keywords for tag matching
-4. IMPORTANT: When user mentions a location name (like "사당", "신림", "강남", "홍대", etc.), ALWAYS set the region field using the exact region string from REGION MAPPING above. Examples:
+4. IMPORTANT: "카공카페", "카공 카페", "카공" always means category_main: "카페" AND category_sub: "카공카페". Do NOT confuse with other categories.
+5. IMPORTANT: When user mentions a location name (like "사당", "신림", "강남", "홍대", etc.), ALWAYS set the region field using the exact region string from REGION MAPPING above. Examples:
    - "사당 맛집" → region: "구로/관악/동작" (not null!)
    - "신림 맛집" → region: "구로/관악/동작"
    - "강남 맛집" → region: "강남"
@@ -719,7 +724,7 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
         ) && tagMatchedIds.has(loc.id);
         
         if (!hasSoloOkFeature && !hasSoloTag && !hasSoloKeyword) {
-          return false;
+        return false;
         }
       }
 
@@ -737,7 +742,7 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
 
   // 일반적인 키워드 목록 (키워드 필터링에서 제외)
   const GENERIC_KEYWORDS = ['맛집', '추천', '알려줘', '보여줘', '어디', '어디서', '어디가', '가고 싶어', '먹고 싶어', '가볼 곳'];
-  
+
   // Keyword matching: include tag matches OR text matches
   // 단, 일반적인 키워드는 필터링하지 않음 (region/category 필터만 적용)
   if (query.keywords && query.keywords.length > 0) {
@@ -751,12 +756,12 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
     if (hasSpecificKeywords) {
       // 구체적인 키워드가 있는 경우에만 키워드 필터링 적용
       const filteredResults = results.filter((loc) => {
-        // Include if matched by tags
-        if (tagMatchedIds.has(loc.id)) {
-          return true;
-        }
+      // Include if matched by tags
+      if (tagMatchedIds.has(loc.id)) {
+        return true;
+      }
         // Or if matched by text search (name, memo, shortDesc)
-        const searchText = `${loc.name} ${loc.memo || ''} ${loc.shortDesc || ''}`.toLowerCase();
+      const searchText = `${loc.name} ${loc.memo || ''} ${loc.shortDesc || ''}`.toLowerCase();
         return keywordLower.some((kw) => {
           // 일반적인 키워드는 제외
           if (GENERIC_KEYWORDS.some(generic => kw.includes(generic) || generic.includes(kw))) {
@@ -775,15 +780,15 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
         results = filteredResults;
       }
 
-      // Boost tag-matched results to top
-      results.sort((a, b) => {
-        const aTagMatch = tagMatchedIds.has(a.id) ? 1 : 0;
-        const bTagMatch = tagMatchedIds.has(b.id) ? 1 : 0;
-        if (aTagMatch !== bTagMatch) {
-          return bTagMatch - aTagMatch;
-        }
-        return (b.rating || 0) - (a.rating || 0);
-      });
+    // Boost tag-matched results to top
+    results.sort((a, b) => {
+      const aTagMatch = tagMatchedIds.has(a.id) ? 1 : 0;
+      const bTagMatch = tagMatchedIds.has(b.id) ? 1 : 0;
+      if (aTagMatch !== bTagMatch) {
+        return bTagMatch - aTagMatch;
+      }
+      return (b.rating || 0) - (a.rating || 0);
+    });
     } else {
       // 일반적인 키워드만 있는 경우 키워드 필터링 건너뛰고 region/category 필터만 적용
       // results는 이미 region/category 필터가 적용된 상태이므로 그대로 사용

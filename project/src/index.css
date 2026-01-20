@@ -96,3 +96,31 @@
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* 카카오맵 z-index 조정 (사이드바를 가리지 않도록) */
+@layer utilities {
+  /* 카카오맵 컨테이너와 관련 요소들의 z-index 조정 */
+  /* 사이드바는 z-40이므로 지도는 그보다 낮아야 함 */
+  div[id^="kakao"],
+  div[id*="kakao"],
+  div[class*="kakao"],
+  div[class*="daum"] {
+    position: relative !important;
+    z-index: 0 !important;
+  }
+  
+  /* 카카오맵 iframe이나 컨테이너 */
+  iframe[src*="kakao"],
+  iframe[src*="daum"],
+  iframe[src*="dapi"] {
+    position: relative !important;
+    z-index: 0 !important;
+  }
+  
+  /* 모든 카카오맵 관련 요소 */
+  *[id*="kakao"],
+  *[class*="kakao"],
+  *[class*="daum"] {
+    z-index: 0 !important;
+  }
+}

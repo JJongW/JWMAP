@@ -88,6 +88,35 @@ export function Map(props: MapProps) {
         mapRef.current = new kakao.maps.Map(mapContainer.current, options);
         setIsReady(true);
         
+        // 카카오맵 컨테이너의 z-index 조정 (사이드바를 가리지 않도록)
+        if (mapContainer.current) {
+          const kakaoMapElement = mapContainer.current.querySelector('div[class*="kakao"]');
+          if (kakaoMapElement && kakaoMapElement instanceof HTMLElement) {
+            kakaoMapElement.style.zIndex = '0';
+            kakaoMapElement.style.position = 'relative';
+          }
+          // 모든 자식 요소의 z-index도 조정
+          setTimeout(() => {
+            if (mapContainer.current) {
+              const allDivs = mapContainer.current.querySelectorAll('div');
+              allDivs.forEach((el) => {
+                if (el instanceof HTMLElement) {
+                  // 카카오맵 관련 요소인지 확인
+                  if (el.id?.includes('kakao') || el.className?.includes('kakao')) {
+                    el.style.zIndex = '0';
+                    el.style.position = 'relative';
+                  }
+                  // iframe도 확인
+                  if (el.tagName === 'IFRAME') {
+                    el.style.zIndex = '0';
+                    el.style.position = 'relative';
+                  }
+                }
+              });
+            }
+          }, 500);
+        }
+        
         // 지도 준비 완료 시 콜백 호출
         if (onMapReady && mapRef.current) {
           onMapReady(mapRef.current);
@@ -225,7 +254,8 @@ export function Map(props: MapProps) {
   return (
     <div
       ref={mapContainer}
-      className={className || "w-full h-[350px] sm:h-[450px] lg:h-[500px] bg-base rounded-2xl border border-base"}
+      className={`${className || "w-full h-[350px] sm:h-[450px] lg:h-[500px] bg-base rounded-2xl border border-base"} relative z-0`}
+      style={{ zIndex: 0 }}
     />
   );
 }

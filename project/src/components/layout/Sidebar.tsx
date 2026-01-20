@@ -11,7 +11,8 @@ export function Sidebar({
 }: SidebarProps) {
   return (
     <aside
-      className={`fixed left-0 top-0 bottom-0 ${width} bg-white shadow-xl z-40 flex flex-col overflow-hidden ${className}`}
+      className={`fixed left-0 top-0 bottom-0 ${width} bg-white shadow-xl z-50 flex flex-col overflow-hidden ${className}`}
+      style={{ zIndex: 50 }}
     >
       {children}
     </aside>

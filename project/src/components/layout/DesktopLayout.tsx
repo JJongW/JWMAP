@@ -147,29 +147,7 @@ export function DesktopLayout({
 
   return (
     <div className="fixed inset-0">
-      {/* Full Screen Map Background */}
-      <div className="relative w-full h-full">
-        <Map
-          locations={displayedLocations}
-          selectedLocation={selectedLocation}
-          highlightedLocationId={hoveredLocationId}
-          onMarkerClick={handleMarkerClick}
-          className="w-full h-full"
-          userLocation={userLocation}
-          onMapReady={onMapReady}
-        />
-        {/* 내 위치 버튼 - 지도 오버레이 (우측 하단) */}
-        {onGetUserLocation && (
-          <MyLocationButton
-            isLoading={isLoadingLocation}
-            hasLocation={!!userLocation}
-            onClick={onGetUserLocation}
-            className="bottom-6 right-6"
-          />
-        )}
-      </div>
-
-      {/* Left Sidebar */}
+      {/* Left Sidebar - 먼저 렌더링 */}
       <Sidebar width="w-[420px]">
         {/* Header */}
         <div className="flex-shrink-0 px-5 py-4 border-b border-base bg-white">
@@ -261,6 +239,28 @@ export function DesktopLayout({
           )}
         </div>
       </Sidebar>
+
+      {/* Full Screen Map Background - 사이드바 옆에 위치 */}
+      <div className="absolute top-0 right-0 bottom-0" style={{ zIndex: 0, left: '420px' }}>
+        <Map
+          locations={displayedLocations}
+          selectedLocation={selectedLocation}
+          highlightedLocationId={hoveredLocationId}
+          onMarkerClick={handleMarkerClick}
+          className="w-full h-full"
+          userLocation={userLocation}
+          onMapReady={onMapReady}
+        />
+        {/* 내 위치 버튼 - 지도 오버레이 (우측 하단) */}
+        {onGetUserLocation && (
+          <MyLocationButton
+            isLoading={isLoadingLocation}
+            hasLocation={!!userLocation}
+            onClick={onGetUserLocation}
+            className="bottom-6 right-6"
+          />
+        )}
+      </div>
     </div>
   );
 }
