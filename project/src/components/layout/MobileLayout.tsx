@@ -348,7 +348,8 @@ export function MobileLayout({
         }`}
       >
         {/* Full Screen Map - Only render when ready */}
-        {mapReady && (
+        {/* 검색 모드일 때도 지도 표시 */}
+        {(mapReady && (isExplore || isSearchMode)) && (
           <div className="relative w-full h-full">
             <Map
               locations={displayedLocations}

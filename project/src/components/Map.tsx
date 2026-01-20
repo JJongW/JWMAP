@@ -118,6 +118,11 @@ export function Map(props: MapProps) {
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
 
+    // locations가 비어있으면 마커를 표시하지 않음
+    if (!locations || locations.length === 0) {
+      return;
+    }
+
     // 새 마커 생성
     locations.forEach(location => {
       try {
@@ -154,6 +159,19 @@ export function Map(props: MapProps) {
         console.error('마커 생성 오류:', e);
       }
     });
+
+    // 검색 결과가 여러 개일 때 지도 범위 조정
+    if (locations.length > 0 && mapRef.current) {
+      try {
+        const bounds = new kakao.maps.LatLngBounds();
+        locations.forEach(location => {
+          bounds.extend(new kakao.maps.LatLng(location.lat, location.lon));
+        });
+        mapRef.current.setBounds(bounds);
+      } catch (e) {
+        console.error('지도 범위 조정 오류:', e);
+      }
+    }
   }, [isReady, locations]);
 
   // 사용자 위치 마커 표시
