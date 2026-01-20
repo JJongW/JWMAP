@@ -1,0 +1,582 @@
+[
+  {
+    "id": "TC001",
+    "title": "Natural Language Search Success",
+    "description": "Verify that the LLM (Google Gemini)-based natural language search correctly parses valid user queries and returns accurate real location data matching the query.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the search input"
+      },
+      {
+        "type": "action",
+        "description": "Input a clear natural language query such as 'cafes near Gangnam with outdoor seating'"
+      },
+      {
+        "type": "action",
+        "description": "Submit the search query"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that search results are returned and all show relevant cafes near Gangnam with outdoor seating"
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure no fabricated or nonexistent places appear in the results"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Natural Language Search with Empty Query",
+    "description": "Verify system behavior when the natural language search query is empty or blank.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the search input"
+      },
+      {
+        "type": "action",
+        "description": "Input an empty string or whitespace only"
+      },
+      {
+        "type": "action",
+        "description": "Submit the search query"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify appropriate feedback is shown to user indicating no input was provided"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no search request is sent or no results are displayed"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Hierarchical Region Filter Cascade",
+    "description": "Verify that hierarchical filtering cascades correctly through Province, Region, and SubRegion selections without confusion.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open the filter section"
+      },
+      {
+        "type": "action",
+        "description": "Select a Province"
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure that Region filter options update to show only those within the selected Province"
+      },
+      {
+        "type": "action",
+        "description": "Select a Region"
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure SubRegion options update to show only those within the selected Region"
+      },
+      {
+        "type": "action",
+        "description": "Deselect Province"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that Region and SubRegion filters reset or display full lists"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Category Filter Functionality with Exclusions",
+    "description": "Verify filtering by CategoryMain and CategorySub functions properly, including ability to exclude specified categories.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open category filter controls"
+      },
+      {
+        "type": "action",
+        "description": "Select one or more CategoryMain categories"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify results and map markers update to show only selected categories"
+      },
+      {
+        "type": "action",
+        "description": "Select one or more CategorySub categories"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify results and markers update accordingly"
+      },
+      {
+        "type": "action",
+        "description": "Apply exclusions to certain categories"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify excluded categories do not appear in results or map markers"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Map Markers Render Correctly per Category",
+    "description": "Verify that Kakao Map renders markers correctly per filtered category and markers synchronize on interaction with place previews and details.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Apply a category filter (e.g., restaurants)"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify markers on the map correspond only to places in that category"
+      },
+      {
+        "type": "action",
+        "description": "Click on a map marker"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify place preview highlights and place detail panel or sidebar updates accordingly"
+      },
+      {
+        "type": "action",
+        "description": "Click on a place card in the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify corresponding map marker is highlighted and place detail updates"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Place Detail Display on Different Viewports",
+    "description": "Verify place detail view adapts correctly: displaying as sidebar on desktop and as full page modal on mobile.",
+    "category": "ui",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "On desktop width (>=768px), select a place card or map marker"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify place details appear in a right sidebar without full page reload"
+      },
+      {
+        "type": "action",
+        "description": "Resize viewport or open app on mobile device (<768px)"
+      },
+      {
+        "type": "action",
+        "description": "Select a place card or map marker"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify place details open in a full page modal view"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Add New Place with Validation and Backend Sync",
+    "description": "Verify that user can add a new place with valid data, that client-side validation works, and the place is synced correctly to Supabase backend.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open add new place modal"
+      },
+      {
+        "type": "action",
+        "description": "Fill in mandatory fields (name, location, category) correctly"
+      },
+      {
+        "type": "action",
+        "description": "Fill optional fields like features, tags, and event tags"
+      },
+      {
+        "type": "action",
+        "description": "Submit the new place"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify client-side validation passes and no errors are shown"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify place appears immediately in UI list and map markers"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify new place is persisted in Supabase backend (API returns success)"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Edit Existing Place and Data Consistency",
+    "description": "Verify editing an existing place updates the UI and backend correctly and maintains data consistency including related reviews.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Select an existing place and open the edit modal"
+      },
+      {
+        "type": "action",
+        "description": "Modify fields such as name, tags, or features"
+      },
+      {
+        "type": "action",
+        "description": "Submit the changes"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI reflects updated place data immediately"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify backend update API call succeeds"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify associated reviews remain properly linked to the place"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Community Review Submission with Feature Tagging",
+    "description": "Verify that users can submit reviews for places including feature tags, and reviews display properly with sorting and filtering.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open add review modal for a selected place"
+      },
+      {
+        "type": "action",
+        "description": "Fill in review text and select feature tags"
+      },
+      {
+        "type": "action",
+        "description": "Submit the review"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the review appears in the community reviews list for that place"
+      },
+      {
+        "type": "action",
+        "description": "Apply sorting/filtering by feature tags"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify reviews reorder/filter correctly according to selected feature tags"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Review Handling When Place is Removed",
+    "description": "Verify that reviews linked to a place are handled gracefully when the place is removed or deleted.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Delete an existing place that has associated reviews"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify place is removed from UI and backend"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify associated reviews do not cause errors and are either removed or marked appropriately"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user feedback informs about place deletion where reviews may be inaccessible"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Image Upload with Compression and UI Feedback",
+    "description": "Verify image upload process compresses images to under 2MB, uploads to Cloudinary, and provides user feedback about upload status.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open image upload dialog in place add/edit modal"
+      },
+      {
+        "type": "action",
+        "description": "Select an image file larger than 2MB"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify image is compressed below 2MB before upload"
+      },
+      {
+        "type": "action",
+        "description": "Confirm and start upload"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI shows upload progress or spinner"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify successful upload feedback and image preview appears"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Image Upload Failure Handling",
+    "description": "Verify the system handles Cloudinary upload failures gracefully, providing user guidance and retry options.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Start image upload with simulated network or server failure"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI notifies user of upload failure"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user has option to retry upload or cancel"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Responsive Layout Breakpoint Switching",
+    "description": "Verify UI layout switches cleanly between desktop and mobile views at 768px viewport width, maintaining usability and appearance.",
+    "category": "ui",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Render application at viewport widths above 768px"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify desktop layout elements are present (sidebar, map, lists)"
+      },
+      {
+        "type": "action",
+        "description": "Resize viewport below 768px"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI switches to mobile layout with bottom sheets and full page place detail modals"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Mobile Gesture Bottom Sheet Behavior",
+    "description": "Verify bottom sheet gesture functionality on mobile, including smooth opening, closing, and scrolling without conflicts.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open bottom sheet on mobile via gesture or button"
+      },
+      {
+        "type": "action",
+        "description": "Perform drag gestures to close and open bottom sheet"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify bottom sheet responds fluidly and locks/unlocks scroll appropriately"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Event Tag Filtering Activates Correctly",
+    "description": "Verify filtering by event tags activates/deactivates correctly and relevant event banners display for special places.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Select one or more active event tags in the filter section"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify filtered results contain only places with selected event tags"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify event banners appear on relevant places in list and map"
+      },
+      {
+        "type": "action",
+        "description": "Deselect event tags or select inactive event tags"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify event banners hide or deactivate accordingly"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Place List Pagination Works Correctly",
+    "description": "Verify location cards are paginated properly, with navigation controls updating the displayed page and syncing with map markers.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Apply filters resulting in more than one page of results"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify only one page of place cards is visible at a time"
+      },
+      {
+        "type": "action",
+        "description": "Use pagination controls to navigate to next and previous pages"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify place cards and map markers update to show items in selected page"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "API Failure Graceful Handling and Retry",
+    "description": "Verify that backend API failures (e.g., Supabase, search, image upload) are handled gracefully with user feedback and retry options.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate API failure on place fetch or search"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI shows an informative error message"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify retry button is visible and functional"
+      },
+      {
+        "type": "action",
+        "description": "Click retry"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify API request retried and UI updates on success"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Empty or Malformed Data Handling in UI",
+    "description": "Verify the UI does not break and provides helpful feedback when receiving empty or malformed data from APIs.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate API returning empty place list or malformed place data"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI shows appropriate messages such as 'No places found' or 'Data unavailable'"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no crashes or unhandled exceptions occur"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Performance Check: Lazy Loading and Minimal Re-rendering",
+    "description": "Verify performance optimizations like code splitting, lazy loading, and minimized component re-rendering are effective, ensuring smooth animations and interactions especially on mobile devices.",
+    "category": "performance",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate through main UI flows such as search, filter application, place detail view on mobile device"
+      },
+      {
+        "type": "assertion",
+        "description": "Measure and verify components load lazily when needed"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify no unnecessary component re-rendering occurs by performance profiling tools"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify UI interactions and animations run without lag or jank"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Search and Click Event Logging Accuracy",
+    "description": "Verify that search queries and place click events are logged accurately with detailed structured data and maintain referential integrity between entities.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Perform a natural language search or filter search"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify search query is logged with correct query text and filter parameters"
+      },
+      {
+        "type": "action",
+        "description": "Click on a place card or map marker to view details"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify click event log includes the place ID, timestamp, and user/session info"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify referential integrity between search logs and click events is maintained"
+      }
+    ]
+  }
+]

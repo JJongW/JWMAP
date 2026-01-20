@@ -5,6 +5,7 @@ import { FilterSection } from '../FilterSection';
 import { LocationList } from '../LocationList';
 import { SidebarDetail } from '../SidebarDetail';
 import { EventTagFilter } from '../EventTagFilter';
+import { MyLocationButton } from '../MyLocationButton';
 import { Sidebar } from './Sidebar';
 import { clickLogApi } from '../../utils/supabase';
 import type { Location, Province, CategoryMain, CategorySub } from '../../types/location';
@@ -63,6 +64,12 @@ interface DesktopLayoutProps {
   availableEventTags: string[];
   selectedEventTag: string | null;
   onEventTagToggle: (tag: string | null) => void;
+
+  // User Location
+  userLocation?: { lat: number; lon: number } | null;
+  isLoadingLocation?: boolean;
+  onGetUserLocation?: () => void;
+  onMapReady?: (map: kakao.maps.Map) => void;
 }
 
 export function DesktopLayout({
@@ -104,6 +111,10 @@ export function DesktopLayout({
   availableEventTags,
   selectedEventTag,
   onEventTagToggle,
+  userLocation,
+  isLoadingLocation = false,
+  onGetUserLocation,
+  onMapReady,
 }: DesktopLayoutProps) {
   // Handle location select from list
   const handleLocationSelect = (location: Location) => {
@@ -137,13 +148,26 @@ export function DesktopLayout({
   return (
     <div className="fixed inset-0">
       {/* Full Screen Map Background */}
-      <Map
-        locations={displayedLocations}
-        selectedLocation={selectedLocation}
-        highlightedLocationId={hoveredLocationId}
-        onMarkerClick={handleMarkerClick}
-        className="w-full h-full"
-      />
+      <div className="relative w-full h-full">
+        <Map
+          locations={displayedLocations}
+          selectedLocation={selectedLocation}
+          highlightedLocationId={hoveredLocationId}
+          onMarkerClick={handleMarkerClick}
+          className="w-full h-full"
+          userLocation={userLocation}
+          onMapReady={onMapReady}
+        />
+        {/* 내 위치 버튼 - 지도 오버레이 (우측 하단) */}
+        {onGetUserLocation && (
+          <MyLocationButton
+            isLoading={isLoadingLocation}
+            hasLocation={!!userLocation}
+            onClick={onGetUserLocation}
+            className="bottom-6 right-6"
+          />
+        )}
+      </div>
 
       {/* Left Sidebar */}
       <Sidebar width="w-[420px]">

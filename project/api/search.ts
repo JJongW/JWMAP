@@ -164,26 +164,27 @@ Choose ONE that best matches the query:
 - CLARIFY_QUERY: unclear or incomplete query
 
 === REGION MAPPING (use exact strings) ===
+IMPORTANT: When user mentions any location name below, map it to the corresponding region string.
 - "서울 전체" - all of Seoul
-- "강남" - 강남역, 강남구
-- "서초" - 서초구, 교대, 양재
-- "잠실/송파/강동" - 잠실, 송파구, 강동구, 천호
-- "영등포/여의도/강서" - 영등포, 여의도, 강서구, 마곡
-- "건대/성수/왕십리" - 건대, 성수동, 왕십리, 성동구
-- "종로/중구" - 종로, 중구, 을지로, 명동
-- "홍대/합정/마포/연남" - 홍대, 합정, 마포구, 연남동
-- "용산/이태원/한남" - 용산구, 이태원, 한남동
-- "성북/노원/중랑" - 성북구, 노원구, 중랑구
-- "구로/관악/동작" - 구로, 관악, 동작, 신림, 사당
-- "신촌/연희" - 신촌, 연희동, 이대
-- "창동/도봉산" - 창동, 도봉구
-- "회기/청량리" - 회기, 청량리, 동대문구
-- "강동/고덕" - 강동구, 고덕
-- "연신내/구파발" - 연신내, 구파발, 은평구
-- "마곡/김포" - 마곡, 김포공항
-- "미아/수유/북한산" - 미아, 수유, 북한산
-- "목동/양천" - 목동, 양천구
-- "금천/가산" - 금천구, 가산디지털단지
+- "강남" - 강남역, 강남구, 선릉, 역삼, 논현, 신사, 압구정, 청담
+- "서초" - 서초구, 교대, 양재, 서초역, 반포
+- "잠실/송파/강동" - 잠실, 송파구, 강동구, 천호, 올림픽공원, 방이
+- "영등포/여의도/강서" - 영등포, 여의도, 강서구, 마곡, 등촌, 목동
+- "건대/성수/왕십리" - 건대, 건대입구, 성수동, 성수, 왕십리, 성동구, 뚝섬
+- "종로/중구" - 종로, 중구, 을지로, 명동, 동대문, 광화문, 인사동
+- "홍대/합정/마포/연남" - 홍대, 홍대입구, 합정, 마포구, 연남동, 상수, 서교
+- "용산/이태원/한남" - 용산구, 이태원, 한남동, 용산역, 이촌
+- "성북/노원/중랑" - 성북구, 노원구, 중랑구, 미아, 길음
+- "구로/관악/동작" - 구로, 구로구, 관악, 관악구, 동작구, 신림, 사당, 사당역, 보라매, 노량진, 흑석, 상도
+- "신촌/연희" - 신촌, 연희동, 이대, 서대문구
+- "창동/도봉산" - 창동, 도봉구, 수유
+- "회기/청량리" - 회기, 청량리, 동대문구, 이문, 휘경
+- "강동/고덕" - 강동구, 고덕, 암사
+- "연신내/구파발" - 연신내, 구파발, 은평구, 불광
+- "마곡/김포" - 마곡, 김포공항, 방화
+- "미아/수유/북한산" - 미아, 수유, 북한산, 강북구
+- "목동/양천" - 목동, 양천구, 오목교, 신정
+- "금천/가산" - 금천구, 가산디지털단지, 독산, 시흥
 
 === CATEGORY MAPPING ===
 대분류 (category_main):
@@ -271,6 +272,10 @@ Korean expressions to structured fields:
 === EXAMPLES ===
 "용산 맛집" → {"intent": "SEARCH_BY_REGION", "slots": {"region": "용산/이태원/한남", "keywords": ["맛집"]}}
 
+"사당 맛집" → {"intent": "SEARCH_BY_REGION", "slots": {"region": "구로/관악/동작", "keywords": ["맛집"]}}
+
+"신림 맛집" → {"intent": "SEARCH_BY_REGION", "slots": {"region": "구로/관악/동작", "keywords": ["맛집"]}}
+
 "용산 혼밥" → {"intent": "SEARCH_BY_CONSTRAINTS", "slots": {"region": "용산/이태원/한남", "visit_context": "혼밥", "exclude_category_main": ["카페"]}}
 
 "강남 라멘" → {"intent": "SEARCH_BY_FOOD", "slots": {"region": "강남", "category_sub": "라멘", "keywords": ["라멘"]}}
@@ -293,28 +298,110 @@ Korean expressions to structured fields:
 1. "혼밥" always adds visit_context: "혼밥" AND exclude_category_main: ["카페"]
 2. If user mentions a specific place name (not food/category), use ASK_DETAILS intent
 3. Always include the original food/dish names in keywords for tag matching
-4. If unsure about region, use null (system will use UI context or default)
-5. Only set fields you're confident about - don't invent data
+4. IMPORTANT: When user mentions a location name (like "사당", "신림", "강남", "홍대", etc.), ALWAYS set the region field using the exact region string from REGION MAPPING above. Examples:
+   - "사당 맛집" → region: "구로/관악/동작" (not null!)
+   - "신림 맛집" → region: "구로/관악/동작"
+   - "강남 맛집" → region: "강남"
+   - "홍대 맛집" → region: "홍대/합정/마포/연남"
+   - Any location name from REGION MAPPING should be mapped to its corresponding region string
+5. If unsure about region, use null (system will use UI context or default)
+6. Only set fields you're confident about - don't invent data
+7. Location names in queries should be mapped to region field, not left as keywords only
 
 Output ONLY valid JSON. No explanation.`;
 
 // Sub-region to region mapping
+// 지역명(동/역/구 이름)을 region으로 매핑하는 딕셔너리
 const SUB_REGION_TO_REGION: Record<string, string> = {
+  // 용산/이태원/한남
   '한남동': '용산/이태원/한남',
   '이태원': '용산/이태원/한남',
   '이태원역': '용산/이태원/한남',
   '한남역': '용산/이태원/한남',
+  '용산구': '용산/이태원/한남',
+  '용산역': '용산/이태원/한남',
+  '이촌': '용산/이태원/한남',
+  // 건대/성수/왕십리
   '성수동': '건대/성수/왕십리',
+  '성수': '건대/성수/왕십리',
+  '건대': '건대/성수/왕십리',
+  '건대입구': '건대/성수/왕십리',
+  '왕십리': '건대/성수/왕십리',
+  '성동구': '건대/성수/왕십리',
+  '뚝섬': '건대/성수/왕십리',
+  // 홍대/합정/마포/연남
   '연남동': '홍대/합정/마포/연남',
   '합정동': '홍대/합정/마포/연남',
+  '합정': '홍대/합정/마포/연남',
+  '홍대': '홍대/합정/마포/연남',
+  '홍대입구': '홍대/합정/마포/연남',
   '서교동': '홍대/합정/마포/연남',
   '망원동': '홍대/합정/마포/연남',
+  '마포구': '홍대/합정/마포/연남',
+  '상수': '홍대/합정/마포/연남',
+  '서교': '홍대/합정/마포/연남',
+  // 종로/중구
   '을지로': '종로/중구',
   '명동': '종로/중구',
   '삼청동': '종로/중구',
+  '종로구': '종로/중구',
+  '중구': '종로/중구',
+  '동대문': '종로/중구',
+  '광화문': '종로/중구',
+  '인사동': '종로/중구',
+  // 신촌/연희
   '연희동': '신촌/연희',
+  '신촌': '신촌/연희',
+  '이대': '신촌/연희',
+  '서대문구': '신촌/연희',
+  // 잠실/송파/강동
   '송리단길': '잠실/송파/강동',
   '석촌': '잠실/송파/강동',
+  '잠실': '잠실/송파/강동',
+  '송파구': '잠실/송파/강동',
+  '강동구': '잠실/송파/강동',
+  '천호': '잠실/송파/강동',
+  '올림픽공원': '잠실/송파/강동',
+  '방이': '잠실/송파/강동',
+  // 구로/관악/동작 (핵심 개선)
+  '사당': '구로/관악/동작',
+  '사당역': '구로/관악/동작',
+  '신림': '구로/관악/동작',
+  '신림역': '구로/관악/동작',
+  '구로': '구로/관악/동작',
+  '구로구': '구로/관악/동작',
+  '구로역': '구로/관악/동작',
+  '관악': '구로/관악/동작',
+  '관악구': '구로/관악/동작',
+  '동작구': '구로/관악/동작',
+  '보라매': '구로/관악/동작',
+  '노량진': '구로/관악/동작',
+  '흑석': '구로/관악/동작',
+  '상도': '구로/관악/동작',
+  // 강남
+  '강남': '강남',
+  '강남구': '강남',
+  '강남역': '강남',
+  '선릉': '강남',
+  '역삼': '강남',
+  '논현': '강남',
+  '신사': '강남',
+  '압구정': '강남',
+  '청담': '강남',
+  // 서초
+  '서초': '서초',
+  '서초구': '서초',
+  '서초역': '서초',
+  '교대': '서초',
+  '양재': '서초',
+  '반포': '서초',
+  // 영등포/여의도/강서
+  '영등포': '영등포/여의도/강서',
+  '여의도': '영등포/여의도/강서',
+  '강서구': '영등포/여의도/강서',
+  '마곡': '영등포/여의도/강서',
+  '등촌': '영등포/여의도/강서',
+  '목동': '영등포/여의도/강서',
 };
 
 // Category sub to main mapping
@@ -398,6 +485,48 @@ async function parseEnhancedQuery(text: string): Promise<EnhancedLLMQuery> {
   }
 }
 
+// Extract region from keywords if not already set
+function extractRegionFromKeywords(keywords: string[]): string | null {
+  if (!keywords || keywords.length === 0) return null;
+  
+  // 키워드에서 지역명 추출
+  for (const keyword of keywords) {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    
+    // SUB_REGION_TO_REGION 매핑 확인
+    for (const [subRegion, region] of Object.entries(SUB_REGION_TO_REGION)) {
+      if (normalizedKeyword === subRegion.toLowerCase() || 
+          normalizedKeyword.includes(subRegion.toLowerCase()) ||
+          subRegion.toLowerCase().includes(normalizedKeyword)) {
+        return region;
+      }
+    }
+    
+    // 직접 region 이름과 매칭
+    const regionNames = [
+      '강남', '서초', '잠실/송파/강동', '영등포/여의도/강서',
+      '건대/성수/왕십리', '종로/중구', '홍대/합정/마포/연남',
+      '용산/이태원/한남', '성북/노원/중랑', '구로/관악/동작',
+      '신촌/연희', '창동/도봉산', '회기/청량리', '강동/고덕',
+      '연신내/구파발', '마곡/김포', '미아/수유/북한산', '목동/양천', '금천/가산'
+    ];
+    
+    for (const region of regionNames) {
+      // region 이름에서 '/' 제거하고 검색
+      const regionParts = region.split('/');
+      for (const part of regionParts) {
+        if (normalizedKeyword === part.toLowerCase() || 
+            normalizedKeyword.includes(part.toLowerCase()) ||
+            part.toLowerCase().includes(normalizedKeyword)) {
+          return region;
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
 // Convert enhanced query to legacy LLMQuery for compatibility
 function toLegacyQuery(enhanced: EnhancedLLMQuery): LLMQuery {
   const legacy: LLMQuery = {
@@ -405,8 +534,14 @@ function toLegacyQuery(enhanced: EnhancedLLMQuery): LLMQuery {
     sort: 'relevance',
   };
 
-  if (enhanced.slots.region) {
-    legacy.region = [enhanced.slots.region];
+  // region이 없으면 키워드에서 추출 시도
+  let region = enhanced.slots.region;
+  if (!region && enhanced.slots.keywords && enhanced.slots.keywords.length > 0) {
+    region = extractRegionFromKeywords(enhanced.slots.keywords);
+  }
+
+  if (region) {
+    legacy.region = [region];
   }
   if (enhanced.slots.sub_region) {
     legacy.subRegion = [enhanced.slots.sub_region];

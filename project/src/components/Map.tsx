@@ -8,6 +8,9 @@ interface MapProps {
   highlightedLocationId?: string | null;
   onMarkerClick: (location: Location) => void;
   className?: string;
+  // 사용자 위치 관련 props
+  userLocation?: { lat: number; lon: number } | null;
+  onMapReady?: (map: kakao.maps.Map) => void;
 }
 
 // 카테고리 대분류별 마커 이미지 생성
@@ -46,10 +49,11 @@ function createMarkerImage(categoryMain: string): kakao.maps.MarkerImage | null 
 }
 
 export function Map(props: MapProps) {
-  const { locations = [], selectedLocation, onMarkerClick, className } = props || {};
+  const { locations = [], selectedLocation, onMarkerClick, className, userLocation, onMapReady } = props || {};
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const markersRef = useRef<kakao.maps.Marker[]>([]);
+  const userLocationMarkerRef = useRef<kakao.maps.Marker | null>(null);
   const onMarkerClickRef = useRef(onMarkerClick);
   const [isReady, setIsReady] = useState(false);
 
@@ -83,6 +87,11 @@ export function Map(props: MapProps) {
         };
         mapRef.current = new kakao.maps.Map(mapContainer.current, options);
         setIsReady(true);
+        
+        // 지도 준비 완료 시 콜백 호출
+        if (onMapReady && mapRef.current) {
+          onMapReady(mapRef.current);
+        }
       } catch (e) {
         console.error('지도 초기화 오류:', e);
       }
@@ -92,6 +101,10 @@ export function Map(props: MapProps) {
       // 마커 정리
       markersRef.current.forEach(m => m.setMap(null));
       markersRef.current = [];
+      if (userLocationMarkerRef.current) {
+        userLocationMarkerRef.current.setMap(null);
+        userLocationMarkerRef.current = null;
+      }
       mapRef.current = null;
       setIsReady(false);
     };
@@ -142,6 +155,42 @@ export function Map(props: MapProps) {
       }
     });
   }, [isReady, locations]);
+
+  // 사용자 위치 마커 표시
+  useEffect(() => {
+    if (!isReady || !mapRef.current || !userLocation) {
+      // 사용자 위치가 없으면 마커 제거
+      if (userLocationMarkerRef.current) {
+        userLocationMarkerRef.current.setMap(null);
+        userLocationMarkerRef.current = null;
+      }
+      return;
+    }
+
+    try {
+      // 기존 사용자 위치 마커 제거
+      if (userLocationMarkerRef.current) {
+        userLocationMarkerRef.current.setMap(null);
+      }
+
+      // 사용자 위치 마커 생성 (파란색 원형 마커)
+      // 카카오맵에서 제공하는 기본 마커 이미지 사용 (파란색)
+      const userMarker = new kakao.maps.Marker({
+        position: new kakao.maps.LatLng(userLocation.lat, userLocation.lon),
+        image: new kakao.maps.MarkerImage(
+          'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_blue.png',
+          new kakao.maps.Size(24, 35),
+          { offset: new kakao.maps.Point(12, 35) }
+        ),
+        zIndex: 1000, // 다른 마커 위에 표시
+      });
+
+      userMarker.setMap(mapRef.current);
+      userLocationMarkerRef.current = userMarker;
+    } catch (e) {
+      console.error('사용자 위치 마커 생성 오류:', e);
+    }
+  }, [isReady, userLocation]);
 
   // 선택된 위치로 이동
   useEffect(() => {

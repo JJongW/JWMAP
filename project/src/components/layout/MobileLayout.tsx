@@ -9,6 +9,7 @@ import { PlaceDetail } from '../PlaceDetail';
 import { MobileOverlay } from '../MobileOverlay';
 import { BottomSheet } from './BottomSheet';
 import { EventTagFilter } from '../EventTagFilter';
+import { MyLocationButton } from '../MyLocationButton';
 import { clickLogApi } from '../../utils/supabase';
 import type { Location, Province, CategoryMain, CategorySub } from '../../types/location';
 import type { UiMode, BottomSheetState, SheetMode } from '../../types/ui';
@@ -75,6 +76,12 @@ interface MobileLayoutProps {
   availableEventTags: string[];
   selectedEventTag: string | null;
   onEventTagToggle: (tag: string | null) => void;
+
+  // User Location
+  userLocation?: { lat: number; lon: number } | null;
+  isLoadingLocation?: boolean;
+  onGetUserLocation?: () => void;
+  onMapReady?: (map: kakao.maps.Map) => void;
 }
 
 export function MobileLayout({
@@ -120,6 +127,10 @@ export function MobileLayout({
   availableEventTags,
   selectedEventTag,
   onEventTagToggle,
+  userLocation,
+  isLoadingLocation = false,
+  onGetUserLocation,
+  onMapReady,
 }: MobileLayoutProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [mapReady, setMapReady] = useState(false);
@@ -338,12 +349,25 @@ export function MobileLayout({
       >
         {/* Full Screen Map - Only render when ready */}
         {mapReady && (
-          <Map
-            locations={displayedLocations}
-            selectedLocation={selectedLocation}
-            onMarkerClick={handleMarkerClick}
-            className="w-full h-full"
-          />
+          <div className="relative w-full h-full">
+            <Map
+              locations={displayedLocations}
+              selectedLocation={selectedLocation}
+              onMarkerClick={handleMarkerClick}
+              className="w-full h-full"
+              userLocation={userLocation}
+              onMapReady={onMapReady}
+            />
+            {/* 내 위치 버튼 - 지도 오버레이 */}
+            {isExplore && onGetUserLocation && (
+              <MyLocationButton
+                isLoading={isLoadingLocation}
+                hasLocation={!!userLocation}
+                onClick={onGetUserLocation}
+                className="bottom-20 right-4"
+              />
+            )}
+          </div>
         )}
 
         {/* Top Overlay */}

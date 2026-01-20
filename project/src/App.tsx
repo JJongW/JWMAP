@@ -46,6 +46,11 @@ export default function App() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // User location state
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const mapRef = useRef<kakao.maps.Map | null>(null);
+
   // Helper: Get location province
   const getLocationProvince = (location: Location): Province | null => {
     if (location.province) return location.province;
@@ -413,6 +418,63 @@ export default function App() {
     // PC: previewLocation이 설정되면 자동으로 SidebarDetail이 표시됨
   };
 
+  // 사용자 위치 가져오기
+  const handleGetUserLocation = () => {
+    if (!navigator.geolocation) {
+      alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
+      return;
+    }
+
+    setIsLoadingLocation(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ lat: latitude, lon: longitude });
+        setIsLoadingLocation(false);
+
+        // 지도를 사용자 위치로 이동
+        if (mapRef.current) {
+          try {
+            const userLatLng = new kakao.maps.LatLng(latitude, longitude);
+            mapRef.current.setLevel(3);
+            mapRef.current.panTo(userLatLng);
+          } catch (e) {
+            console.error('지도 이동 오류:', e);
+          }
+        }
+      },
+      (error) => {
+        setIsLoadingLocation(false);
+        let errorMessage = '위치를 가져올 수 없습니다.';
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = '위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = '위치 정보를 사용할 수 없습니다.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = '위치 요청 시간이 초과되었습니다.';
+            break;
+        }
+        
+        alert(errorMessage);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  // 지도 인스턴스 저장 (Map 컴포넌트에서 호출)
+  const handleMapReady = (map: kakao.maps.Map) => {
+    mapRef.current = map;
+  };
+
   // Load data on mount
   useEffect(() => {
     fetchLocations();
@@ -488,6 +550,11 @@ export default function App() {
     availableEventTags,
     selectedEventTag,
     onEventTagToggle: handleEventTagToggle,
+    // User Location
+    userLocation,
+    isLoadingLocation,
+    onGetUserLocation: handleGetUserLocation,
+    onMapReady: handleMapReady,
   };
 
   return (

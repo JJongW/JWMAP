@@ -1,0 +1,135 @@
+{
+  "tech_stack": [
+    "TypeScript",
+    "React 18",
+    "Vite",
+    "Tailwind CSS",
+    "Supabase (PostgreSQL)",
+    "Kakao Maps API",
+    "LangChain + Google Gemini",
+    "Cloudinary",
+    "Vercel Serverless Functions"
+  ],
+  "features": [
+    {
+      "name": "지도 통합",
+      "description": "카카오 지도를 통합하여 장소를 지도에 표시하고 마커를 표시하는 기능",
+      "files": [
+        "src/components/Map.tsx"
+      ]
+    },
+    {
+      "name": "자연어 검색",
+      "description": "LLM(Gemini)을 사용하여 자연어 쿼리를 구조화된 필터로 변환하고 장소를 검색하는 기능",
+      "files": [
+        "src/components/TopSearchBar.tsx",
+        "src/components/PlaceSearch.tsx",
+        "api/search.ts"
+      ]
+    },
+    {
+      "name": "필터링 시스템",
+      "description": "지역, 카테고리, 이벤트 태그를 기반으로 장소를 필터링하는 기능",
+      "files": [
+        "src/components/FilterSection.tsx",
+        "src/components/CategoryButton.tsx",
+        "src/components/EventTagFilter.tsx"
+      ]
+    },
+    {
+      "name": "장소 상세 정보",
+      "description": "선택한 장소의 상세 정보를 표시하는 기능 (PC: 사이드바, 모바일: 풀페이지)",
+      "files": [
+        "src/components/PlaceDetail.tsx",
+        "src/components/SidebarDetail.tsx",
+        "src/components/PlacePreview.tsx"
+      ]
+    },
+    {
+      "name": "장소 추가/수정",
+      "description": "새 장소를 추가하거나 기존 장소 정보를 수정하는 기능",
+      "files": [
+        "src/components/AddLocationModal.tsx",
+        "src/components/LocationCard.tsx"
+      ]
+    },
+    {
+      "name": "리뷰 시스템",
+      "description": "커뮤니티 사용자가 장소에 대한 리뷰를 작성하고 조회하는 기능",
+      "files": [
+        "src/components/AddReviewModal.tsx",
+        "src/components/CommunityReviews.tsx"
+      ]
+    },
+    {
+      "name": "이미지 업로드",
+      "description": "Cloudinary를 사용하여 장소 이미지를 업로드하고 2MB 이하로 압축하는 기능",
+      "files": [
+        "src/components/ImageUpload.tsx"
+      ]
+    },
+    {
+      "name": "반응형 레이아웃",
+      "description": "모바일과 데스크톱 환경에 맞는 레이아웃을 제공하는 기능",
+      "files": [
+        "src/components/layout/MobileLayout.tsx",
+        "src/components/layout/DesktopLayout.tsx",
+        "src/components/layout/BottomSheet.tsx",
+        "src/components/layout/Sidebar.tsx"
+      ]
+    },
+    {
+      "name": "카카오톡 공유",
+      "description": "장소 정보를 카카오톡으로 공유하고 딥링크를 통해 상세 페이지로 이동하는 기능",
+      "files": [
+        "src/utils/kakaoShare.ts"
+      ]
+    },
+    {
+      "name": "Supabase 데이터베이스 연동",
+      "description": "Supabase를 통해 장소 및 리뷰 데이터를 CRUD하는 기능",
+      "files": [
+        "src/utils/supabase.ts"
+      ]
+    },
+    {
+      "name": "장소 목록 표시",
+      "description": "필터링된 장소 목록을 카드 형태로 표시하고 페이지네이션을 제공하는 기능",
+      "files": [
+        "src/components/LocationList.tsx",
+        "src/components/LocationCard.tsx"
+      ]
+    },
+    {
+      "name": "이벤트 배너",
+      "description": "특정 이벤트 태그가 있는 장소를 강조하는 배너 기능",
+      "files": [
+        "src/components/EventBanner.tsx"
+      ]
+    },
+    {
+      "name": "커스텀 훅",
+      "description": "반응형 브레이크포인트와 바텀시트 제스처를 관리하는 커스텀 훅",
+      "files": [
+        "src/hooks/useBreakpoint.ts",
+        "src/hooks/useBottomSheet.ts"
+      ]
+    },
+    {
+      "name": "타입 정의",
+      "description": "장소, 리뷰, UI 상태 등의 TypeScript 타입 정의",
+      "files": [
+        "src/types/location.ts",
+        "src/types/ui.ts",
+        "src/types/kakao.d.ts"
+      ]
+    },
+    {
+      "name": "메인 앱",
+      "description": "전체 애플리케이션 상태 관리 및 라우팅을 담당하는 메인 컴포넌트",
+      "files": [
+        "src/App.tsx"
+      ]
+    }
+  ]
+}
