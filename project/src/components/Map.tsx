@@ -36,9 +36,9 @@ function createMarkerImage(categoryMain: string): kakao.maps.MarkerImage | null 
 
   if (imageSrc) {
     try {
-      // 마커 크기 축소 (64x69 -> 48x52)
-      const imageSize = new kakao.maps.Size(48, 52);
-      const imageOption = { offset: new kakao.maps.Point(24, 52) };
+      // 마커 크기 축소 (64x69 -> 36x39, 더 작게 조정)
+      const imageSize = new kakao.maps.Size(36, 39);
+      const imageOption = { offset: new kakao.maps.Point(18, 39) };
       return new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
     } catch {
       return null;
@@ -191,14 +191,13 @@ export function Map(props: MapProps) {
         userLocationMarkerRef.current.setMap(null);
       }
 
-      // 사용자 위치 마커 생성 (파란색 원형 마커)
-      // 카카오맵에서 제공하는 기본 마커 이미지 사용 (파란색)
+      // 사용자 위치 마커 생성 (my_icon.svg 사용)
       const userMarker = new kakao.maps.Marker({
         position: new kakao.maps.LatLng(userLocation.lat, userLocation.lon),
         image: new kakao.maps.MarkerImage(
-          'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_blue.png',
-          new kakao.maps.Size(24, 35),
-          { offset: new kakao.maps.Point(12, 35) }
+          '/my_icon.svg',
+          new kakao.maps.Size(40, 40),
+          { offset: new kakao.maps.Point(20, 40) }
         ),
         zIndex: 1000, // 다른 마커 위에 표시
       });
