@@ -622,12 +622,9 @@ async function getLocationIdsByTags(keywords: string[]): Promise<Set<string>> {
 async function searchLocations(query: LLMQuery): Promise<Location[]> {
   let dbQuery = supabase.from('locations').select('*');
 
-  // 키워드가 있고 region/category 필터가 없거나 약한 경우, 전체에서 검색
+  // 키워드가 있고 region 필터가 있는지 확인
   const hasKeywords = query.keywords && query.keywords.length > 0;
   const hasRegionFilter = query.region && query.region.length > 0;
-  const hasCategoryFilter = (query.categoryMain && query.categoryMain.length > 0) || 
-                           (query.categorySub && query.categorySub.length > 0) ||
-                           (query.category && query.category.length > 0);
 
   // Filter by region
   if (query.region && query.region.length > 0) {
@@ -738,77 +735,68 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
     });
   }
 
+  // 일반적인 키워드 목록 (키워드 필터링에서 제외)
+  const GENERIC_KEYWORDS = ['맛집', '추천', '알려줘', '보여줘', '어디', '어디서', '어디가', '가고 싶어', '먹고 싶어', '가볼 곳'];
+  
   // Keyword matching: include tag matches OR text matches
+  // 단, 일반적인 키워드는 필터링하지 않음 (region/category 필터만 적용)
   if (query.keywords && query.keywords.length > 0) {
     const keywordLower = query.keywords.map((k) => k.toLowerCase());
-    const filteredResults = results.filter((loc) => {
-      // Include if matched by tags
-      if (tagMatchedIds.has(loc.id)) {
-        return true;
-      }
-      // Or if matched by text search (name, memo, shortDesc)
-      const searchText = `${loc.name} ${loc.memo || ''} ${loc.shortDesc || ''}`.toLowerCase();
-      return keywordLower.some((kw) => searchText.includes(kw));
-    });
-
-    // 키워드 매칭 결과가 없고, region/category 필터가 있었던 경우 전체에서 재검색
-    if (filteredResults.length === 0 && (hasRegionFilter || hasCategoryFilter)) {
-      // 필터 없이 전체에서 키워드 검색
-      const { data: allData } = await supabase
-        .from('locations')
-        .select('*')
-        .order('rating', { ascending: false })
-        .limit(200);
-
-      if (allData) {
-        const allResults: Location[] = allData.map((item: Record<string, unknown>) => ({
-          id: item.id as string,
-          name: item.name as string,
-          region: item.region as string,
-          subRegion: item.sub_region as string | undefined,
-          category: item.category as string,
-          lon: item.lon as number,
-          lat: item.lat as number,
-          address: item.address as string,
-          memo: item.memo as string,
-          shortDesc: item.short_desc as string | undefined,
-          features: item.features as Record<string, boolean> | undefined,
-          rating: item.rating as number,
-          priceLevel: item.price_level as number | undefined,
-          naverPlaceId: item.naver_place_id as string | undefined,
-          kakaoPlaceId: item.kakao_place_id as string | undefined,
-          imageUrl: (item.image_url || item.imageUrl) as string,
-          eventTags: (item.event_tags || item.eventTags) as string[] | undefined,
-          visitDate: (item.visit_date || item.visitDate) as string | undefined,
-          categoryMain: item.category_main as string | undefined,
-          categorySub: item.category_sub as string | undefined,
-          tags: item.tags as string[] | undefined,
-        }));
-
-        // 키워드로 필터링
-        results = allResults.filter((loc) => {
-          if (tagMatchedIds.has(loc.id)) {
-            return true;
+    
+    // 일반적인 키워드만 있는 경우 키워드 필터링 건너뛰기
+    const hasSpecificKeywords = keywordLower.some(kw => 
+      !GENERIC_KEYWORDS.some(generic => kw.includes(generic) || generic.includes(kw))
+    );
+    
+    if (hasSpecificKeywords) {
+      // 구체적인 키워드가 있는 경우에만 키워드 필터링 적용
+      const filteredResults = results.filter((loc) => {
+        // Include if matched by tags
+        if (tagMatchedIds.has(loc.id)) {
+          return true;
+        }
+        // Or if matched by text search (name, memo, shortDesc)
+        const searchText = `${loc.name} ${loc.memo || ''} ${loc.shortDesc || ''}`.toLowerCase();
+        return keywordLower.some((kw) => {
+          // 일반적인 키워드는 제외
+          if (GENERIC_KEYWORDS.some(generic => kw.includes(generic) || generic.includes(kw))) {
+            return false;
           }
-          const searchText = `${loc.name} ${loc.memo || ''} ${loc.shortDesc || ''}`.toLowerCase();
-          return keywordLower.some((kw) => searchText.includes(kw));
+          return searchText.includes(kw);
         });
+      });
+
+      // 키워드 매칭 결과가 없어도 region 필터는 절대 무시하지 않음
+      // region 필터가 있으면 그대로 유지하고 키워드 필터만 제거
+      if (filteredResults.length === 0 && hasRegionFilter) {
+        // region 필터는 유지하고 키워드 필터만 제거 (이미 results에 region 필터가 적용됨)
+        // results는 그대로 사용 (region 필터만 적용된 상태)
       } else {
         results = filteredResults;
       }
-    } else {
-      results = filteredResults;
-    }
 
-    // Boost tag-matched results to top
-    results.sort((a, b) => {
-      const aTagMatch = tagMatchedIds.has(a.id) ? 1 : 0;
-      const bTagMatch = tagMatchedIds.has(b.id) ? 1 : 0;
-      if (aTagMatch !== bTagMatch) {
-        return bTagMatch - aTagMatch;
-      }
-      return (b.rating || 0) - (a.rating || 0);
-    });
+      // Boost tag-matched results to top
+      results.sort((a, b) => {
+        const aTagMatch = tagMatchedIds.has(a.id) ? 1 : 0;
+        const bTagMatch = tagMatchedIds.has(b.id) ? 1 : 0;
+        if (aTagMatch !== bTagMatch) {
+          return bTagMatch - aTagMatch;
+        }
+        return (b.rating || 0) - (a.rating || 0);
+      });
+    } else {
+      // 일반적인 키워드만 있는 경우 키워드 필터링 건너뛰고 region/category 필터만 적용
+      // results는 이미 region/category 필터가 적용된 상태이므로 그대로 사용
+      // 태그 매칭된 결과를 상단으로 정렬
+      results.sort((a, b) => {
+        const aTagMatch = tagMatchedIds.has(a.id) ? 1 : 0;
+        const bTagMatch = tagMatchedIds.has(b.id) ? 1 : 0;
+        if (aTagMatch !== bTagMatch) {
+          return bTagMatch - aTagMatch;
+        }
+        return (b.rating || 0) - (a.rating || 0);
+      });
+    }
   }
 
   // Sort by rating if explicitly requested
