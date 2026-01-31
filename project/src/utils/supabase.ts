@@ -243,12 +243,14 @@ export const locationApi = {
       supabaseData.tags = inputTags;
     }
 
+    // DB may use camelCase (categoryMain) like imageUrl - try both for compatibility
     if (categoryMain !== undefined) {
       supabaseData.category_main = categoryMain;
+      supabaseData.categoryMain = categoryMain;
     }
-
     if (categorySub !== undefined) {
       supabaseData.category_sub = categorySub;
+      supabaseData.categorySub = categorySub;
     }
 
     // imageUrl 처리

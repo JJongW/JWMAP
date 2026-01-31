@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { HumanMessage } from '@langchain/core/messages';
 import { randomUUID } from 'crypto';
 
 // ============================================
@@ -135,7 +135,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const llm = new ChatGoogleGenerativeAI({
-  model: 'gemini-2.0-flash',
+  model: 'gemini-1.5-flash',
   maxOutputTokens: 500,
   apiKey: process.env.GOOGLE_API_KEY || '',
 });
@@ -365,12 +365,12 @@ async function parseEnhancedQuery(text: string): Promise<ParseResult> {
   };
 
   try {
-    const messages = [
-      new SystemMessage(SYSTEM_PROMPT),
-      new HumanMessage(`Parse this query: "${text}"`),
-    ];
+    const combinedPrompt = `${SYSTEM_PROMPT}\n\n---\n\nParse this query: "${text}"`;
+    const messages = [new HumanMessage(combinedPrompt)];
 
+    console.log('[search] Gemini invoke START', { queryLength: text?.length });
     const response = await llm.invoke(messages);
+    console.log('[search] Gemini invoke DONE', { hasContent: !!response?.content });
 
     let content = typeof response.content === 'string'
       ? response.content
