@@ -8,22 +8,31 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // 장소 관련 API 함수들
 export const locationApi = {
-  // 모든 장소 가져오기 (locations_search: popularity_score, trust_score for ranking)
+  // 모든 장소 가져오기 (locations_search: popularity_score for ranking)
   async getAll(): Promise<Location[]> {
     const columns = [
       'id', 'name', 'region', 'sub_region', 'category_main', 'category_sub',
-      'lat', 'lon', 'rating', 'imageUrl', 'image_url', 'tags', 'curator_visited',
+      'lat', 'lon', 'rating', 'imageUrl', 'tags', 'curator_visited',
       'trust_score', 'popularity_score',
       'address', 'memo', 'short_desc', 'price_level', 'event_tags', 'features',
       'naver_place_id', 'kakao_place_id', 'visit_date', 'created_at', 'last_verified_at',
     ].join(', ');
-    const { data, error } = await supabase
+    let result = await supabase
       .from('locations_search')
       .select(columns)
       .order('popularity_score', { ascending: false, nullsFirst: false })
       .order('rating', { ascending: false });
 
-    if (error) throw error;
+    if (result.error) {
+      const fallback = await supabase
+        .from('locations')
+        .select('*')
+        .order('rating', { ascending: false });
+      if (fallback.error) throw fallback.error;
+      result = fallback;
+    }
+
+    const data = result.data;
     
     // Supabase의 snake_case를 camelCase로 변환
     // event_tags -> eventTags, image_url -> imageUrl
@@ -45,12 +54,8 @@ export const locationApi = {
         eventTags = [];
       }
       
-      // imageUrl 필드 처리 (DB 컬럼명에 따라 유연하게 처리)
-      const imageUrl = item.imageUrl || item.image_url || '';
-
-      // image_url이 있으면 제거 (imageUrl로 통일)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { image_url: _, ...rest } = item;
+      const imageUrl = (item.imageUrl ?? item.image_url ?? '') as string;
+      const { image_url: _img, ...rest } = item;
       
       // tags 파싱
       let tags = item.tags || [];
