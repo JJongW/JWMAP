@@ -110,6 +110,8 @@ export const locationApi = {
       curator_visit_slot: _curator_visit_slot,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       disclosure: _disclosure,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      category: _category,
       ...rest
     } = location;
 
@@ -230,6 +232,8 @@ export const locationApi = {
       curator_visit_slot: _curator_visit_slot,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       disclosure: _disclosure,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      category: _category,
       ...rest
     } = location;
 
@@ -243,14 +247,11 @@ export const locationApi = {
       supabaseData.tags = inputTags;
     }
 
-    // DB may use camelCase (categoryMain) like imageUrl - try both for compatibility
     if (categoryMain !== undefined) {
       supabaseData.category_main = categoryMain;
-      supabaseData.categoryMain = categoryMain;
     }
     if (categorySub !== undefined) {
       supabaseData.category_sub = categorySub;
-      supabaseData.categorySub = categorySub;
     }
 
     // imageUrl 처리
