@@ -135,7 +135,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const llm = new ChatGoogleGenerativeAI({
-  model: 'gemini-1.5-flash',
+  model: 'gemini-2.0-flash',
   maxOutputTokens: 500,
   apiKey: process.env.GOOGLE_API_KEY || '',
 });
@@ -1109,6 +1109,7 @@ async function updateSearchLogResult(
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const traceId = randomUUID();
   const startTime = Date.now();
+  console.log(`[${traceId}] Handler START`);
 
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1142,7 +1143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // STEP 2: Update search_logs (parsed_* columns + parsed=raw only, llm_ms)
     if (searchLogId) {
-      updateSearchLogParsed(searchLogId, enhanced, raw, llmMs, confidence);
+      await updateSearchLogParsed(searchLogId, enhanced, raw, llmMs, confidence);
     }
 
     // 2. Search with fallback strategy
@@ -1156,7 +1157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // STEP 3 & 4: Update result_count and fallback
     if (searchLogId) {
-      updateSearchLogResult(
+      await updateSearchLogResult(
         searchLogId,
         fallbackResult.places.length,
         dbMs,
@@ -1203,7 +1204,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (error) {
     const totalMs = Date.now() - startTime;
-    console.error(`[${traceId}] Search error after ${totalMs}ms:`, error);
-    return res.status(500).json({ error: 'Internal server error', traceId });
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error(`[${traceId}] Search error after ${totalMs}ms:`, err.message, err.stack);
+    return res.status(500).json({
+      error: 'Internal server error',
+      traceId,
+      detail: err.message,
+    });
   }
 }
