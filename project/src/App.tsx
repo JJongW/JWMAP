@@ -292,6 +292,9 @@ export default function App() {
       if (previewLocation?.id === data.id) {
         setPreviewLocation(data);
       }
+      if (detailLocation?.id === data.id) {
+        setDetailLocation(data);
+      }
     } catch (error) {
       console.error('Error updating location:', error);
       alert('장소 수정 중 문제가 발생했습니다.');

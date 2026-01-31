@@ -70,7 +70,7 @@ export const locationApi = {
         visit_date: item.visit_date as string | undefined,
         last_verified_at: item.last_verified_at as string | undefined,
         created_at: item.created_at as string | undefined,
-        // visit_date를 curator_visited_at으로도 매핑 (UI 호환성)
+        curator_visited: item.curator_visited !== false, // 기본 true (기존 데이터 호환)
         curator_visited_at: item.visit_date as string | undefined,
         // 카테고리 대분류/소분류 (새 구조)
         categoryMain: (item.category_main || item.categoryMain) as string | undefined,
@@ -89,7 +89,8 @@ export const locationApi = {
       categoryMain,
       categorySub,
       features: inputFeatures,
-      curator_visited_at,  // UI용 필드는 제외
+      curator_visited,
+      curator_visited_at,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       curator_visit_slot: _curator_visit_slot,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -118,6 +119,10 @@ export const locationApi = {
     // curator_visited_at이 있으면 visit_date로 저장
     if (curator_visited_at) {
       supabaseData.visit_date = curator_visited_at;
+    }
+
+    if (curator_visited !== undefined) {
+      supabaseData.curator_visited = curator_visited;
     }
 
     const { data, error } = await supabase
@@ -177,6 +182,7 @@ export const locationApi = {
       visit_date: data.visit_date as string | undefined,
       last_verified_at: data.last_verified_at as string | undefined,
       created_at: data.created_at as string | undefined,
+      curator_visited: data.curator_visited !== false,
       curator_visited_at: data.visit_date as string | undefined,
       // 카테고리 대분류/소분류
       categoryMain: (data.category_main || data.categoryMain) as string | undefined,
@@ -203,6 +209,7 @@ export const locationApi = {
       tags: inputTags,
       categoryMain,
       categorySub,
+      curator_visited,
       curator_visited_at,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       curator_visit_slot: _curator_visit_slot,
@@ -237,6 +244,10 @@ export const locationApi = {
     // curator_visited_at -> visit_date 매핑
     if (curator_visited_at !== undefined) {
       supabaseData.visit_date = curator_visited_at;
+    }
+
+    if (curator_visited !== undefined) {
+      supabaseData.curator_visited = curator_visited;
     }
 
     const { data, error } = await supabase
@@ -300,6 +311,7 @@ export const locationApi = {
       visit_date: data.visit_date as string | undefined,
       last_verified_at: data.last_verified_at as string | undefined,
       created_at: data.created_at as string | undefined,
+      curator_visited: data.curator_visited !== false,
       curator_visited_at: data.visit_date as string | undefined,
     } as Location;
   }

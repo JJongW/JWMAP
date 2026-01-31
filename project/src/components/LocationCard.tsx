@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import type { Location, Features, CategoryMain, CategorySub } from '../types/location';
 import { CATEGORY_HIERARCHY, CATEGORY_MAINS, getCategorySubsByMain } from '../types/location';
-import { Star, MapPin, Edit2, Trash2, ExternalLink, X, Check, ImageIcon } from 'lucide-react';
+import { MapPin, Edit2, Trash2, ExternalLink, X, Check, ImageIcon } from 'lucide-react';
 import { locationApi } from '../utils/supabase';
+import { getRatingLabel, getRatingFromLabel, RATING_LABELS, isOwnerMode, type RatingLabel } from '../utils/rating';
 import { getCardImageUrl } from '../utils/image';
 import { CustomSelect } from './CustomSelect';
 import { ImageUpload } from './ImageUpload';
@@ -29,6 +30,7 @@ const featureOptions: { key: keyof Features; label: string }[] = [
 export function LocationCard({ location, onDelete, onUpdate, initialEditing = false }: LocationCardProps) {
   const [isEditing, setIsEditing] = useState(initialEditing);
   const [editedRating, setEditedRating] = useState(location.rating);
+  const [editedCuratorVisited, setEditedCuratorVisited] = useState(location.curator_visited !== false);
   const [editedImageUrl, setEditedImageUrl] = useState(location.imageUrl);
   const [editedCategoryMain, setEditedCategoryMain] = useState<CategoryMain | ''>(location.categoryMain || '');
   const [editedCategorySub, setEditedCategorySub] = useState<CategorySub | ''>(location.categorySub || '');
@@ -42,6 +44,7 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
       setIsEditing(false);
     }
     setEditedRating(location.rating);
+    setEditedCuratorVisited(location.curator_visited !== false);
     setEditedImageUrl(location.imageUrl);
     setEditedCategoryMain(location.categoryMain || '');
     setEditedCategorySub(location.categorySub || '');
@@ -70,6 +73,7 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
       );
       const updatedData = await locationApi.update(location.id, {
         rating: editedRating,
+        curator_visited: editedCuratorVisited,
         imageUrl: editedImageUrl,
         categoryMain: editedCategoryMain || undefined,
         categorySub: editedCategorySub || undefined,
@@ -257,26 +261,40 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
 
       {/* 컨텐츠 */}
       <div className="p-5 space-y-4">
-        {/* 제목 & 평점 */}
+        {/* 제목 & 쩝쩝박사 라벨 (주인장만 수정 가능) */}
         <div className="flex justify-between items-start">
           <h3 className="text-lg font-bold text-accent">{location.name}</h3>
-          <div className="flex items-center gap-1 text-point">
-            <Star size={16} className="fill-current" />
-            {isEditing ? (
-              <input
-                type="number"
-                value={editedRating}
-                step="0.1"
-                min="0"
-                max="5"
-                onChange={(e) => setEditedRating(parseFloat(e.target.value))}
-                className="w-14 border border-base rounded-lg px-2 py-1 text-sm text-accent"
-              />
-            ) : (
-              <span className="text-sm font-semibold">{editedRating?.toFixed(1) || '0.0'}</span>
-            )}
-          </div>
+          {isEditing && isOwnerMode ? (
+            <select
+              value={getRatingLabel(editedRating)}
+              onChange={(e) => setEditedRating(getRatingFromLabel(e.target.value as RatingLabel))}
+              className="border border-base rounded-lg px-2 py-1 text-sm text-accent"
+            >
+              {RATING_LABELS.map((label) => (
+                <option key={label} value={label}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="px-2.5 py-1 bg-point/20 text-point text-sm font-medium rounded-lg">
+              {getRatingLabel(editedRating)}
+            </span>
+          )}
         </div>
+
+        {/* 주인장 다녀옴 (편집 모드) */}
+        {isEditing && (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={editedCuratorVisited}
+              onChange={(e) => setEditedCuratorVisited(e.target.checked)}
+              className="rounded border-gray-300 text-point focus:ring-point"
+            />
+            <span className="text-sm text-accent/80">주인장 다녀옴</span>
+          </label>
+        )}
 
         {/* 주소 */}
         <p className="text-accent/70 text-sm flex items-center gap-1.5">

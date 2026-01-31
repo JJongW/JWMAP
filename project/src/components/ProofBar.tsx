@@ -2,6 +2,8 @@ import { CheckCircle, Calendar, Clock, BadgeCheck } from 'lucide-react';
 import type { DisclosureType } from '../types/location';
 
 interface ProofBarProps {
+  /** 주인장이 직접 다녀온 장소인지. false면 ProofBar 미표시 */
+  curatorVisited?: boolean;
   visitedAt?: string;
   visitSlot?: string;
   disclosure?: DisclosureType;
@@ -14,7 +16,10 @@ const disclosureLabels: Record<DisclosureType, { label: string; color: string }>
   sponsored: { label: '협찬', color: 'bg-purple-100 text-purple-700' },
 };
 
-export function ProofBar({ visitedAt, visitSlot, disclosure }: ProofBarProps) {
+export function ProofBar({ curatorVisited = true, visitedAt, visitSlot, disclosure }: ProofBarProps) {
+  // 주인장이 직접 다녀오지 않은 장소면 표시하지 않음
+  if (curatorVisited === false) return null;
+
   // 방문 날짜 포맷팅
   const formatDate = (dateStr: string): string => {
     try {

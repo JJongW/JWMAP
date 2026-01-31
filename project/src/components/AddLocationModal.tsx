@@ -5,6 +5,7 @@ import { ImageUpload } from './ImageUpload';
 import { PlaceSearch } from './PlaceSearch';
 import type { Features, Province, CategoryMain, CategorySub } from '../types/location';
 import { PROVINCES, REGION_HIERARCHY, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from '../types/location';
+import { RATING_LABELS, getRatingFromLabel, getRatingLabel, isOwnerMode, type RatingLabel } from '../utils/rating';
 import type { LLMSuggestions, TagSuggestion } from '../schemas/llmSuggestions';
 import { featureLabels, tagTypeLabels } from '../schemas/llmSuggestions';
 
@@ -26,6 +27,7 @@ interface AddLocationModalProps {
     address: string;
     imageUrl: string;
     rating: number;
+    curator_visited?: boolean;
     lon: number;
     lat: number;
     memo: string;
@@ -46,7 +48,8 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     categorySub: '' as CategorySub | '',
     address: '',
     imageUrl: '',
-    rating: 0,
+    rating: 3.25, // 쩝쩝박사 자주 방문 기본값
+    curator_visited: true,
     lon: 0,
     lat: 0,
     memo: '',
@@ -1123,20 +1126,34 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
             onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
           />
 
-          {/* 평점 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">평점</label>
+          {/* 쩝쩝박사 라벨 (주인장만 수정 가능) */}
+          {isOwnerMode && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">주인장 평점</label>
+              <select
+                value={getRatingLabel(formData.rating)}
+                onChange={(e) => setFormData((prev) => ({ ...prev, rating: getRatingFromLabel(e.target.value as RatingLabel) }))}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                {RATING_LABELS.map((label) => (
+                  <option key={label} value={label}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* 주인장 다녀옴 */}
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
-              type="number"
-              value={formData.rating || ''}
-              onChange={(e) => setFormData((prev) => ({ ...prev, rating: parseFloat(e.target.value) || 0 }))}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              min="0"
-              max="5"
-              step="0.1"
-              placeholder="0.0 ~ 5.0"
+              type="checkbox"
+              checked={formData.curator_visited !== false}
+              onChange={(e) => setFormData((prev) => ({ ...prev, curator_visited: e.target.checked }))}
+              className="rounded border-gray-300 text-point focus:ring-point"
             />
-          </div>
+            <span className="text-sm text-gray-700">주인장이 직접 다녀온 장소</span>
+          </label>
         </div>
 
         {/* 버튼 */}

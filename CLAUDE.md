@@ -85,6 +85,7 @@ npm run preview  # 빌드 미리보기
 `project/.env`:
 ```bash
 # Frontend (VITE_ prefix)
+VITE_OWNER_MODE=               # 'true'일 때만 쩝쩝박사 라벨 수정 가능 (주인장 전용)
 VITE_KAKAO_APP_API_KEY=        # Kakao Maps SDK
 VITE_KAKAO_RESTFUL_API_KEY=    # Kakao Places API
 VITE_NAVER_CLIENT_ID=          # Naver API

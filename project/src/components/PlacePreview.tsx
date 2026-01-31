@@ -1,7 +1,8 @@
-import { ArrowLeft, Star, MapPin, Navigation, ExternalLink, ChevronRight, Share2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Navigation, ExternalLink, ChevronRight, Share2 } from 'lucide-react';
 import type { Location, Province, Features } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import { getCardImageUrl } from '../utils/image';
+import { getRatingLabel } from '../utils/rating';
 import { clickLogApi } from '../utils/supabase';
 import { shareToKakao } from '../utils/kakaoShare';
 
@@ -140,12 +141,9 @@ export function PlacePreview({
                   : location.region}
               </p>
             </div>
-            {location.rating > 0 && (
-              <div className="flex items-center gap-1 text-point flex-shrink-0">
-                <Star size={16} className="fill-current" />
-                <span className="font-semibold">{location.rating.toFixed(1)}</span>
-              </div>
-            )}
+            <span className="px-2 py-0.5 bg-point/20 text-point text-xs font-medium rounded flex-shrink-0">
+              {getRatingLabel(location.rating)}
+            </span>
           </div>
 
           {/* One-liner (highlighted) */}

@@ -255,6 +255,7 @@ export interface Location {
   last_verified_at?: string; // 마지막 검증 일시
   created_at?: string;      // 생성 일시
   // 큐레이터 관련 필드 (UI용, DB에는 없을 수 있음)
+  curator_visited?: boolean;    // 주인장이 직접 다녀온 장소인지 (false면 "다녀왔어요" 미표시)
   curator_visited_at?: string;  // 큐레이터 방문 일시 (visit_date와 매핑)
   curator_visit_slot?: string;  // 방문 시간대 (점심/저녁/심야 등)
   disclosure?: DisclosureType;  // 내돈내산/초대/협찬

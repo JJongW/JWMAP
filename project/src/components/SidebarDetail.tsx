@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Star, MapPin, Copy, Check, Navigation, ExternalLink, Edit2, Share2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Copy, Check, Navigation, ExternalLink, Edit2, Share2 } from 'lucide-react';
 import type { Location, Review, Features } from '../types/location';
 import { reviewApi, clickLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
+import { getRatingLabel } from '../utils/rating';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
 import { LocationCard } from './LocationCard';
@@ -217,16 +218,15 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
             )}
 
             <div className="p-5 space-y-4">
-              {/* Title & Rating */}
+              {/* Title & 쩝쩝박사 라벨 */}
               <div>
                 <div className="flex items-start justify-between">
                   <h2 className="text-xl font-bold text-accent">{currentLocation.name}</h2>
-                  {currentLocation.rating > 0 && (
-                    <div className="flex items-center gap-1 text-point flex-shrink-0 ml-3">
-                      <Star size={18} className="fill-current" />
-                      <span className="font-semibold text-lg">{currentLocation.rating.toFixed(1)}</span>
-                    </div>
-                  )}
+                  <div className="flex-shrink-0 ml-3">
+                    <span className="px-2.5 py-1 bg-point/20 text-point text-sm font-medium rounded-lg">
+                      {getRatingLabel(currentLocation.rating)}
+                    </span>
+                  </div>
                 </div>
                 <p className="text-sm text-accent/70 mt-1">{currentLocation.region}</p>
 
@@ -248,8 +248,9 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
                 </div>
               </div>
 
-              {/* ProofBar */}
+              {/* ProofBar - 주인장 다녀온 장소만 표시 */}
               <ProofBar
+                curatorVisited={currentLocation.curator_visited !== false}
                 visitedAt={currentLocation.curator_visited_at}
                 visitSlot={currentLocation.curator_visit_slot}
                 disclosure={currentLocation.disclosure}

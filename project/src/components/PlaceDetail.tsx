@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { X, MapPin, Star, Copy, Check, ChevronDown, ChevronUp, Navigation, ExternalLink, Share2 } from 'lucide-react';
+import { X, MapPin, Copy, Check, ChevronDown, ChevronUp, Navigation, ExternalLink, Share2 } from 'lucide-react';
 import type { Location, Review, Features } from '../types/location';
 import { reviewApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
+import { getRatingLabel } from '../utils/rating';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
 
@@ -139,16 +140,15 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
           )}
 
           <div className="p-5 space-y-5">
-            {/* 헤더: 장소명, 평점, 주소 */}
+            {/* 헤더: 장소명, 쩝쩝박사 라벨, 주소 */}
             <div>
               <div className="flex items-start justify-between">
                 <h1 className="text-2xl font-bold text-accent">{location.name}</h1>
-                {location.rating > 0 && (
-                  <div className="flex items-center gap-1 text-point flex-shrink-0 ml-3">
-                    <Star size={18} className="fill-current" />
-                    <span className="font-semibold">{location.rating.toFixed(1)}</span>
-                  </div>
-                )}
+                <div className="flex-shrink-0 ml-3">
+                  <span className="px-2.5 py-1 bg-point/20 text-point text-sm font-medium rounded-lg">
+                    {getRatingLabel(location.rating)}
+                  </span>
+                </div>
               </div>
               <p className="text-sm text-accent/70 mt-1">{location.region}</p>
 
@@ -170,8 +170,9 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
               </div>
             </div>
 
-            {/* ProofBar - 큐레이터 신뢰 표시 */}
+            {/* ProofBar - 주인장 다녀온 장소만 표시 */}
             <ProofBar
+              curatorVisited={location.curator_visited !== false}
               visitedAt={location.curator_visited_at}
               visitSlot={location.curator_visit_slot}
               disclosure={location.disclosure}
@@ -318,12 +319,11 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
             <div>
               <div className="flex items-start justify-between">
                 <h1 className="text-2xl font-bold text-accent">{location.name}</h1>
-                {location.rating > 0 && (
-                  <div className="flex items-center gap-1 text-point flex-shrink-0 ml-3">
-                    <Star size={18} className="fill-current" />
-                    <span className="font-semibold">{location.rating.toFixed(1)}</span>
-                  </div>
-                )}
+                <div className="flex-shrink-0 ml-3">
+                  <span className="px-2.5 py-1 bg-point/20 text-point text-sm font-medium rounded-lg">
+                    {getRatingLabel(location.rating)}
+                  </span>
+                </div>
               </div>
               <p className="text-sm text-accent/70 mt-1">{location.region}</p>
 
@@ -344,8 +344,9 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
               </div>
             </div>
 
-            {/* ProofBar */}
+            {/* ProofBar - 주인장 다녀온 장소만 표시 */}
             <ProofBar
+              curatorVisited={location.curator_visited !== false}
               visitedAt={location.curator_visited_at}
               visitSlot={location.curator_visit_slot}
               disclosure={location.disclosure}
