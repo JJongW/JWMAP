@@ -1,10 +1,11 @@
 -- Search ranking & activity tracking
 -- Run in Supabase SQL editor
 
--- 1. location_stats table (for popularity_score)
+-- 1. location_stats table (for popularity_score, last_activity_at)
 CREATE TABLE IF NOT EXISTS location_stats (
   location_id uuid PRIMARY KEY REFERENCES locations(id) ON DELETE CASCADE,
-  popularity_score numeric DEFAULT 0
+  popularity_score numeric DEFAULT 0,
+  last_activity_at timestamptz
 );
 COMMENT ON TABLE location_stats IS 'Aggregated stats for search ranking (popularity_score)';
 
@@ -25,13 +26,19 @@ SELECT
 FROM locations l
 LEFT JOIN location_stats ls ON l.id = ls.location_id;
 
--- 4. RPC for last_activity_at (no new HTTP endpoints; call from existing flows)
-CREATE OR REPLACE FUNCTION touch_location_activity(loc_id uuid)
+-- 4. RPC for last_activity_at (INSERT/UPDATE location_stats)
+CREATE OR REPLACE FUNCTION touch_location_activity(p_location_id uuid)
 RETURNS void
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
-  UPDATE locations
-  SET last_activity_at = now()
-  WHERE id = loc_id;
+BEGIN
+  INSERT INTO location_stats (location_id, popularity_score, last_activity_at)
+  VALUES (p_location_id, 0, now())
+  ON CONFLICT (location_id)
+  DO UPDATE SET last_activity_at = now();
+END;
 $$;
+
+GRANT EXECUTE ON FUNCTION touch_location_activity(uuid) TO anon;
+GRANT EXECUTE ON FUNCTION touch_location_activity(uuid) TO authenticated;

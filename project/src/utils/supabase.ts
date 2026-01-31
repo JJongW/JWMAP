@@ -406,7 +406,7 @@ export const searchLogApi = {
    */
   async touchLocationActivity(locationId: string): Promise<void> {
     try {
-      const { error } = await supabase.rpc('touch_location_activity', { loc_id: locationId });
+      const { error } = await supabase.rpc('touch_location_activity', { p_location_id: locationId });
       if (error && import.meta.env.DEV) console.warn('[touchLocationActivity]', error);
     } catch {
       // Ignore
