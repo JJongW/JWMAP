@@ -45,6 +45,7 @@ type SearchConstraint =
 interface EnhancedLLMQuery {
   intent: SearchIntent;
   slots: {
+    location_keywords: string[];
     region: string | null;
     sub_region: string | null;
     place_name: string | null;
@@ -79,6 +80,7 @@ interface UIHints {
 
 // Legacy LLM Query (for backward compatibility)
 interface LLMQuery {
+  locationKeywords?: string[];
   region?: string[];
   subRegion?: string[];
   category?: string[]; // 레거시 호환
@@ -175,13 +177,14 @@ Rules:
 === TIME_CONTEXT ===
 - breakfast, lunch, dinner, late_night
 
-=== REGION (use exact strings from mapping) ===
-강남, 서초, 잠실/송파/강동, 영등포/여의도/강서, 건대/성수/왕십리, 종로/중구,
-홍대/합정/마포/연남, 용산/이태원/한남, 성북/노원/중랑, 구로/관악/동작,
-신촌/연희, 창동/도봉산, 회기/청량리, 강동/고덕, 연신내/구파발, 마곡/김포,
-미아/수유/북한산, 목동/양천, 금천/가산
-
-지역별: 사당/신림→구로/관악/동작, 이태원/한남→용산/이태원/한남, 홍대→홍대/합정/마포/연남
+=== LOCATION_KEYWORDS (raw terms as user spoke - NO mapping) ===
+Extract location/area terms exactly as the user said. Examples:
+- "연희 카페" → ["연희"]
+- "성수 맛집" → ["성수"]
+- "부산 해운대 횟집" → ["부산", "해운대"]
+- "강남 라멘" → ["강남"]
+- "사당 근처" → ["사당"]
+Do NOT map to canonical regions. Return empty array if no location mentioned.
 
 === CATEGORY_MAIN ===
 밥, 면, 국물, 고기요리, 해산물, 간편식, 양식·퓨전, 디저트, 카페, 술안주
@@ -189,119 +192,29 @@ Rules:
 === OUTPUT (exact schema) ===
 {
   "intent": "DISCOVER_RECOMMEND" | "REGION_SEARCH" | "CATEGORY_SEARCH" | "DIRECT_PLACE" | "RANDOM_SUGGEST",
-  "region": "exact region string or null",
+  "location_keywords": ["raw location terms as user spoke"],
   "time_context": "breakfast" | "lunch" | "dinner" | "late_night" | null,
   "category_main": "one of above or null",
   "category_sub": "e.g. 라멘, 국밥, 카공카페 or null",
-  "tags": ["extracted keywords for matching"],
+  "tags": ["other keywords: 맛집, 혼밥, etc - NOT location terms"],
   "confidence": 0.0 to 1.0
 }
 
 === EXAMPLES ===
-"점심 뭐 먹지?" → {"intent": "DISCOVER_RECOMMEND", "region": null, "time_context": "lunch", "category_main": null, "category_sub": null, "tags": ["점심"], "confidence": 0.9}
-"용산 맛집" → {"intent": "REGION_SEARCH", "region": "용산/이태원/한남", "time_context": null, "category_main": null, "category_sub": null, "tags": ["맛집"], "confidence": 0.95}
-"사당 맛집" → {"intent": "REGION_SEARCH", "region": "구로/관악/동작", "time_context": null, "category_main": null, "category_sub": null, "tags": ["맛집"], "confidence": 0.95}
-"국밥 먹고 싶어" → {"intent": "CATEGORY_SEARCH", "region": null, "time_context": null, "category_main": "국물", "category_sub": "국밥", "tags": ["국밥"], "confidence": 0.92}
-"강남 라멘" → {"intent": "CATEGORY_SEARCH", "region": "강남", "time_context": null, "category_main": "면", "category_sub": "라멘", "tags": ["라멘"], "confidence": 0.95}
-"히코 어때?" → {"intent": "DIRECT_PLACE", "region": null, "time_context": null, "category_main": null, "category_sub": null, "tags": ["히코"], "confidence": 0.88}
-"아무거나 추천" → {"intent": "RANDOM_SUGGEST", "region": null, "time_context": null, "category_main": null, "category_sub": null, "tags": [], "confidence": 0.85}
-"용산 혼밥" → {"intent": "REGION_SEARCH", "region": "용산/이태원/한남", "time_context": null, "category_main": null, "category_sub": null, "tags": ["혼밥", "맛집"], "confidence": 0.9}
+"점심 뭐 먹지?" → {"intent": "DISCOVER_RECOMMEND", "location_keywords": [], "time_context": "lunch", "category_main": null, "category_sub": null, "tags": ["점심"], "confidence": 0.9}
+"용산 맛집" → {"intent": "REGION_SEARCH", "location_keywords": ["용산"], "time_context": null, "category_main": null, "category_sub": null, "tags": ["맛집"], "confidence": 0.95}
+"연희 카페" → {"intent": "REGION_SEARCH", "location_keywords": ["연희"], "time_context": null, "category_main": "카페", "category_sub": null, "tags": [], "confidence": 0.95}
+"성수 맛집" → {"intent": "REGION_SEARCH", "location_keywords": ["성수"], "time_context": null, "category_main": null, "category_sub": null, "tags": ["맛집"], "confidence": 0.95}
+"부산 해운대 횟집" → {"intent": "REGION_SEARCH", "location_keywords": ["부산", "해운대"], "time_context": null, "category_main": "해산물", "category_sub": "회", "tags": ["횟집"], "confidence": 0.92}
+"국밥 먹고 싶어" → {"intent": "CATEGORY_SEARCH", "location_keywords": [], "time_context": null, "category_main": "국물", "category_sub": "국밥", "tags": ["국밥"], "confidence": 0.92}
+"강남 라멘" → {"intent": "REGION_SEARCH", "location_keywords": ["강남"], "time_context": null, "category_main": "면", "category_sub": "라멘", "tags": ["라멘"], "confidence": 0.95}
+"히코 어때?" → {"intent": "DIRECT_PLACE", "location_keywords": [], "time_context": null, "category_main": null, "category_sub": null, "tags": ["히코"], "confidence": 0.88}
+"아무거나 추천" → {"intent": "RANDOM_SUGGEST", "location_keywords": [], "time_context": null, "category_main": null, "category_sub": null, "tags": [], "confidence": 0.85}
+"용산 혼밥" → {"intent": "REGION_SEARCH", "location_keywords": ["용산"], "time_context": null, "category_main": null, "category_sub": null, "tags": ["혼밥", "맛집"], "confidence": 0.9}
 
 Output ONLY valid JSON. No explanation.`;
 
-// Sub-region to region mapping
-// 지역명(동/역/구 이름)을 region으로 매핑하는 딕셔너리
-const SUB_REGION_TO_REGION: Record<string, string> = {
-  // 용산/이태원/한남
-  '한남동': '용산/이태원/한남',
-  '이태원': '용산/이태원/한남',
-  '이태원역': '용산/이태원/한남',
-  '한남역': '용산/이태원/한남',
-  '용산구': '용산/이태원/한남',
-  '용산역': '용산/이태원/한남',
-  '이촌': '용산/이태원/한남',
-  // 건대/성수/왕십리
-  '성수동': '건대/성수/왕십리',
-  '성수': '건대/성수/왕십리',
-  '건대': '건대/성수/왕십리',
-  '건대입구': '건대/성수/왕십리',
-  '왕십리': '건대/성수/왕십리',
-  '성동구': '건대/성수/왕십리',
-  '뚝섬': '건대/성수/왕십리',
-  // 홍대/합정/마포/연남
-  '연남동': '홍대/합정/마포/연남',
-  '합정동': '홍대/합정/마포/연남',
-  '합정': '홍대/합정/마포/연남',
-  '홍대': '홍대/합정/마포/연남',
-  '홍대입구': '홍대/합정/마포/연남',
-  '서교동': '홍대/합정/마포/연남',
-  '망원동': '홍대/합정/마포/연남',
-  '마포구': '홍대/합정/마포/연남',
-  '상수': '홍대/합정/마포/연남',
-  '서교': '홍대/합정/마포/연남',
-  // 종로/중구
-  '을지로': '종로/중구',
-  '명동': '종로/중구',
-  '삼청동': '종로/중구',
-  '종로구': '종로/중구',
-  '중구': '종로/중구',
-  '동대문': '종로/중구',
-  '광화문': '종로/중구',
-  '인사동': '종로/중구',
-  // 신촌/연희
-  '연희동': '신촌/연희',
-  '신촌': '신촌/연희',
-  '이대': '신촌/연희',
-  '서대문구': '신촌/연희',
-  // 잠실/송파/강동
-  '송리단길': '잠실/송파/강동',
-  '석촌': '잠실/송파/강동',
-  '잠실': '잠실/송파/강동',
-  '송파구': '잠실/송파/강동',
-  '강동구': '잠실/송파/강동',
-  '천호': '잠실/송파/강동',
-  '올림픽공원': '잠실/송파/강동',
-  '방이': '잠실/송파/강동',
-  // 구로/관악/동작 (핵심 개선)
-  '사당': '구로/관악/동작',
-  '사당역': '구로/관악/동작',
-  '신림': '구로/관악/동작',
-  '신림역': '구로/관악/동작',
-  '구로': '구로/관악/동작',
-  '구로구': '구로/관악/동작',
-  '구로역': '구로/관악/동작',
-  '관악': '구로/관악/동작',
-  '관악구': '구로/관악/동작',
-  '동작구': '구로/관악/동작',
-  '보라매': '구로/관악/동작',
-  '노량진': '구로/관악/동작',
-  '흑석': '구로/관악/동작',
-  '상도': '구로/관악/동작',
-  // 강남
-  '강남': '강남',
-  '강남구': '강남',
-  '강남역': '강남',
-  '선릉': '강남',
-  '역삼': '강남',
-  '논현': '강남',
-  '신사': '강남',
-  '압구정': '강남',
-  '청담': '강남',
-  // 서초
-  '서초': '서초',
-  '서초구': '서초',
-  '서초역': '서초',
-  '교대': '서초',
-  '양재': '서초',
-  '반포': '서초',
-  // 영등포/여의도/강서
-  '영등포': '영등포/여의도/강서',
-  '여의도': '영등포/여의도/강서',
-  '강서구': '영등포/여의도/강서',
-  '마곡': '영등포/여의도/강서',
-  '등촌': '영등포/여의도/강서',
-  '목동': '영등포/여의도/강서',
-};
+// Sub-region mapping removed: search is now location-agnostic (raw keywords only)
 
 // Category sub to main mapping
 const CATEGORY_SUB_TO_MAIN: Record<string, string> = {
@@ -321,7 +234,8 @@ const CATEGORY_SUB_TO_MAIN: Record<string, string> = {
 // New LLM output schema (flat)
 interface SimpleLLMOutput {
   intent: 'DISCOVER_RECOMMEND' | 'REGION_SEARCH' | 'CATEGORY_SEARCH' | 'DIRECT_PLACE' | 'RANDOM_SUGGEST';
-  region: string | null;
+  location_keywords?: string[];
+  region?: string | null;
   time_context: 'breakfast' | 'lunch' | 'dinner' | 'late_night' | null;
   category_main: string | null;
   category_sub: string | null;
@@ -358,6 +272,7 @@ async function parseEnhancedQuery(text: string): Promise<ParseResult> {
   const defaultQuery: EnhancedLLMQuery = {
     intent: 'CLARIFY_QUERY',
     slots: {
+      location_keywords: [],
       region: null,
       sub_region: null,
       place_name: null,
@@ -410,7 +325,9 @@ async function parseEnhancedQuery(text: string): Promise<ParseResult> {
     // Parse new flat format
     const simple = parsed as Partial<SimpleLLMOutput>;
     const intent = INTENT_MAP[simple.intent as string] || 'CLARIFY_QUERY';
-    const region = (simple.region as string) || null;
+    const locationKeywords = Array.isArray(simple.location_keywords)
+      ? simple.location_keywords.filter((k): k is string => typeof k === 'string')
+      : [];
     const timeContext = simple.time_context as string;
     const timeOfDay = timeContext ? TIME_CONTEXT_MAP[timeContext] || null : null;
     const categoryMain = (simple.category_main as string) || null;
@@ -428,7 +345,8 @@ async function parseEnhancedQuery(text: string): Promise<ParseResult> {
     const enhanced: EnhancedLLMQuery = {
       intent,
       slots: {
-        region,
+        location_keywords: locationKeywords,
+        region: null,
         sub_region: null,
         place_name: placeName,
         category_main: categoryMain,
@@ -450,63 +368,24 @@ async function parseEnhancedQuery(text: string): Promise<ParseResult> {
   }
 }
 
-// Extract region from keywords if not already set
-function extractRegionFromKeywords(keywords: string[]): string | null {
-  if (!keywords || keywords.length === 0) return null;
-  
-  // 키워드에서 지역명 추출
-  for (const keyword of keywords) {
-    const normalizedKeyword = keyword.trim().toLowerCase();
-    
-    // SUB_REGION_TO_REGION 매핑 확인
-    for (const [subRegion, region] of Object.entries(SUB_REGION_TO_REGION)) {
-      if (normalizedKeyword === subRegion.toLowerCase() || 
-          normalizedKeyword.includes(subRegion.toLowerCase()) ||
-          subRegion.toLowerCase().includes(normalizedKeyword)) {
-        return region;
-      }
-    }
-    
-    // 직접 region 이름과 매칭
-    const regionNames = [
-      '강남', '서초', '잠실/송파/강동', '영등포/여의도/강서',
-      '건대/성수/왕십리', '종로/중구', '홍대/합정/마포/연남',
-      '용산/이태원/한남', '성북/노원/중랑', '구로/관악/동작',
-      '신촌/연희', '창동/도봉산', '회기/청량리', '강동/고덕',
-      '연신내/구파발', '마곡/김포', '미아/수유/북한산', '목동/양천', '금천/가산'
-    ];
-    
-    for (const region of regionNames) {
-      // region 이름에서 '/' 제거하고 검색
-      const regionParts = region.split('/');
-      for (const part of regionParts) {
-        if (normalizedKeyword === part.toLowerCase() || 
-            normalizedKeyword.includes(part.toLowerCase()) ||
-            part.toLowerCase().includes(normalizedKeyword)) {
-          return region;
-        }
-      }
-    }
-  }
-  
-  return null;
-}
-
 // Convert enhanced query to legacy LLMQuery for compatibility
-function toLegacyQuery(enhanced: EnhancedLLMQuery): LLMQuery {
+function toLegacyQuery(enhanced: EnhancedLLMQuery, uiRegionHint?: string): LLMQuery {
   const legacy: LLMQuery = {
     keywords: enhanced.slots.keywords || [],
     sort: 'relevance',
   };
 
-  // region이 없으면 키워드에서 추출 시도
-  let region = enhanced.slots.region;
-  if (!region && enhanced.slots.keywords && enhanced.slots.keywords.length > 0) {
-    region = extractRegionFromKeywords(enhanced.slots.keywords);
+  // Location: use raw location_keywords (no hardcoded mapping)
+  const locKw = enhanced.slots.location_keywords || [];
+  if (locKw.length > 0) {
+    legacy.locationKeywords = [...locKw];
+  } else if (uiRegionHint && uiRegionHint !== '서울 전체') {
+    // UI hint as fallback when no location in query
+    legacy.locationKeywords = [uiRegionHint];
   }
 
-  if (region) {
-    legacy.region = [region];
+  if (enhanced.slots.region) {
+    legacy.region = [enhanced.slots.region];
   }
   if (enhanced.slots.sub_region) {
     legacy.subRegion = [enhanced.slots.sub_region];
@@ -566,23 +445,35 @@ async function getLocationIdsByTags(keywords: string[]): Promise<Set<string>> {
   return locationIds;
 }
 
+// Match location keyword against sub_region, region, province, tags (flexible, forgiving)
+function locationMatchesKeyword(
+  loc: { sub_region?: string; region?: string; province?: string; tags?: string[] },
+  keyword: string
+): boolean {
+  const kw = keyword.trim().toLowerCase();
+  if (!kw) return false;
+  const sub = (loc.sub_region || '').toLowerCase();
+  const reg = (loc.region || '').toLowerCase();
+  const prov = (loc.province || '').toLowerCase();
+  if (sub.includes(kw) || reg.includes(kw) || prov.includes(kw)) return true;
+  const tagList = loc.tags || [];
+  return tagList.some((t) => String(t).toLowerCase().includes(kw));
+}
+
 // Search locations (uses locations_search view: popularity_score, trust_score, curator_visited for ranking)
 async function searchLocations(query: LLMQuery): Promise<Location[]> {
   let dbQuery = getSupabase().from('locations_search').select('*');
 
-  // 키워드가 있고 region 필터가 있는지 확인
   const hasKeywords = query.keywords && query.keywords.length > 0;
-  const hasRegionFilter = query.region && query.region.length > 0;
+  const hasLocationKeywords = query.locationKeywords && query.locationKeywords.length > 0;
 
-  // Filter by region
+  // Legacy exact region filter (when region/subRegion passed for compatibility)
   if (query.region && query.region.length > 0) {
     const regions = query.region.filter((r) => r !== '서울 전체');
     if (regions.length > 0) {
       dbQuery = dbQuery.in('region', regions);
     }
   }
-
-  // Filter by sub_region
   if (query.subRegion && query.subRegion.length > 0) {
     dbQuery = dbQuery.in('sub_region', query.subRegion);
   }
@@ -607,8 +498,8 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
     dbQuery = dbQuery.lte('price_level', query.constraints.price_level);
   }
 
-  // Execute: popularity_score → trust_score → curator_visited → rating (no LLM ranking)
-  const limit = hasKeywords ? 200 : 100;
+  // Execute: fetch more when filtering by location_keywords in memory (wider net)
+  const limit = hasLocationKeywords ? 500 : (hasKeywords ? 200 : 100);
   const { data, error } = await dbQuery
     .order('popularity_score', { ascending: false, nullsFirst: false })
     .order('trust_score', { ascending: false, nullsFirst: false })
@@ -621,11 +512,13 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
     return [];
   }
 
-  let results: Location[] = (data || []).map((item: Record<string, unknown>) => ({
+  type LocWithProvince = Location & { province?: string };
+  let results: LocWithProvince[] = (data || []).map((item: Record<string, unknown>) => ({
     id: item.id as string,
     name: item.name as string,
     region: item.region as string,
     subRegion: item.sub_region as string | undefined,
+    province: item.province as string | undefined,
     category: item.category as string,
     lon: item.lon as number,
     lat: item.lat as number,
@@ -645,6 +538,16 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
     categorySub: item.category_sub as string | undefined,
     tags: item.tags as string[] | undefined,
   }));
+
+  // Flexible location filter (sub_region, region, province, tags)
+  if (hasLocationKeywords && query.locationKeywords) {
+    const locKw = query.locationKeywords.filter((k) => typeof k === 'string' && k.trim());
+    if (locKw.length > 0) {
+      results = results.filter((loc) =>
+        locKw.some((kw) => locationMatchesKeyword(loc, kw))
+      );
+    }
+  }
 
   // 제외 카테고리 필터링
   if (query.excludeCategoryMain && query.excludeCategoryMain.length > 0) {
@@ -720,7 +623,8 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
 
       // 키워드 매칭 결과가 없어도 region 필터는 절대 무시하지 않음
       // region 필터가 있으면 그대로 유지하고 키워드 필터만 제거
-      if (filteredResults.length === 0 && hasRegionFilter) {
+      const hasLocationFilter = hasLocationKeywords || (query.region && query.region.length > 0);
+      if (filteredResults.length === 0 && hasLocationFilter) {
         // region 필터는 유지하고 키워드 필터만 제거 (이미 results에 region 필터가 적용됨)
         // results는 그대로 사용 (region 필터만 적용된 상태)
       } else {
@@ -793,13 +697,13 @@ async function searchWithFallback(
     workingSlots.keywords = [...workingSlots.keywords, trimmedText];
   }
 
-  // Use UI region as fallback if no region specified
-  if (!workingSlots.region && uiRegion && uiRegion !== '서울 전체') {
-    workingSlots.region = uiRegion;
+  // UI region hint: use when no location_keywords in query
+  if (workingSlots.location_keywords?.length === 0 && uiRegion && uiRegion !== '서울 전체') {
+    workingSlots.location_keywords = [uiRegion];
   }
 
   // Level 0: Original query
-  let legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+  let legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots }, uiRegion);
   let places = await searchLocations(legacyQuery);
 
   if (places.length > 0) {
@@ -819,7 +723,7 @@ async function searchWithFallback(
     );
     if (workingSlots.constraints.length < originalConstraints.length) {
       fallbackNotes.push('일부 조건을 완화했어요');
-      legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+      legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots }, uiRegion);
       places = await searchLocations(legacyQuery);
       if (places.length > 0) {
         return {
@@ -836,7 +740,7 @@ async function searchWithFallback(
   if (workingSlots.constraints.includes('웨이팅_없음' as SearchConstraint)) {
     workingSlots.constraints = workingSlots.constraints.filter(c => c !== '웨이팅_없음');
     fallbackNotes.push('웨이팅 조건을 제외했어요');
-    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots }, uiRegion);
     places = await searchLocations(legacyQuery);
     if (places.length > 0) {
       return {
@@ -852,7 +756,7 @@ async function searchWithFallback(
   if (workingSlots.constraints.length > 0) {
     workingSlots.constraints = [];
     fallbackNotes.push('조건을 모두 완화했어요');
-    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots }, uiRegion);
     places = await searchLocations(legacyQuery);
     if (places.length > 0) {
       return {
@@ -871,7 +775,7 @@ async function searchWithFallback(
       workingSlots.category_sub = null;
       workingSlots.category_main = categoryMain;
       fallbackNotes.push(`${enhanced.slots.category_sub} → ${categoryMain} 전체로 검색했어요`);
-      legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+      legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots }, uiRegion);
       places = await searchLocations(legacyQuery);
       if (places.length > 0) {
         return {
@@ -884,13 +788,14 @@ async function searchWithFallback(
     }
   }
 
-  // Level 4: Broaden region (sub_region → region → 서울 전체)
-  if (workingSlots.sub_region) {
-    const broadRegion = SUB_REGION_TO_REGION[workingSlots.sub_region] || workingSlots.region;
-    workingSlots.sub_region = null;
-    workingSlots.region = broadRegion;
-    fallbackNotes.push(`${enhanced.slots.sub_region} → ${broadRegion} 전체로 검색했어요`);
-    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+  // Level 4: Gradually remove location keywords (one at a time, last first)
+  let locKw = workingSlots.location_keywords || [];
+  while (locKw.length > 1) {
+    const reduced = locKw.slice(0, -1);
+    workingSlots.location_keywords = reduced;
+    const removed = locKw[locKw.length - 1];
+    fallbackNotes.push(`"${removed}" 범위를 넓혔어요`);
+    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots }, uiRegion);
     places = await searchLocations(legacyQuery);
     if (places.length > 0) {
       return {
@@ -900,13 +805,14 @@ async function searchWithFallback(
         fallback_level: 4,
       };
     }
+    locKw = reduced;
   }
 
-  if (workingSlots.region && workingSlots.region !== '서울 전체') {
-    const oldRegion = workingSlots.region;
-    workingSlots.region = null; // 서울 전체로 검색
-    fallbackNotes.push(`${oldRegion} → 서울 전체로 검색했어요`);
-    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots });
+  // Level 4b: Remove last location keyword (keep category)
+  if (locKw.length > 0) {
+    workingSlots.location_keywords = [];
+    fallbackNotes.push('지역 조건을 제외하고 검색했어요');
+    legacyQuery = toLegacyQuery({ ...enhanced, slots: workingSlots }, uiRegion);
     places = await searchLocations(legacyQuery);
     if (places.length > 0) {
       return {
@@ -1076,10 +982,8 @@ async function updateSearchLogParsed(
       parsed_confidence: confidence,
     };
 
-    await getSupabase()
-      .from('search_logs')
-      .update(updatePayload)
-      .eq('id', searchLogId);
+    // @ts-expect-error - search_logs schema may not include all columns in generated types
+    await getSupabase().from('search_logs').update(updatePayload).eq('id', searchLogId);
 
     console.log(`[search_logs] UPDATE parsed: ${searchLogId}`);
   } catch (err) {
@@ -1097,16 +1001,14 @@ async function updateSearchLogResult(
   fallbackStep: number
 ): Promise<void> {
   try {
-    await getSupabase()
-      .from('search_logs')
-      .update({
-        result_count: resultCount,
-        fallback_used: fallbackUsed,
-        fallback_step: fallbackStep,
-        db_ms: dbMs,
-        total_ms: totalMs,
-      })
-      .eq('id', searchLogId);
+    // @ts-expect-error - search_logs schema may not include all columns in generated types
+    await getSupabase().from('search_logs').update({
+      result_count: resultCount,
+      fallback_used: fallbackUsed,
+      fallback_step: fallbackStep,
+      db_ms: dbMs,
+      total_ms: totalMs,
+    }).eq('id', searchLogId);
 
     console.log(`[search_logs] UPDATE result: ${searchLogId}, count=${resultCount}, fallback=${fallbackUsed}`);
   } catch (err) {
@@ -1186,7 +1088,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
 
     // 4. Convert to legacy query for response
-    const legacyQuery = toLegacyQuery(enhanced);
+    const legacyQuery = toLegacyQuery(enhanced, uiRegion);
 
     // 5. Return enhanced response
     return res.status(200).json({
