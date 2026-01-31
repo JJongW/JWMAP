@@ -3,7 +3,7 @@ import type { Location, Province, Features } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import { getCardImageUrl } from '../utils/image';
 import { getRatingLabel, getRatingLabelClassName } from '../utils/rating';
-import { clickLogApi } from '../utils/supabase';
+import { clickLogApi, searchLogApi } from '../utils/supabase';
 import { shareToKakao } from '../utils/kakaoShare';
 
 interface PlacePreviewProps {
@@ -52,12 +52,12 @@ export function PlacePreview({
 
   // Open Naver Map
   const handleOpenNaver = () => {
-    // 네이버 지도 열기 로그
     clickLogApi.log({
       location_id: location.id,
       action_type: 'open_naver',
       search_id: searchId,
     });
+    if (searchId) searchLogApi.updateMapOpen(searchId, 'naver', location.id);
 
     const appName = encodeURIComponent(window.location.origin);
     const query = encodeURIComponent(location.name);
@@ -72,12 +72,12 @@ export function PlacePreview({
 
   // Open Kakao Map
   const handleOpenKakao = () => {
-    // 카카오맵 열기 로그
     clickLogApi.log({
       location_id: location.id,
       action_type: 'open_kakao',
       search_id: searchId,
     });
+    if (searchId) searchLogApi.updateMapOpen(searchId, 'kakao', location.id);
 
     const query = encodeURIComponent(location.name);
     const appLink = `kakaomap://search?q=${query}`;

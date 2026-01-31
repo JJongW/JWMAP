@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Search, X, RotateCcw, Info } from 'lucide-react';
 import type { Location } from '../types/location';
 import { searchLogApi } from '../utils/supabase';
@@ -16,22 +16,39 @@ interface SearchActions {
   fallback_level: number;
 }
 
+// Session ID for search log (persists across page loads in same tab)
+function getOrCreateSessionId(): string {
+  try {
+    let sid = sessionStorage.getItem('jwmap_session_id');
+    if (!sid) {
+      sid = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      sessionStorage.setItem('jwmap_session_id', sid);
+    }
+    return sid;
+  } catch {
+    return `sess_${Date.now()}`;
+  }
+}
+
 interface TopSearchBarProps {
   onResults: (places: Location[]) => void;
   onSelect: (placeId: string) => void;
   onReset: () => void;
   isSearchMode: boolean;
-  onSearchIdChange?: (searchId: string | null) => void; // 검색 ID 전달 (클릭 로그용)
-  uiRegion?: string; // 현재 UI에서 선택된 지역 (fallback 용도)
+  onSearchIdChange?: (searchId: string | null) => void;
+  uiRegion?: string;
+  deviceType?: 'mobile' | 'pc';
+  uiMode?: 'browse' | 'explore';
 }
 
-export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSearchIdChange, uiRegion }: TopSearchBarProps) {
+export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSearchIdChange, uiRegion, deviceType = 'pc', uiMode = 'browse' }: TopSearchBarProps) {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasEmptyResults, setHasEmptyResults] = useState(false);
   const [uiHints, setUiHints] = useState<UIHints | null>(null);
   const [fallbackInfo, setFallbackInfo] = useState<{ applied: boolean; notes: string[] } | null>(null);
+  const isSearchingRef = React.useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,23 +56,32 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
 
+    // DUPLICATE INSERT PREVENTION
+    if (isSearchingRef.current) return;
+    isSearchingRef.current = true;
     setIsLoading(true);
     setError(null);
     setHasEmptyResults(false);
     setUiHints(null);
     setFallbackInfo(null);
 
-    const startTime = Date.now();
-
     try {
+      // STEP 1: INSERT search_log once (before API call)
+      const searchLogId = await searchLogApi.insert({
+        query: trimmedQuery,
+        session_id: getOrCreateSessionId(),
+        device_type: deviceType,
+        ui_mode: uiMode,
+      });
+      onSearchIdChange?.(searchLogId ?? null);
+
       const response = await fetch('/api/search', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: trimmedQuery,
-          uiRegion: uiRegion, // Send current UI region for fallback
+          uiRegion,
+          search_log_id: searchLogId,
         }),
       });
 
@@ -65,35 +91,14 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
 
       const data = await response.json();
       const places: Location[] = data.places || [];
-      const totalMs = Date.now() - startTime;
 
-      // Handle enhanced response
       const actions: SearchActions | undefined = data.actions;
       const hints: UIHints | undefined = data.ui_hints;
 
-      // Set UI hints and fallback info
-      if (hints) {
-        setUiHints(hints);
-      }
+      if (hints) setUiHints(hints);
       if (actions?.fallback_applied) {
-        setFallbackInfo({
-          applied: actions.fallback_applied,
-          notes: actions.fallback_notes || [],
-        });
+        setFallbackInfo({ applied: actions.fallback_applied, notes: actions.fallback_notes || [] });
       }
-
-      // 검색 로그 기록
-      const searchId = await searchLogApi.log({
-        query: trimmedQuery,
-        parsed: data.query || {},
-        result_count: places.length,
-        llm_ms: data.timing?.llmMs || 0,
-        db_ms: data.timing?.dbMs || 0,
-        total_ms: totalMs,
-      });
-
-      // 검색 ID 전달 (클릭 로그에서 사용)
-      onSearchIdChange?.(searchId);
 
       if (places.length === 0) {
         setHasEmptyResults(true);
@@ -115,6 +120,7 @@ export function TopSearchBar({ onResults, onSelect, onReset, isSearchMode, onSea
     } catch (err) {
       setError(err instanceof Error ? err.message : '검색 중 문제가 발생했습니다.');
     } finally {
+      isSearchingRef.current = false;
       setIsLoading(false);
     }
   };

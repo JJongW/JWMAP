@@ -126,11 +126,13 @@ interface Location {
   visitDate?: string;
 }
 
-// Initialize clients
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
-);
+// Initialize Supabase (server-only: service role key, NO anon fallback)
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+if (!supabaseUrl || !supabaseServiceKey) {
+  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY) must be set');
+}
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const llm = new ChatGoogleGenerativeAI({
   model: 'gemini-2.0-flash',
@@ -139,179 +141,62 @@ const llm = new ChatGoogleGenerativeAI({
 });
 
 // ============================================
-// Enhanced LLM Prompt for Query Parsing
+// LLM Prompt for Query Parsing (Simplified)
 // ============================================
-const SYSTEM_PROMPT = `You are a query parser for a Seoul restaurant discovery service called "오늘 오디가?".
-Your job is to understand user intent and extract structured data from natural language Korean queries.
+const SYSTEM_PROMPT = `You are a query interpreter for a personal restaurant map service.
 
-=== INTENT CLASSIFICATION (16 types) ===
-Choose ONE that best matches the query:
-- DISCOVER_RECOMMEND: 추천해줘, 맛집 알려줘, 좋은 곳
-- SEARCH_BY_FOOD: specific food (라멘 먹고 싶어, 스테이크 어디)
-- SEARCH_BY_CATEGORY: category type (밥집, 면집, 카페)
-- SEARCH_BY_REGION: region focus (강남 맛집, 홍대 맛집)
-- SEARCH_BY_CONSTRAINTS: feature focus (혼밥 가능한 곳, 주차 되는 곳)
-- SEARCH_BY_CONTEXT: context focus (데이트 장소, 회식 장소)
-- COMPARE_OPTIONS: A vs B, A랑 B 비교
-- RANDOM_PICK: 아무거나, 랜덤, 뭐 먹지
-- FIND_NEAR_ME: 근처 맛집, 가까운 곳
-- FIND_OPEN_NOW: 지금 열린 곳, 영업 중
-- FIND_LATE_NIGHT: 야식, 심야영업, 새벽
-- FIND_BEST_FOR: ~하기 좋은 곳
-- ASK_DETAILS: specific place question (히코 어때?, ~는 어떤 곳?)
-- ASK_SIMILAR_TO: ~랑 비슷한 곳, ~같은 곳
-- ASK_EXCLUDE: ~빼고, ~제외
-- CLARIFY_QUERY: unclear or incomplete query
+Your task:
+- Convert the user's search query into structured search conditions.
+- Do NOT recommend places.
+- Do NOT invent restaurants.
+- Only extract intent and filters.
 
-=== REGION MAPPING (use exact strings) ===
-IMPORTANT: When user mentions any location name below, map it to the corresponding region string.
-- "서울 전체" - all of Seoul
-- "강남" - 강남역, 강남구, 선릉, 역삼, 논현, 신사, 압구정, 청담
-- "서초" - 서초구, 교대, 양재, 서초역, 반포
-- "잠실/송파/강동" - 잠실, 송파구, 강동구, 천호, 올림픽공원, 방이
-- "영등포/여의도/강서" - 영등포, 여의도, 강서구, 마곡, 등촌, 목동
-- "건대/성수/왕십리" - 건대, 건대입구, 성수동, 성수, 왕십리, 성동구, 뚝섬
-- "종로/중구" - 종로, 중구, 을지로, 명동, 동대문, 광화문, 인사동
-- "홍대/합정/마포/연남" - 홍대, 홍대입구, 합정, 마포구, 연남동, 상수, 서교
-- "용산/이태원/한남" - 용산구, 이태원, 한남동, 용산역, 이촌
-- "성북/노원/중랑" - 성북구, 노원구, 중랑구, 미아, 길음
-- "구로/관악/동작" - 구로, 구로구, 관악, 관악구, 동작구, 신림, 사당, 사당역, 보라매, 노량진, 흑석, 상도
-- "신촌/연희" - 신촌, 연희동, 이대, 서대문구
-- "창동/도봉산" - 창동, 도봉구, 수유
-- "회기/청량리" - 회기, 청량리, 동대문구, 이문, 휘경
-- "강동/고덕" - 강동구, 고덕, 암사
-- "연신내/구파발" - 연신내, 구파발, 은평구, 불광
-- "마곡/김포" - 마곡, 김포공항, 방화
-- "미아/수유/북한산" - 미아, 수유, 북한산, 강북구
-- "목동/양천" - 목동, 양천구, 오목교, 신정
-- "금천/가산" - 금천구, 가산디지털단지, 독산, 시흥
+Rules:
+- If information is missing, return null.
+- Return ONLY valid JSON.
+- Be conservative and realistic.
 
-=== CATEGORY MAPPING ===
-대분류 (category_main):
-- "밥" → 덮밥, 정식, 도시락, 백반, 돈까스, 한식, 카레
-- "면" → 라멘, 국수, 파스타, 쌀국수, 우동, 냉면, 소바
-- "국물" → 국밥, 찌개, 탕, 전골
-- "고기요리" → 구이, 스테이크, 바비큐, 수육
-- "해산물" → 해산물요리, 회, 해물찜, 해물탕, 조개/굴
-- "간편식" → 김밥, 샌드위치, 토스트, 햄버거, 타코, 분식
-- "양식·퓨전" → 베트남, 아시안, 인도, 양식, 중식, 프랑스, 피자, 리조또, 브런치
-- "디저트" → 케이크, 베이커리, 도넛, 아이스크림
-- "카페" → 커피, 차, 논커피, 와인바/바, 카공카페
-- "술안주" → 이자카야, 포차, 안주 전문
+=== INTENT (choose ONE) ===
+- DISCOVER_RECOMMEND: e.g. "점심 뭐 먹지?", "맛집 추천해줘"
+- REGION_SEARCH: e.g. "용산 맛집", "강남 맛집"
+- CATEGORY_SEARCH: e.g. "국밥 먹고 싶어", "라멘"
+- DIRECT_PLACE: e.g. "히코 어때?", "○○ 어디야?"
+- RANDOM_SUGGEST: e.g. "아무거나 추천", "랜덤"
 
-=== VISIT CONTEXT ===
-- "혼밥" - eating alone (implies excluding cafe)
-- "혼술" - drinking alone
-- "데이트" - romantic setting
-- "접대" - business hosting
-- "가족모임" - family gathering
-- "친구모임" - friends hangout
-- "회식" - company dinner
-- "소개팅" - blind date
-- "생일" - birthday celebration
-- "기념일" - anniversary
-- "카공" - cafe for studying
-- "반려동물_동반" - pet friendly
+=== TIME_CONTEXT ===
+- breakfast, lunch, dinner, late_night
 
-=== SEARCH CONSTRAINTS ===
-- "웨이팅_없음" - no wait, 바로 입장
-- "예약_가능" - reservation available
-- "주차_가능" - parking available
-- "좌석_넉넉" - spacious seating
-- "오래_앉기" - can stay long
-- "조용한" - quiet atmosphere
-- "빠른_회전" - quick meal
-- "가성비" - good value
-- "비싼_곳_제외" - exclude expensive
-- "체인점_제외" - exclude chains
-- "관광지_제외" - exclude tourist traps
-- "비건" - vegan
-- "채식" - vegetarian
-- "매운맛" - spicy
-- "담백" - mild/light
+=== REGION (use exact strings from mapping) ===
+강남, 서초, 잠실/송파/강동, 영등포/여의도/강서, 건대/성수/왕십리, 종로/중구,
+홍대/합정/마포/연남, 용산/이태원/한남, 성북/노원/중랑, 구로/관악/동작,
+신촌/연희, 창동/도봉산, 회기/청량리, 강동/고덕, 연신내/구파발, 마곡/김포,
+미아/수유/북한산, 목동/양천, 금천/가산
 
-=== TIME OF DAY ===
-- "아침" - morning/breakfast
-- "점심" - lunch
-- "저녁" - dinner
-- "야식" - late night snack
-- "심야" - very late, past midnight
-- "브런치" - brunch
+지역별: 사당/신림→구로/관악/동작, 이태원/한남→용산/이태원/한남, 홍대→홍대/합정/마포/연남
 
-=== NATURAL LANGUAGE MAPPING ===
-Korean expressions to structured fields:
-- "밥집", "밥 먹을 곳", "밥 먹고 싶어" → category_main: "밥"
-- "면집", "면 먹을래", "국수 먹을래" → category_main: "면"
-- "고기집", "고기 먹을래" → category_main: "고기요리"
-- "회집", "횟집", "해산물" → category_main: "해산물"
-- "술집", "한잔 하자", "안주" → category_main: "술안주"
-- "카페 가자", "커피숍", "카공카페", "카공 카페", "카공" → category_main: "카페" (and category_sub: "카공카페" if explicitly mentioned)
-- "맛집" → generic, don't set category
-- "추천해줘", "알려줘", "보여줘" → ignore (no semantic value)
-- "[place name] 어때?", "[place name] 어떤 곳?" → ASK_DETAILS intent, put name in place_name
+=== CATEGORY_MAIN ===
+밥, 면, 국물, 고기요리, 해산물, 간편식, 양식·퓨전, 디저트, 카페, 술안주
 
-=== OUTPUT JSON SCHEMA ===
+=== OUTPUT (exact schema) ===
 {
-  "intent": "ONE_OF_16_INTENTS",
-  "slots": {
-    "region": "exact region string or null",
-    "sub_region": "finer location like 한남동 or null",
-    "place_name": "if asking about specific place, else null",
-    "category_main": "one category main or null",
-    "category_sub": "specific sub-category or null",
-    "exclude_category_main": ["categories to exclude"],
-    "time_of_day": "time context or null",
-    "visit_context": "visit context or null",
-    "constraints": ["array of constraints"],
-    "keywords": ["food names, dish names, tags"],
-    "count": number or null,
-    "open_now": boolean or null
-  }
+  "intent": "DISCOVER_RECOMMEND" | "REGION_SEARCH" | "CATEGORY_SEARCH" | "DIRECT_PLACE" | "RANDOM_SUGGEST",
+  "region": "exact region string or null",
+  "time_context": "breakfast" | "lunch" | "dinner" | "late_night" | null,
+  "category_main": "one of above or null",
+  "category_sub": "e.g. 라멘, 국밥, 카공카페 or null",
+  "tags": ["extracted keywords for matching"],
+  "confidence": 0.0 to 1.0
 }
 
 === EXAMPLES ===
-"용산 맛집" → {"intent": "SEARCH_BY_REGION", "slots": {"region": "용산/이태원/한남", "keywords": ["맛집"]}}
-
-"사당 맛집" → {"intent": "SEARCH_BY_REGION", "slots": {"region": "구로/관악/동작", "keywords": ["맛집"]}}
-
-"신림 맛집" → {"intent": "SEARCH_BY_REGION", "slots": {"region": "구로/관악/동작", "keywords": ["맛집"]}}
-
-"용산 혼밥" → {"intent": "SEARCH_BY_CONSTRAINTS", "slots": {"region": "용산/이태원/한남", "visit_context": "혼밥", "exclude_category_main": ["카페"]}}
-
-"강남 라멘" → {"intent": "SEARCH_BY_FOOD", "slots": {"region": "강남", "category_sub": "라멘", "keywords": ["라멘"]}}
-
-"홍대 데이트 맛집" → {"intent": "SEARCH_BY_CONTEXT", "slots": {"region": "홍대/합정/마포/연남", "visit_context": "데이트"}}
-
-"히코 어때?" → {"intent": "ASK_DETAILS", "slots": {"place_name": "히코", "keywords": ["히코"]}}
-
-"야식 맛집" → {"intent": "FIND_LATE_NIGHT", "slots": {"time_of_day": "야식"}}
-
-"카페 빼고 맛집" → {"intent": "ASK_EXCLUDE", "slots": {"exclude_category_main": ["카페"]}}
-
-"강남 면집 추천" → {"intent": "SEARCH_BY_CATEGORY", "slots": {"region": "강남", "category_main": "면"}}
-
-"카공카페" → {"intent": "SEARCH_BY_CATEGORY", "slots": {"category_main": "카페", "category_sub": "카공카페"}}
-
-"강남 카공카페" → {"intent": "SEARCH_BY_CATEGORY", "slots": {"region": "강남", "category_main": "카페", "category_sub": "카공카페"}}
-
-"웨이팅 없는 곳" → {"intent": "SEARCH_BY_CONSTRAINTS", "slots": {"constraints": ["웨이팅_없음"]}}
-
-"주차 가능한 고기집" → {"intent": "SEARCH_BY_CONSTRAINTS", "slots": {"category_main": "고기요리", "constraints": ["주차_가능"]}}
-
-=== RULES ===
-1. "혼밥" always adds visit_context: "혼밥" AND exclude_category_main: ["카페"]
-2. If user mentions a specific place name (not food/category), use ASK_DETAILS intent
-3. Always include the original food/dish names in keywords for tag matching
-4. IMPORTANT: "카공카페", "카공 카페", "카공" always means category_main: "카페" AND category_sub: "카공카페". Do NOT confuse with other categories.
-5. IMPORTANT: When user mentions a location name (like "사당", "신림", "강남", "홍대", etc.), ALWAYS set the region field using the exact region string from REGION MAPPING above. Examples:
-   - "사당 맛집" → region: "구로/관악/동작" (not null!)
-   - "신림 맛집" → region: "구로/관악/동작"
-   - "강남 맛집" → region: "강남"
-   - "홍대 맛집" → region: "홍대/합정/마포/연남"
-   - Any location name from REGION MAPPING should be mapped to its corresponding region string
-5. If unsure about region, use null (system will use UI context or default)
-6. Only set fields you're confident about - don't invent data
-7. Location names in queries should be mapped to region field, not left as keywords only
+"점심 뭐 먹지?" → {"intent": "DISCOVER_RECOMMEND", "region": null, "time_context": "lunch", "category_main": null, "category_sub": null, "tags": ["점심"], "confidence": 0.9}
+"용산 맛집" → {"intent": "REGION_SEARCH", "region": "용산/이태원/한남", "time_context": null, "category_main": null, "category_sub": null, "tags": ["맛집"], "confidence": 0.95}
+"사당 맛집" → {"intent": "REGION_SEARCH", "region": "구로/관악/동작", "time_context": null, "category_main": null, "category_sub": null, "tags": ["맛집"], "confidence": 0.95}
+"국밥 먹고 싶어" → {"intent": "CATEGORY_SEARCH", "region": null, "time_context": null, "category_main": "국물", "category_sub": "국밥", "tags": ["국밥"], "confidence": 0.92}
+"강남 라멘" → {"intent": "CATEGORY_SEARCH", "region": "강남", "time_context": null, "category_main": "면", "category_sub": "라멘", "tags": ["라멘"], "confidence": 0.95}
+"히코 어때?" → {"intent": "DIRECT_PLACE", "region": null, "time_context": null, "category_main": null, "category_sub": null, "tags": ["히코"], "confidence": 0.88}
+"아무거나 추천" → {"intent": "RANDOM_SUGGEST", "region": null, "time_context": null, "category_main": null, "category_sub": null, "tags": [], "confidence": 0.85}
+"용산 혼밥" → {"intent": "REGION_SEARCH", "region": "용산/이태원/한남", "time_context": null, "category_main": null, "category_sub": null, "tags": ["혼밥", "맛집"], "confidence": 0.9}
 
 Output ONLY valid JSON. No explanation.`;
 
@@ -424,10 +309,43 @@ const CATEGORY_SUB_TO_MAIN: Record<string, string> = {
   '이자카야': '술안주', '포차': '술안주', '안주 전문': '술안주',
 };
 
+// New LLM output schema (flat)
+interface SimpleLLMOutput {
+  intent: 'DISCOVER_RECOMMEND' | 'REGION_SEARCH' | 'CATEGORY_SEARCH' | 'DIRECT_PLACE' | 'RANDOM_SUGGEST';
+  region: string | null;
+  time_context: 'breakfast' | 'lunch' | 'dinner' | 'late_night' | null;
+  category_main: string | null;
+  category_sub: string | null;
+  tags: string[];
+  confidence: number;
+}
+
+// Map new intent → SearchIntent
+const INTENT_MAP: Record<string, SearchIntent> = {
+  DISCOVER_RECOMMEND: 'DISCOVER_RECOMMEND',
+  REGION_SEARCH: 'SEARCH_BY_REGION',
+  CATEGORY_SEARCH: 'SEARCH_BY_CATEGORY',
+  DIRECT_PLACE: 'ASK_DETAILS',
+  RANDOM_SUGGEST: 'RANDOM_PICK',
+};
+
+// Map time_context → time_of_day (Korean)
+const TIME_CONTEXT_MAP: Record<string, string> = {
+  breakfast: '아침',
+  lunch: '점심',
+  dinner: '저녁',
+  late_night: '야식',
+};
+
 // ============================================
 // Enhanced Query Parsing
 // ============================================
-async function parseEnhancedQuery(text: string): Promise<EnhancedLLMQuery> {
+interface ParseResult {
+  enhanced: EnhancedLLMQuery;
+  raw: Record<string, unknown>;
+  confidence: number | null; // from LLM, null if missing/invalid
+}
+async function parseEnhancedQuery(text: string): Promise<ParseResult> {
   const defaultQuery: EnhancedLLMQuery = {
     intent: 'CLARIFY_QUERY',
     slots: {
@@ -454,39 +372,72 @@ async function parseEnhancedQuery(text: string): Promise<EnhancedLLMQuery> {
 
     const response = await llm.invoke(messages);
 
-    const content = typeof response.content === 'string'
+    let content = typeof response.content === 'string'
       ? response.content
       : '';
 
-    // Extract JSON from response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return defaultQuery;
+    // Strip ```json and ``` fences (Gemini may return fenced output)
+    content = content.trim();
+    const jsonFence = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/;
+    const fenceMatch = content.match(jsonFence);
+    if (fenceMatch) {
+      content = fenceMatch[1].trim();
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return { enhanced: defaultQuery, raw: {}, confidence: null };
+    }
 
-    // Ensure proper structure
-    return {
-      intent: parsed.intent || 'CLARIFY_QUERY',
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+
+    // Parse confidence: use actual value, null if missing/invalid
+    let confidence: number | null = null;
+    const confVal = parsed.confidence;
+    if (typeof confVal === 'number' && confVal >= 0 && confVal <= 1) {
+      confidence = confVal;
+    }
+
+    // Parse new flat format
+    const simple = parsed as Partial<SimpleLLMOutput>;
+    const intent = INTENT_MAP[simple.intent as string] || 'CLARIFY_QUERY';
+    const region = (simple.region as string) || null;
+    const timeContext = simple.time_context as string;
+    const timeOfDay = timeContext ? TIME_CONTEXT_MAP[timeContext] || null : null;
+    const categoryMain = (simple.category_main as string) || null;
+    const categorySub = (simple.category_sub as string) || null;
+    const tags = Array.isArray(simple.tags) ? simple.tags : [];
+
+    // DIRECT_PLACE: first tag is place_name
+    const placeName = intent === 'ASK_DETAILS' && tags.length > 0 ? tags[0] : null;
+
+    // "혼밥" in tags → visit_context + exclude cafe
+    const hasHonbab = tags.some((t) => String(t).toLowerCase().includes('혼밥'));
+    const visitContext = hasHonbab ? ('혼밥' as VisitContext) : null;
+    const excludeCategory = hasHonbab ? ['카페'] : null;
+
+    const enhanced: EnhancedLLMQuery = {
+      intent,
       slots: {
-        region: parsed.slots?.region || null,
-        sub_region: parsed.slots?.sub_region || null,
-        place_name: parsed.slots?.place_name || null,
-        category_main: parsed.slots?.category_main || null,
-        category_sub: parsed.slots?.category_sub || null,
-        exclude_category_main: parsed.slots?.exclude_category_main || null,
-        time_of_day: parsed.slots?.time_of_day || null,
-        visit_context: parsed.slots?.visit_context || null,
-        constraints: parsed.slots?.constraints || [],
-        keywords: parsed.slots?.keywords || [],
-        count: parsed.slots?.count || null,
-        open_now: parsed.slots?.open_now || null,
+        region,
+        sub_region: null,
+        place_name: placeName,
+        category_main: categoryMain,
+        category_sub: categorySub,
+        exclude_category_main: excludeCategory,
+        time_of_day: timeOfDay as TimeOfDay | null,
+        visit_context: visitContext,
+        constraints: [],
+        keywords: tags,
+        count: null,
+        open_now: null,
       },
     };
+
+    return { enhanced, raw: parsed, confidence };
   } catch (error) {
-    console.error('Enhanced LLM parsing error:', error);
-    return defaultQuery;
+    console.error('LLM parsing error:', error);
+    return { enhanced: defaultQuery, raw: {}, confidence: null };
   }
 }
 
@@ -587,45 +538,28 @@ function toLegacyQuery(enhanced: EnhancedLLMQuery): LLMQuery {
   return legacy;
 }
 
-// Get location IDs that match keywords via tags (locations.tags 배열 직접 검색)
+// Get location IDs that match keywords via tags (SQL array overlap, uses GIN index)
 async function getLocationIdsByTags(keywords: string[]): Promise<Set<string>> {
   const locationIds = new Set<string>();
+  const trimmed = keywords?.filter((k) => typeof k === 'string' && k.trim()) ?? [];
+  if (trimmed.length === 0) return locationIds;
 
-  if (!keywords || keywords.length === 0) {
-    return locationIds;
-  }
-
-  // locations 테이블의 tags 배열에서 직접 검색
-  // Supabase는 배열 컬럼에서 ilike 검색을 지원하지 않으므로, 모든 locations를 가져와서 필터링
-  const { data: allLocations } = await supabase
+  const { data, error } = await supabase
     .from('locations')
-    .select('id, tags');
+    .select('id')
+    .overlaps('tags', trimmed);
 
-  if (!allLocations) {
+  if (error) {
+    console.error('getLocationIdsByTags overlap error:', error);
     return locationIds;
   }
-
-  // 키워드가 tags 배열에 포함된 location 찾기
-  const keywordLower = keywords.map(k => k.toLowerCase());
-  allLocations.forEach((loc: { id: string; tags: string[] | null }) => {
-    if (!loc.tags || !Array.isArray(loc.tags)) return;
-    
-    const locTagsLower = loc.tags.map(t => t.toLowerCase());
-    const matches = keywordLower.some(kw => 
-      locTagsLower.some(tag => tag.includes(kw) || kw.includes(tag))
-    );
-    
-    if (matches) {
-      locationIds.add(loc.id);
-    }
-  });
-
+  (data || []).forEach((r: { id: string }) => locationIds.add(r.id));
   return locationIds;
 }
 
-// Search locations based on parsed query
+// Search locations (uses locations_search view: popularity_score, trust_score, curator_visited for ranking)
 async function searchLocations(query: LLMQuery): Promise<Location[]> {
-  let dbQuery = supabase.from('locations').select('*');
+  let dbQuery = supabase.from('locations_search').select('*');
 
   // 키워드가 있고 region 필터가 있는지 확인
   const hasKeywords = query.keywords && query.keywords.length > 0;
@@ -664,10 +598,14 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
     dbQuery = dbQuery.lte('price_level', query.constraints.price_level);
   }
 
-  // Execute query (제외 필터는 나중에 적용)
-  // 키워드 검색을 위해서는 더 많은 결과를 가져와야 함
+  // Execute: popularity_score → trust_score → curator_visited → rating (no LLM ranking)
   const limit = hasKeywords ? 200 : 100;
-  const { data, error } = await dbQuery.order('rating', { ascending: false }).limit(limit);
+  const { data, error } = await dbQuery
+    .order('popularity_score', { ascending: false, nullsFirst: false })
+    .order('trust_score', { ascending: false, nullsFirst: false })
+    .order('curator_visited', { ascending: false, nullsFirst: false })
+    .order('rating', { ascending: false })
+    .limit(limit);
 
   if (error) {
     console.error('Supabase query error:', error);
@@ -839,9 +777,11 @@ async function searchWithFallback(
   // Create working copy of slots
   const workingSlots = { ...enhanced.slots };
 
-  // Add original text to keywords for place name search
-  if (!workingSlots.keywords.includes(originalText.trim())) {
-    workingSlots.keywords = [...workingSlots.keywords, originalText.trim()];
+  // Only add original query to keywords for DIRECT_PLACE/ASK_DETAILS (place name search)
+  // Do NOT add full sentences for DISCOVER_RECOMMEND etc. (keyword pollution)
+  const trimmedText = originalText.trim();
+  if (enhanced.intent === 'ASK_DETAILS' && trimmedText && !workingSlots.keywords.includes(trimmedText)) {
+    workingSlots.keywords = [...workingSlots.keywords, trimmedText];
   }
 
   // Use UI region as fallback if no region specified
@@ -1107,37 +1047,61 @@ function generateSearchActions(
   };
 }
 
-// Log search to database
-async function logSearch(
-  traceId: string,
-  queryText: string,
-  parsed: LLMQuery,
-  resultCount: number,
-  timing: TimingMetrics
-): Promise<string | null> {
+// STEP 2: Update search_logs after LLM parsing
+// Dedicated columns for analytics; parsed JSONB stores ONLY raw LLM output
+async function updateSearchLogParsed(
+  searchLogId: string,
+  enhanced: EnhancedLLMQuery,
+  rawParsed: Record<string, unknown>,
+  llmMs: number,
+  confidence: number | null
+): Promise<void> {
   try {
-    const { data, error } = await supabase
-      .from('search_logs')
-      .insert({
-        id: traceId,
-        query: queryText,
-        parsed: parsed,
-        result_count: resultCount,
-        llm_ms: timing.llmMs,
-        db_ms: timing.dbMs,
-        total_ms: timing.totalMs,
-      })
-      .select('id')
-      .single();
+    const updatePayload: Record<string, unknown> = {
+      parsed: rawParsed, // ONLY raw LLM response, no duplicated semantic fields
+      llm_ms: llmMs,
+      parsed_intent: enhanced.intent,
+      parsed_category_main: enhanced.slots.category_main ?? null,
+      parsed_category_sub: enhanced.slots.category_sub ?? null,
+      parsed_tags: enhanced.slots.keywords?.length ? enhanced.slots.keywords : null,
+      parsed_confidence: confidence,
+    };
 
-    if (error) {
-      console.error(`[${traceId}] Search log error:`, error);
-      return null;
-    }
-    return data?.id || null;
+    await supabase
+      .from('search_logs')
+      .update(updatePayload)
+      .eq('id', searchLogId);
+
+    console.log(`[search_logs] UPDATE parsed: ${searchLogId}`);
   } catch (err) {
-    console.error(`[${traceId}] Search log exception:`, err);
-    return null;
+    console.error(`[search_logs] UPDATE parsed error:`, err);
+  }
+}
+
+// STEP 3 & 4: Update result_count and fallback (do not overwrite parsed/parsed_*)
+async function updateSearchLogResult(
+  searchLogId: string,
+  resultCount: number,
+  dbMs: number,
+  totalMs: number,
+  fallbackUsed: boolean,
+  fallbackStep: number
+): Promise<void> {
+  try {
+    await supabase
+      .from('search_logs')
+      .update({
+        result_count: resultCount,
+        fallback_used: fallbackUsed,
+        fallback_step: fallbackStep,
+        db_ms: dbMs,
+        total_ms: totalMs,
+      })
+      .eq('id', searchLogId);
+
+    console.log(`[search_logs] UPDATE result: ${searchLogId}, count=${resultCount}, fallback=${fallbackUsed}`);
+  } catch (err) {
+    console.error(`[search_logs] UPDATE result error:`, err);
   }
 }
 
@@ -1160,20 +1124,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed', traceId });
   }
 
-  const { text, uiRegion } = req.body || {};
+  const { text, uiRegion, search_log_id } = req.body || {};
 
   if (!text || typeof text !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid "text" field', traceId });
   }
 
-  console.log(`[${traceId}] Search request: "${text}"${uiRegion ? ` (UI region: ${uiRegion})` : ''}`);
+  const searchLogId = search_log_id && typeof search_log_id === 'string' ? search_log_id : null;
+  console.log(`[${traceId}] Search request: "${text}"${uiRegion ? ` (UI region: ${uiRegion})` : ''}${searchLogId ? ` (search_log_id: ${searchLogId})` : ''}`);
 
   try {
     // 1. Parse query with enhanced LLM
     const llmStart = Date.now();
-    const enhanced = await parseEnhancedQuery(text);
+    const { enhanced, raw, confidence } = await parseEnhancedQuery(text);
     const llmMs = Date.now() - llmStart;
-    console.log(`[${traceId}] Enhanced LLM parsed in ${llmMs}ms:`, JSON.stringify(enhanced));
+    console.log(`[${traceId}] LLM parsed in ${llmMs}ms:`, JSON.stringify(enhanced));
+
+    // STEP 2: Update search_logs (parsed_* columns + parsed=raw only, llm_ms)
+    if (searchLogId) {
+      updateSearchLogParsed(searchLogId, enhanced, raw, llmMs, confidence);
+    }
 
     // 2. Search with fallback strategy
     const dbStart = Date.now();
@@ -1184,6 +1154,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const totalMs = Date.now() - startTime;
     const timing: TimingMetrics = { llmMs, dbMs, totalMs };
 
+    // STEP 3 & 4: Update result_count and fallback
+    if (searchLogId) {
+      updateSearchLogResult(
+        searchLogId,
+        fallbackResult.places.length,
+        dbMs,
+        totalMs,
+        fallbackResult.fallback_applied,
+        fallbackResult.fallback_level
+      );
+    }
+
     // 3. Generate actions and UI hints
     const actions = generateSearchActions(enhanced, fallbackResult.places.length, fallbackResult);
     const uiHints = generateUIHints(
@@ -1193,13 +1175,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fallbackResult.fallback_notes
     );
 
-    // 4. Convert to legacy query for logging
+    // 4. Convert to legacy query for response
     const legacyQuery = toLegacyQuery(enhanced);
 
-    // 5. Log search (async, don't wait)
-    logSearch(traceId, text, legacyQuery, fallbackResult.places.length, timing);
-
-    // 6. Return enhanced response
+    // 5. Return enhanced response
     return res.status(200).json({
       // Core results
       places: fallbackResult.places,
@@ -1220,6 +1199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Metadata
       traceId,
       timing,
+      search_log_id: searchLogId,
     });
   } catch (error) {
     const totalMs = Date.now() - startTime;

@@ -8,18 +8,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // 장소 관련 API 함수들
 export const locationApi = {
-  // 모든 장소 가져오기
+  // 모든 장소 가져오기 (locations_search: popularity_score, trust_score for ranking)
   async getAll(): Promise<Location[]> {
+    const columns = [
+      'id', 'name', 'region', 'sub_region', 'category', 'category_main', 'category_sub',
+      'lat', 'lon', 'rating', 'imageUrl', 'image_url', 'tags', 'curator_visited',
+      'trust_score', 'popularity_score',
+      'address', 'memo', 'short_desc', 'price_level', 'event_tags', 'features',
+      'naver_place_id', 'kakao_place_id', 'visit_date', 'created_at', 'last_verified_at',
+    ].join(', ');
     const { data, error } = await supabase
-      .from('locations')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .from('locations_search')
+      .select(columns)
+      .order('popularity_score', { ascending: false, nullsFirst: false })
+      .order('rating', { ascending: false });
 
     if (error) throw error;
     
     // Supabase의 snake_case를 camelCase로 변환
     // event_tags -> eventTags, image_url -> imageUrl
-    return (data || []).map((item: Record<string, unknown>) => {
+    return ((data || []) as unknown as Record<string, unknown>[]).map((item) => {
       let eventTags = item.event_tags || item.eventTags || [];
       
       // JSON 문자열인 경우 파싱
@@ -70,7 +78,7 @@ export const locationApi = {
         visit_date: item.visit_date as string | undefined,
         last_verified_at: item.last_verified_at as string | undefined,
         created_at: item.created_at as string | undefined,
-        curator_visited: item.curator_visited !== false, // 기본 true (기존 데이터 호환)
+        curator_visited: item.curator_visited,
         curator_visited_at: item.visit_date as string | undefined,
         // 카테고리 대분류/소분류 (새 구조)
         categoryMain: (item.category_main || item.categoryMain) as string | undefined,
@@ -182,7 +190,7 @@ export const locationApi = {
       visit_date: data.visit_date as string | undefined,
       last_verified_at: data.last_verified_at as string | undefined,
       created_at: data.created_at as string | undefined,
-      curator_visited: data.curator_visited !== false,
+      curator_visited: data.curator_visited,
       curator_visited_at: data.visit_date as string | undefined,
       // 카테고리 대분류/소분류
       categoryMain: (data.category_main || data.categoryMain) as string | undefined,
@@ -311,51 +319,113 @@ export const locationApi = {
       visit_date: data.visit_date as string | undefined,
       last_verified_at: data.last_verified_at as string | undefined,
       created_at: data.created_at as string | undefined,
-      curator_visited: data.curator_visited !== false,
+      curator_visited: data.curator_visited,
       curator_visited_at: data.visit_date as string | undefined,
     } as Location;
   }
 };
 
-// 검색 로그 API
+// 검색 로그 API - One search = One row (INSERT once, then UPDATEs)
 export const searchLogApi = {
-  // 검색 로그 기록
-  async log(params: {
+  /**
+   * STEP 1: INSERT at search submit (before API call)
+   * One row per user search. Returns searchLogId for subsequent UPDATEs.
+   */
+  async insert(params: {
     query: string;
-    parsed?: Record<string, unknown>;
-    result_count: number;
-    llm_ms?: number;
-    db_ms?: number;
-    total_ms?: number;
+    session_id?: string;
+    device_type?: 'mobile' | 'pc';
+    ui_mode?: 'browse' | 'explore';
   }): Promise<string | null> {
     try {
+      // parsed JSONB is reserved for raw LLM response only (set by backend)
+      // session_id, device_type, ui_mode require dedicated columns if needed
       const { data, error } = await supabase
         .from('search_logs')
         .insert([{
           query: params.query,
-          parsed: params.parsed || {},
-          result_count: params.result_count,
-          llm_ms: params.llm_ms || 0,
-          db_ms: params.db_ms || 0,
-          total_ms: params.total_ms || 0,
+          parsed: null,
+          result_count: 0,
+          llm_ms: 0,
+          db_ms: 0,
+          total_ms: 0,
         }])
         .select('id')
         .single();
 
       if (error) {
-        // 테이블 없으면 조용히 무시
         if (error.message?.includes('schema cache') || error.code === '42P01') {
           return null;
         }
-        console.error('검색 로그 저장 실패:', error);
+        console.error('[searchLogApi] INSERT 실패:', error);
         return null;
       }
-
-      return data?.id || null;
+      const id = data?.id || null;
+      if (id && import.meta.env.DEV) console.log('[searchLogApi] INSERT:', id);
+      return id;
     } catch {
       return null;
     }
-  }
+  },
+
+  /**
+   * STEP 5: UPDATE on place click from result list
+   * Uses dedicated columns; parsed JSONB is reserved for raw LLM output only.
+   */
+  async updateClick(
+    id: string,
+    clicked_place_id: string,
+    clicked_rank: number
+  ): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('search_logs')
+        .update({ clicked_place_id, clicked_rank })
+        .eq('id', id);
+
+      if (error && import.meta.env.DEV) console.warn('[searchLogApi] updateClick:', error);
+      else if (import.meta.env.DEV) console.log('[searchLogApi] UPDATE click:', id);
+      searchLogApi.touchLocationActivity(clicked_place_id);
+    } catch {
+      // Ignore
+    }
+  },
+
+  /**
+   * Update location last_activity_at (place clicked or map opened)
+   * Uses RPC touch_location_activity (SECURITY DEFINER) - no new endpoints
+   */
+  async touchLocationActivity(locationId: string): Promise<void> {
+    try {
+      const { error } = await supabase.rpc('touch_location_activity', { loc_id: locationId });
+      if (error && import.meta.env.DEV) console.warn('[touchLocationActivity]', error);
+    } catch {
+      // Ignore
+    }
+  },
+
+  /**
+   * STEP 6: UPDATE when user opens Naver/Kakao map
+   * Uses dedicated columns; parsed JSONB is reserved for raw LLM output only.
+   */
+  async updateMapOpen(
+    id: string,
+    map_provider: 'naver' | 'kakao',
+    locationId?: string
+  ): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('search_logs')
+        .update({ opened_map: true, map_provider })
+        .eq('id', id);
+
+      if (error && import.meta.env.DEV) console.warn('[searchLogApi] updateMapOpen:', error);
+      else if (import.meta.env.DEV) console.log('[searchLogApi] UPDATE map open:', id);
+      if (locationId) searchLogApi.touchLocationActivity(locationId);
+    } catch {
+      // Ignore
+    }
+  },
 };
 
 // 클릭 로그 API

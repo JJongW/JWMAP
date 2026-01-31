@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, MapPin, Copy, Check, ChevronDown, ChevronUp, Navigation, ExternalLink, Share2 } from 'lucide-react';
 import type { Location, Review, Features } from '../types/location';
-import { reviewApi } from '../utils/supabase';
+import { reviewApi, searchLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
@@ -13,6 +13,7 @@ interface PlaceDetailProps {
   location: Location;
   onClose: () => void;
   isMobile?: boolean;
+  searchId?: string | null;
 }
 
 // Features 라벨 매핑
@@ -28,7 +29,7 @@ const featureLabels: Record<keyof Features, string> = {
   late_night: '심야 영업',
 };
 
-export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetailProps) {
+export function PlaceDetail({ location, onClose, isMobile = false, searchId }: PlaceDetailProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [isReviewsExpanded, setIsReviewsExpanded] = useState(false);
@@ -67,6 +68,7 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
 
   // 네이버 지도 열기
   const handleOpenNaver = () => {
+    if (searchId) searchLogApi.updateMapOpen(searchId, 'naver', location.id);
     const appName = encodeURIComponent(window.location.origin);
     const query = encodeURIComponent(location.name);
     const appLink = `nmap://search?query=${query}&appname=${appName}`;
@@ -80,6 +82,7 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
 
   // 카카오맵 열기
   const handleOpenKakao = () => {
+    if (searchId) searchLogApi.updateMapOpen(searchId, 'kakao', location.id);
     const query = encodeURIComponent(location.name);
     const appLink = `kakaomap://search?q=${query}`;
     const webLink = `https://map.kakao.com/link/search/${query}`;

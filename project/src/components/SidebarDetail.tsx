@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, MapPin, Copy, Check, Navigation, ExternalLink, Edit2, Share2 } from 'lucide-react';
 import type { Location, Review, Features } from '../types/location';
-import { reviewApi, clickLogApi } from '../utils/supabase';
+import { reviewApi, clickLogApi, searchLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
@@ -84,12 +84,12 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
 
   // Open Naver Map
   const handleOpenNaver = () => {
-    // 네이버 지도 열기 로그
     clickLogApi.log({
       location_id: currentLocation.id,
       action_type: 'open_naver',
       search_id: searchId,
     });
+    if (searchId) searchLogApi.updateMapOpen(searchId, 'naver', currentLocation.id);
 
     const appName = encodeURIComponent(window.location.origin);
     const query = encodeURIComponent(currentLocation.name);
@@ -104,12 +104,12 @@ export function SidebarDetail({ location, onBack, searchId, onUpdate, onDelete }
 
   // Open Kakao Map
   const handleOpenKakao = () => {
-    // 카카오맵 열기 로그
     clickLogApi.log({
       location_id: currentLocation.id,
       action_type: 'open_kakao',
       search_id: searchId,
     });
+    if (searchId) searchLogApi.updateMapOpen(searchId, 'kakao', currentLocation.id);
 
     const query = encodeURIComponent(currentLocation.name);
     const appLink = `kakaomap://search?q=${query}`;

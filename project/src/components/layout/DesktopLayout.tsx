@@ -7,7 +7,7 @@ import { SidebarDetail } from '../SidebarDetail';
 import { EventTagFilter } from '../EventTagFilter';
 import { MyLocationButton } from '../MyLocationButton';
 import { Sidebar } from './Sidebar';
-import { clickLogApi } from '../../utils/supabase';
+import { clickLogApi, searchLogApi } from '../../utils/supabase';
 import type { Location, Province, CategoryMain, CategorySub } from '../../types/location';
 
 interface DesktopLayoutProps {
@@ -120,24 +120,32 @@ export function DesktopLayout({
   const handleLocationSelect = (location: Location) => {
     onSelectLocation(location);
     onPreviewLocation(location);
-    // 클릭 로그 기록
+    searchLogApi.touchLocationActivity(location.id);
     clickLogApi.log({
       location_id: location.id,
       action_type: 'list_click',
       search_id: currentSearchId,
     });
+    if (currentSearchId) {
+      const rank = displayedLocations.findIndex((l) => l.id === location.id) + 1;
+      if (rank > 0) searchLogApi.updateClick(currentSearchId, location.id, rank);
+    }
   };
 
   // Handle marker click
   const handleMarkerClick = (location: Location) => {
     onSelectLocation(location);
     onPreviewLocation(location);
-    // 클릭 로그 기록
+    searchLogApi.touchLocationActivity(location.id);
     clickLogApi.log({
       location_id: location.id,
       action_type: 'marker_click',
       search_id: currentSearchId,
     });
+    if (currentSearchId) {
+      const rank = displayedLocations.findIndex((l) => l.id === location.id) + 1;
+      if (rank > 0) searchLogApi.updateClick(currentSearchId, location.id, rank);
+    }
   };
 
   // Handle back from preview
@@ -193,6 +201,9 @@ export function DesktopLayout({
                 onReset={onSearchReset}
                 isSearchMode={isSearchMode}
                 onSearchIdChange={onSearchIdChange}
+                uiRegion={selectedDistrict !== '전체' ? selectedDistrict : undefined}
+                deviceType="pc"
+                uiMode={isSearchMode ? 'explore' : 'browse'}
               />
 
               {/* Event Tag Filter */}

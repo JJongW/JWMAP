@@ -10,7 +10,7 @@ import { MobileOverlay } from '../MobileOverlay';
 import { BottomSheet } from './BottomSheet';
 import { EventTagFilter } from '../EventTagFilter';
 import { MyLocationButton } from '../MyLocationButton';
-import { clickLogApi } from '../../utils/supabase';
+import { clickLogApi, searchLogApi } from '../../utils/supabase';
 import type { Location, Province, CategoryMain, CategorySub } from '../../types/location';
 import type { UiMode, BottomSheetState, SheetMode } from '../../types/ui';
 
@@ -155,12 +155,16 @@ export function MobileLayout({
   // Handle location select in list
   const handleLocationSelect = (location: Location) => {
     onSelectLocation(location);
-    // 클릭 로그 기록
+    searchLogApi.touchLocationActivity(location.id);
     clickLogApi.log({
       location_id: location.id,
       action_type: 'list_click',
       search_id: currentSearchId,
     });
+    if (currentSearchId) {
+      const rank = displayedLocations.findIndex((l) => l.id === location.id) + 1;
+      if (rank > 0) searchLogApi.updateClick(currentSearchId, location.id, rank);
+    }
     if (isExplore) {
       // explore 모드: preview sheet 표시
       onPreviewLocation(location);
@@ -178,12 +182,16 @@ export function MobileLayout({
     onPreviewLocation(location);
     onSheetModeChange('preview');
     onBottomSheetStateChange('half');
-    // 클릭 로그 기록
+    searchLogApi.touchLocationActivity(location.id);
     clickLogApi.log({
       location_id: location.id,
       action_type: 'marker_click',
       search_id: currentSearchId,
     });
+    if (currentSearchId) {
+      const rank = displayedLocations.findIndex((l) => l.id === location.id) + 1;
+      if (rank > 0) searchLogApi.updateClick(currentSearchId, location.id, rank);
+    }
   };
 
   // Handle back from preview
@@ -298,6 +306,9 @@ export function MobileLayout({
             onReset={onSearchReset}
             isSearchMode={isSearchMode}
             onSearchIdChange={onSearchIdChange}
+            uiRegion={selectedDistrict !== '전체' ? selectedDistrict : undefined}
+            deviceType="mobile"
+            uiMode={uiMode}
           />
 
           {/* Event Tag Filter */}
@@ -423,6 +434,7 @@ export function MobileLayout({
           location={detailLocation}
           onClose={() => onDetailLocationChange(null)}
           isMobile={true}
+          searchId={currentSearchId}
         />
       )}
     </div>
