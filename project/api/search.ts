@@ -126,13 +126,22 @@ interface Location {
   visitDate?: string;
 }
 
-// Initialize Supabase (server-only: service role key, NO anon fallback)
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_KEY) must be set');
+// Lazy Supabase init (env vars may not be available at module load on some runtimes)
+let _supabase: ReturnType<typeof createClient> | null = null;
+function getSupabase() {
+  if (_supabase) return _supabase;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) {
+    const missing = [
+      !url && 'SUPABASE_URL',
+      !key && 'SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_KEY',
+    ].filter(Boolean);
+    throw new Error(`Missing env: ${missing.join(', ')}. Check Vercel Project Settings > Environment Variables.`);
+  }
+  _supabase = createClient(url, key);
+  return _supabase;
 }
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const llm = new ChatGoogleGenerativeAI({
   model: 'gemini-2.0-flash',
@@ -544,7 +553,7 @@ async function getLocationIdsByTags(keywords: string[]): Promise<Set<string>> {
   const trimmed = keywords?.filter((k) => typeof k === 'string' && k.trim()) ?? [];
   if (trimmed.length === 0) return locationIds;
 
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('locations')
     .select('id')
     .overlaps('tags', trimmed);
@@ -559,7 +568,7 @@ async function getLocationIdsByTags(keywords: string[]): Promise<Set<string>> {
 
 // Search locations (uses locations_search view: popularity_score, trust_score, curator_visited for ranking)
 async function searchLocations(query: LLMQuery): Promise<Location[]> {
-  let dbQuery = supabase.from('locations_search').select('*');
+  let dbQuery = getSupabase().from('locations_search').select('*');
 
   // 키워드가 있고 region 필터가 있는지 확인
   const hasKeywords = query.keywords && query.keywords.length > 0;
@@ -915,7 +924,7 @@ async function searchWithFallback(
   workingSlots.exclude_category_main = null;
   fallbackNotes.push('조건에 맞는 장소가 없어 인기 장소를 보여드려요');
 
-  const { data: topRated } = await supabase
+  const { data: topRated } = await getSupabase()
     .from('locations')
     .select('*')
     .order('rating', { ascending: false })
@@ -1067,7 +1076,7 @@ async function updateSearchLogParsed(
       parsed_confidence: confidence,
     };
 
-    await supabase
+    await getSupabase()
       .from('search_logs')
       .update(updatePayload)
       .eq('id', searchLogId);
@@ -1088,7 +1097,7 @@ async function updateSearchLogResult(
   fallbackStep: number
 ): Promise<void> {
   try {
-    await supabase
+    await getSupabase()
       .from('search_logs')
       .update({
         result_count: resultCount,
