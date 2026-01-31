@@ -11,7 +11,7 @@ export const locationApi = {
   // 모든 장소 가져오기 (locations_search: popularity_score, trust_score for ranking)
   async getAll(): Promise<Location[]> {
     const columns = [
-      'id', 'name', 'region', 'sub_region', 'category', 'category_main', 'category_sub',
+      'id', 'name', 'region', 'sub_region', 'category_main', 'category_sub',
       'lat', 'lon', 'rating', 'imageUrl', 'image_url', 'tags', 'curator_visited',
       'trust_score', 'popularity_score',
       'address', 'memo', 'short_desc', 'price_level', 'event_tags', 'features',
@@ -65,8 +65,11 @@ export const locationApi = {
         tags = [];
       }
 
+      const categoryMain = (item.category_main || item.categoryMain) as string | undefined;
+      const categorySub = (item.category_sub || item.categorySub) as string | undefined;
       return {
         ...rest,
+        category: (categorySub || categoryMain || '') as string,
         imageUrl: imageUrl as string,
         eventTags: eventTags as string[],
         features: (item.features || {}) as Features,
@@ -80,9 +83,8 @@ export const locationApi = {
         created_at: item.created_at as string | undefined,
         curator_visited: item.curator_visited,
         curator_visited_at: item.visit_date as string | undefined,
-        // 카테고리 대분류/소분류 (새 구조)
-        categoryMain: (item.category_main || item.categoryMain) as string | undefined,
-        categorySub: (item.category_sub || item.categorySub) as string | undefined,
+        categoryMain,
+        categorySub,
       } as Location;
     });
   },
