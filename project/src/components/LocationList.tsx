@@ -2,7 +2,7 @@ import { MapPin } from 'lucide-react';
 import type { Location, Province } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import { getThumbnailUrl, getCardImageUrl } from '../utils/image';
-import { getRatingLabel } from '../utils/rating';
+import { getRatingLabel, getRatingLabelClassName } from '../utils/rating';
 
 interface LocationListProps {
   locations: Location[];
@@ -107,7 +107,7 @@ export function LocationList({
                   </p>
                 )}
                 <div className="flex items-center gap-2 mt-1.5">
-                  <span className="px-1.5 py-0.5 bg-orange-100 text-orange-600 text-xs font-medium rounded">
+                  <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${getRatingLabelClassName(getRatingLabel(location.rating ?? 0))}`}>
                     {getRatingLabel(location.rating ?? 0)}
                   </span>
                   {/* Feature chips */}
@@ -223,7 +223,7 @@ export function LocationList({
                       ? `${getLocationProvince(location)} · ${location.region}`
                       : location.region}
                   </p>
-                  <span className="px-1.5 py-0.5 bg-orange-100 text-orange-600 text-xs font-medium rounded flex-shrink-0">
+                  <span className={`px-1.5 py-0.5 text-xs font-medium rounded flex-shrink-0 ${getRatingLabelClassName(getRatingLabel(location.rating ?? 0))}`}>
                     {getRatingLabel(location.rating ?? 0)}
                   </span>
                 </div>

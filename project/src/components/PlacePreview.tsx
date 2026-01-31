@@ -2,7 +2,7 @@ import { ArrowLeft, MapPin, Navigation, ExternalLink, ChevronRight, Share2 } fro
 import type { Location, Province, Features } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import { getCardImageUrl } from '../utils/image';
-import { getRatingLabel } from '../utils/rating';
+import { getRatingLabel, getRatingLabelClassName } from '../utils/rating';
 import { clickLogApi } from '../utils/supabase';
 import { shareToKakao } from '../utils/kakaoShare';
 
@@ -141,7 +141,7 @@ export function PlacePreview({
                   : location.region}
               </p>
             </div>
-            <span className="px-2 py-0.5 bg-point/20 text-point text-xs font-medium rounded flex-shrink-0">
+            <span className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${getRatingLabelClassName(getRatingLabel(location.rating))}`}>
               {getRatingLabel(location.rating)}
             </span>
           </div>

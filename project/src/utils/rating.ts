@@ -21,6 +21,20 @@ export function getRatingLabel(rating: number): RatingLabel {
   return '쩝쩝박사 모르겠음';
 }
 
+/** 쩝쩝박사 라벨별 스타일 (4.5:1 대비 유지, 튀지 않는 색) */
+export function getRatingLabelClassName(label: RatingLabel): string {
+  switch (label) {
+    case '쩝쩝박사 원픽':
+      return 'bg-point text-accent'; // 서비스 대표색 (주황 + 다크브라운, 대비 4.5:1+)
+    case '쩝쩝박사 자주 방문':
+      return 'bg-emerald-100 text-emerald-800'; // 부드러운 초록
+    case '쩝쩝박사 모르겠음':
+      return 'bg-sky-100 text-sky-800'; // 부드러운 파랑
+    default:
+      return 'bg-gray-100 text-gray-700';
+  }
+}
+
 /** 라벨을 rating 숫자로 변환 (저장용) */
 export function getRatingFromLabel(label: RatingLabel): number {
   switch (label) {

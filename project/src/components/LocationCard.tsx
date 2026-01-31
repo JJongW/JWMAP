@@ -3,7 +3,7 @@ import type { Location, Features, CategoryMain, CategorySub } from '../types/loc
 import { CATEGORY_HIERARCHY, CATEGORY_MAINS, getCategorySubsByMain } from '../types/location';
 import { MapPin, Edit2, Trash2, ExternalLink, X, Check, ImageIcon } from 'lucide-react';
 import { locationApi } from '../utils/supabase';
-import { getRatingLabel, getRatingFromLabel, RATING_LABELS, isOwnerMode, type RatingLabel } from '../utils/rating';
+import { getRatingLabel, getRatingFromLabel, getRatingLabelClassName, RATING_LABELS, isOwnerMode, type RatingLabel } from '../utils/rating';
 import { getCardImageUrl } from '../utils/image';
 import { CustomSelect } from './CustomSelect';
 import { ImageUpload } from './ImageUpload';
@@ -277,7 +277,7 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
               ))}
             </select>
           ) : (
-            <span className="px-2.5 py-1 bg-point/20 text-point text-sm font-medium rounded-lg">
+            <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getRatingLabelClassName(getRatingLabel(editedRating))}`}>
               {getRatingLabel(editedRating)}
             </span>
           )}

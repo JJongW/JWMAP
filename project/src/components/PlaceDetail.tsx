@@ -5,7 +5,7 @@ import { reviewApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
-import { getRatingLabel } from '../utils/rating';
+import { getRatingLabel, getRatingLabelClassName } from '../utils/rating';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
 
@@ -145,7 +145,7 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
               <div className="flex items-start justify-between">
                 <h1 className="text-2xl font-bold text-accent">{location.name}</h1>
                 <div className="flex-shrink-0 ml-3">
-                  <span className="px-2.5 py-1 bg-point/20 text-point text-sm font-medium rounded-lg">
+                  <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getRatingLabelClassName(getRatingLabel(location.rating))}`}>
                     {getRatingLabel(location.rating)}
                   </span>
                 </div>
@@ -320,7 +320,7 @@ export function PlaceDetail({ location, onClose, isMobile = false }: PlaceDetail
               <div className="flex items-start justify-between">
                 <h1 className="text-2xl font-bold text-accent">{location.name}</h1>
                 <div className="flex-shrink-0 ml-3">
-                  <span className="px-2.5 py-1 bg-point/20 text-point text-sm font-medium rounded-lg">
+                  <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getRatingLabelClassName(getRatingLabel(location.rating))}`}>
                     {getRatingLabel(location.rating)}
                   </span>
                 </div>
