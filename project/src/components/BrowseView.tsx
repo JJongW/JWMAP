@@ -15,8 +15,8 @@
  * "결정은 우리가 더 잘한다"를 체감하게 하는 대비(contrast)가 핵심이다.
  */
 
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, MapPin, Star } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronDown, ChevronUp, MapPin, Star, Search, X } from 'lucide-react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
@@ -84,6 +84,9 @@ export function BrowseView({
 }: BrowseViewProps) {
   const { isMobile } = useBreakpoint();
 
+  // 검색어 — LLM 없이 이름/지역/카테고리 단순 매칭
+  const [searchQuery, setSearchQuery] = useState('');
+
   // 지도 접힘/펼침 상태 — 기본은 접힘 (발견 도구가 아니라 확인 도구)
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   // 필터 접힘/펼침 — 기본은 접힘 (높은 마찰)
@@ -92,6 +95,31 @@ export function BrowseView({
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   // 상세 보기 (모바일)
   const [detailLocation, setDetailLocation] = useState<Location | null>(null);
+
+  /**
+   * 검색어 기반 로컬 필터링 (LLM 미사용).
+   * 이름, 지역, 카테고리(대분류/소분류)를 부분 일치(includes)로 필터링한다.
+   * 검색어가 비어있으면 displayedLocations를 그대로 사용.
+   */
+  const searchFilteredLocations = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return displayedLocations;
+
+    return displayedLocations.filter((loc) => {
+      const name = loc.name.toLowerCase();
+      const region = loc.region.toLowerCase();
+      const catMain = (loc.categoryMain || '').toLowerCase();
+      const catSub = (loc.categorySub || '').toLowerCase();
+      const address = (loc.address || '').toLowerCase();
+      return (
+        name.includes(q) ||
+        region.includes(q) ||
+        catMain.includes(q) ||
+        catSub.includes(q) ||
+        address.includes(q)
+      );
+    });
+  }, [searchQuery, displayedLocations]);
 
   /** 리스트/마커 클릭 → 상세 보기 */
   const handleLocationSelect = (location: Location) => {
@@ -125,6 +153,31 @@ export function BrowseView({
         </header>
 
         <div className="mx-auto w-full max-w-2xl px-4 py-4 md:px-6">
+
+          {/* ── 검색 (단순 텍스트 매칭, LLM 미사용) ── */}
+          <div className="mb-4">
+            <div className="relative">
+              <Search
+                size={16}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300"
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="이름, 지역, 카테고리로 검색"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50/50 py-2.5 pl-9 pr-9 text-sm text-gray-700 placeholder-gray-300 outline-none transition-colors focus:border-gray-300 focus:bg-white"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* ── 필터 (접힘 상태 기본, 높은 마찰) ── */}
           <div className="mb-4">
@@ -166,7 +219,7 @@ export function BrowseView({
           <BrowseMapSection
             isExpanded={isMapExpanded}
             onToggle={() => setIsMapExpanded(!isMapExpanded)}
-            locations={displayedLocations}
+            locations={searchFilteredLocations}
             selectedLocation={selectedLocation}
             onMarkerClick={handleMarkerClick}
             onMapReady={onMapReady}
@@ -175,10 +228,13 @@ export function BrowseView({
           {/* ── 장소 리스트 (최소 정보만) ── */}
           <div className="mt-4">
             <p className="mb-3 text-xs text-gray-400">
-              등록된 장소 {displayedLocations.length}곳
+              {searchQuery
+                ? `검색 결과 ${searchFilteredLocations.length}곳`
+                : `등록된 장소 ${searchFilteredLocations.length}곳`
+              }
             </p>
             <BrowseList
-              locations={displayedLocations}
+              locations={searchFilteredLocations}
               visibleCount={visibleLocations}
               onShowMore={onShowMore}
               onSelect={handleLocationSelect}
