@@ -1,7 +1,22 @@
 // UI Mode Types for Responsive Layout
 
 // Mobile UI Modes
-export type UiMode = 'browse' | 'explore';
+// decision: 의사결정 진입 화면 (기본 시작 모드)
+// result: 추천 결과 화면
+// browse: 기존 지도/리스트 탐색 모드
+// explore: 모바일 탐색 모드
+export type UiMode = 'decision' | 'result' | 'browse' | 'explore';
+
+// Decision Flow 관련 타입
+export type Companion = 'solo' | 'pair' | 'group';
+export type TimeSlot = 'lunch' | 'dinner' | 'late';
+export type PriorityFeature = 'quiet' | 'wait_short' | 'fast_serve' | 'date_ok' | 'solo_ok';
+
+export interface DecisionInput {
+  companion: Companion | null;
+  timeSlot: TimeSlot | null;
+  priorityFeature: PriorityFeature | null;
+}
 
 // Bottom Sheet States (mobile explore mode)
 export type BottomSheetState = 'collapsed' | 'half' | 'full';

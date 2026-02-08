@@ -1,13 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MobileLayout } from './components/layout/MobileLayout';
 import { DesktopLayout } from './components/layout/DesktopLayout';
 import { AddLocationModal } from './components/AddLocationModal';
+import { DecisionEntryView } from './components/DecisionEntryView';
+import { DecisionResultView } from './components/DecisionResultView';
 import { Footer } from './components/Footer';
 import type { Location, Features, Province, CategoryMain, CategorySub } from './types/location';
 import { REGION_HIERARCHY, inferProvinceFromRegion, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from './types/location';
-import type { UiMode, BottomSheetState, SheetMode } from './types/ui';
+import type { UiMode, BottomSheetState, SheetMode, Companion, TimeSlot, PriorityFeature } from './types/ui';
 import { useBreakpoint } from './hooks/useBreakpoint';
 import { locationApi } from './utils/supabase';
+import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 export default function App() {
@@ -29,10 +32,15 @@ export default function App() {
   const [detailLocation, setDetailLocation] = useState<Location | null>(null); // 모바일 디테일 뷰용
   const [hoveredLocationId, setHoveredLocationId] = useState<string | null>(null);
 
-  // UI Mode state (mobile)
-  const [uiMode, setUiMode] = useState<UiMode>('browse');
+  // UI Mode state
+  // 기본 시작 모드를 'decision'으로 설정 (의사결정 우선 UX)
+  // URL에 locationId 파라미터가 있으면 나중에 browse로 전환됨
+  const [uiMode, setUiMode] = useState<UiMode>('decision');
   const [bottomSheetState, setBottomSheetState] = useState<BottomSheetState>('half');
   const [sheetMode, setSheetMode] = useState<SheetMode>('list');
+
+  // Decision flow state
+  const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
 
   // Search state
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -405,6 +413,51 @@ export default function App() {
     return [...orderedTags.filter(tag => eventTagSet.has(tag)), ...otherTags];
   })();
 
+  // ─────────────────────────────────────────────
+  // Decision Flow 핸들러
+  // ─────────────────────────────────────────────
+
+  /** 3단계 선택 완료 → 결정 엔진 실행 → result 모드 전환 */
+  const handleDecide = useCallback((
+    companion: Companion,
+    timeSlot: TimeSlot,
+    priorityFeature: PriorityFeature,
+  ) => {
+    const result = decideLocations(locations, companion, timeSlot, priorityFeature);
+    if (result) {
+      setDecisionResult(result);
+      setUiMode('result');
+    } else {
+      // 결과 없음: 사용자에게 알림 후 browse 모드로 전환
+      alert('조건에 맞는 장소가 아직 없어요. 직접 둘러볼까요?');
+      setUiMode('browse');
+    }
+  }, [locations]);
+
+  /** decision → browse 전환 (기존 탐색 모드) */
+  const handleSwitchToBrowse = useCallback(() => {
+    setUiMode('browse');
+    setDecisionResult(null);
+  }, []);
+
+  /** result → decision 전환 (다시 고르기) */
+  const handleRetryDecision = useCallback(() => {
+    setUiMode('decision');
+    setDecisionResult(null);
+  }, []);
+
+  /** result 화면에서 장소 상세 보기 */
+  const handleDecisionOpenDetail = useCallback((location: Location) => {
+    // 기존 상세 보기 로직 재사용
+    setSelectedLocation(location);
+    setPreviewLocation(location);
+    if (isMobile) {
+      setDetailLocation(location);
+    }
+    // browse 모드로 전환하여 기존 레이아웃에서 상세 보기
+    setUiMode('browse');
+  }, [isMobile]);
+
   // Pagination
   const handleShowMore = () => {
     setVisibleLocations(prev => prev + 10);
@@ -484,6 +537,7 @@ export default function App() {
   }, []);
 
   // URL 쿼리 파라미터에서 locationId 확인하고 상세 화면 열기
+  // locationId가 있으면 decision 모드를 건너뛰고 바로 browse + 상세 보기
   useEffect(() => {
     if (locations.length === 0) return; // locations가 로드되지 않았으면 대기
 
@@ -494,6 +548,9 @@ export default function App() {
       // 해당 locationId를 가진 장소 찾기
       const location = locations.find(loc => loc.id === locationId);
       if (location) {
+        // decision 모드에서 browse로 전환 (딥링크 진입이므로)
+        setUiMode('browse');
+
         // 선택된 장소 설정
         setSelectedLocation(location);
         setPreviewLocation(location);
@@ -509,7 +566,6 @@ export default function App() {
         window.history.replaceState({}, '', newUrl);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locations, isMobile]);
 
   // Common layout props
@@ -560,37 +616,65 @@ export default function App() {
     onMapReady: handleMapReady,
   };
 
+  // MobileLayout에는 기존 UiMode 중 browse/explore만 전달
+  // decision/result 모드일 때는 MobileLayout의 uiMode를 'browse'로 설정
+  const mobileUiMode: 'browse' | 'explore' = (uiMode === 'browse' || uiMode === 'explore')
+    ? uiMode as 'browse' | 'explore'
+    : 'browse';
+
   return (
     <>
-      {/* Main Layout */}
-      {isMobile ? (
-        <MobileLayout
-          {...layoutProps}
-          uiMode={uiMode}
-          onModeChange={setUiMode}
-          bottomSheetState={bottomSheetState}
-          onBottomSheetStateChange={setBottomSheetState}
-          sheetMode={sheetMode}
-          onSheetModeChange={setSheetMode}
-        />
-      ) : (
-        <DesktopLayout
-          {...layoutProps}
-          hoveredLocationId={hoveredLocationId}
-          onHoverLocation={setHoveredLocationId}
+      {/* ── Decision Entry View (기본 진입 화면) ── */}
+      {uiMode === 'decision' && (
+        <DecisionEntryView
+          onDecide={handleDecide}
+          onBrowse={handleSwitchToBrowse}
         />
       )}
 
-      {/* Footer - Only show in browse mode on mobile, always on desktop */}
-      {(!isMobile || (isMobile && uiMode === 'browse')) && (
-        <Footer />
+      {/* ── Decision Result View (추천 결과 화면) ── */}
+      {uiMode === 'result' && decisionResult && (
+        <DecisionResultView
+          result={decisionResult}
+          onRetry={handleRetryDecision}
+          onBrowse={handleSwitchToBrowse}
+          onOpenDetail={handleDecisionOpenDetail}
+        />
+      )}
+
+      {/* ── 기존 Browse/Explore Layout (탐색 모드) ── */}
+      {(uiMode === 'browse' || uiMode === 'explore') && (
+        <>
+          {isMobile ? (
+            <MobileLayout
+              {...layoutProps}
+              uiMode={mobileUiMode}
+              onModeChange={(mode: string) => setUiMode(mode as UiMode)}
+              bottomSheetState={bottomSheetState}
+              onBottomSheetStateChange={setBottomSheetState}
+              sheetMode={sheetMode}
+              onSheetModeChange={setSheetMode}
+            />
+          ) : (
+            <DesktopLayout
+              {...layoutProps}
+              hoveredLocationId={hoveredLocationId}
+              onHoverLocation={setHoveredLocationId}
+            />
+          )}
+
+          {/* Footer - Only show in browse mode on mobile, always on desktop */}
+          {(!isMobile || (isMobile && mobileUiMode === 'browse')) && (
+            <Footer />
+          )}
+        </>
       )}
 
       {/* Add Location Modal */}
-        {isModalOpen && (
-          <AddLocationModal
-            onClose={() => setIsModalOpen(false)}
-            onSave={handleAddLocation}
+      {isModalOpen && (
+        <AddLocationModal
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleAddLocation}
           existingLocations={locations.map(loc => ({
             id: loc.id,
             name: loc.name,
@@ -599,8 +683,6 @@ export default function App() {
           }))}
         />
       )}
-
-      {/* Place Detail Modal - 더 이상 사용하지 않음 (모바일은 sheet, PC는 SidebarDetail 사용) */}
 
       <SpeedInsights />
     </>
