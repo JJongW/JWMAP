@@ -1,11 +1,10 @@
 // UI Mode Types for Responsive Layout
-
-// Mobile UI Modes
-// decision: 의사결정 진입 화면 (기본 시작 모드)
-// result: 추천 결과 화면
-// browse: 기존 지도/리스트 탐색 모드
-// explore: 모바일 탐색 모드
-export type UiMode = 'decision' | 'result' | 'browse' | 'explore';
+//
+// decision:       의사결정 진입 화면 (기본 시작 모드)
+// result:         추천 결과 화면
+// browse-confirm: Browse 진입 전 인터스티셜 가드
+// browse:         직접 둘러보기 모드 (의도적으로 마찰이 높은 탐색 UX)
+export type UiMode = 'decision' | 'result' | 'browse-confirm' | 'browse';
 
 // Decision Flow 관련 타입
 export type Companion = 'solo' | 'pair' | 'group';
