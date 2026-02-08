@@ -21,6 +21,7 @@ import { Map } from './Map';
 import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
 import { useBreakpoint } from '../hooks/useBreakpoint';
+import { getDetailImageUrl } from '../utils/image';
 import type { Location, Province, CategoryMain, CategorySub } from '../types/location';
 
 // ─────────────────────────────────────────────
@@ -436,7 +437,20 @@ function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
       </div>
 
       {/* 콘텐츠 — 중립적 톤, "추천" 언어 없음 */}
-      <div className="overflow-y-auto p-5">
+      <div className="overflow-y-auto">
+        {/* 장소 이미지 — 상세 보기에서는 사진이 있어야 판단할 수 있다 */}
+        {location.imageUrl && (
+          <div className="aspect-[4/3] w-full overflow-hidden bg-gray-100">
+            <img
+              src={getDetailImageUrl(location.imageUrl)}
+              alt={location.name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        )}
+
+        <div className="p-5">
         <h3 className="text-lg font-bold text-gray-800">{location.name}</h3>
 
         <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
@@ -482,6 +496,7 @@ function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
           >
             카카오맵
           </button>
+        </div>
         </div>
       </div>
     </div>
