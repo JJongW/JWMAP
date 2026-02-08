@@ -186,11 +186,12 @@ export interface DecisionResult {
 
 /**
  * 사용자 입력을 기반으로 최적의 장소 3곳을 선정한다.
- * 
+ *
  * @param locations - 전체 장소 데이터
  * @param companion - 동행 유형
  * @param timeSlot - 시간대
  * @param priorityFeature - 우선 조건
+ * @param region - 지역 필터 (null이면 전체)
  * @returns 추천 결과 (3곳) 또는 null (결과 없음)
  */
 export function decideLocations(
@@ -198,10 +199,15 @@ export function decideLocations(
   companion: Companion,
   timeSlot: TimeSlot,
   priorityFeature: PriorityFeature,
+  region?: string | null,
 ): DecisionResult | null {
-  // 모든 장소에 대해 스코어링
+  const candidates =
+    region && region.trim()
+      ? locations.filter((loc) => loc.region === region)
+      : locations;
+
   const scored: ScoredLocation[] = [];
-  for (const loc of locations) {
+  for (const loc of candidates) {
     const result = scoreLocation(loc, companion, timeSlot, priorityFeature);
     if (result) {
       scored.push(result);

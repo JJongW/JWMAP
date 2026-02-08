@@ -5,7 +5,7 @@ import { DecisionResultView } from './components/DecisionResultView';
 import { BrowseConfirmView } from './components/BrowseConfirmView';
 import { BrowseView } from './components/BrowseView';
 import type { Location, Features, Province, CategoryMain, CategorySub } from './types/location';
-import { REGION_HIERARCHY, inferProvinceFromRegion, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from './types/location';
+import { REGION_HIERARCHY, PROVINCES, inferProvinceFromRegion, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from './types/location';
 import type { UiMode, Companion, TimeSlot, PriorityFeature } from './types/ui';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
@@ -35,6 +35,22 @@ export default function App() {
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  /** Decision 진입 시 표시할 지역 목록: 데이터에 실제로 있는 region만, REGION_HIERARCHY 순서 유지 */
+  const availableRegions: string[] = (() => {
+    const set = new Set(locations.map((l) => l.region).filter(Boolean));
+    const ordered: string[] = [];
+    for (const province of PROVINCES) {
+      const districts = REGION_HIERARCHY[province] || [];
+      for (const d of districts) {
+        if (set.has(d)) ordered.push(d);
+      }
+    }
+    for (const r of set) {
+      if (!ordered.includes(r)) ordered.push(r);
+    }
+    return ordered;
+  })();
 
   // Helper: Get location province
   const getLocationProvince = (location: Location): Province | null => {
@@ -297,13 +313,14 @@ export default function App() {
   // Decision Flow 핸들러
   // ─────────────────────────────────────────────
 
-  /** 3단계 선택 완료 → 결정 엔진 실행 → result 모드 전환 */
+  /** 4단계 선택 완료(지역·동행·시간·우선조건) → 결정 엔진 실행 → result 모드 전환 */
   const handleDecide = useCallback((
+    region: string | null,
     companion: Companion,
     timeSlot: TimeSlot,
     priorityFeature: PriorityFeature,
   ) => {
-    const result = decideLocations(locations, companion, timeSlot, priorityFeature);
+    const result = decideLocations(locations, companion, timeSlot, priorityFeature, region);
     if (result) {
       setDecisionResult(result);
       setUiMode('result');
@@ -388,6 +405,7 @@ export default function App() {
       {/* ── Decision Entry View (기본 진입 화면) ── */}
       {uiMode === 'decision' && (
         <DecisionEntryView
+          availableRegions={availableRegions}
           onDecide={handleDecide}
           onBrowse={handleSwitchToBrowse}
         />

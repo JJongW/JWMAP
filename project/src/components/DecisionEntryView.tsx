@@ -13,12 +13,19 @@
  * 디자인 톤: calm, confident, minimal (Apple/Toss-like)
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
 
 interface DecisionEntryViewProps {
+  /** 등록된 장소가 있는 지역 목록 (데이터 기반). "상관없어요" 외 선택지로 사용 */
+  availableRegions: string[];
   /** 모든 선택 완료 후 CTA 클릭 시 호출 */
-  onDecide: (companion: Companion, timeSlot: TimeSlot, priorityFeature: PriorityFeature) => void;
+  onDecide: (
+    region: string | null,
+    companion: Companion,
+    timeSlot: TimeSlot,
+    priorityFeature: PriorityFeature,
+  ) => void;
   /** "직접 둘러보기" 클릭 시 호출 → browse 모드로 전환 */
   onBrowse: () => void;
 }
@@ -47,11 +54,15 @@ const PRIORITY_OPTIONS: { value: PriorityFeature; label: string }[] = [
   { value: 'solo_ok', label: '혼밥 눈치 안 보이는 곳' },
 ];
 
+/** 지역 선택: '' = 상관없어요 (전체) */
+const REGION_ANY_VALUE = '';
+
 // ─────────────────────────────────────────────
 // 컴포넌트
 // ─────────────────────────────────────────────
 
-export function DecisionEntryView({ onDecide, onBrowse }: DecisionEntryViewProps) {
+export function DecisionEntryView({ availableRegions, onDecide, onBrowse }: DecisionEntryViewProps) {
+  const [region, setRegion] = useState<string>(REGION_ANY_VALUE);
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [timeSlot, setTimeSlot] = useState<TimeSlot | null>(null);
   const [priorityFeature, setPriorityFeature] = useState<PriorityFeature | null>(null);
@@ -60,8 +71,16 @@ export function DecisionEntryView({ onDecide, onBrowse }: DecisionEntryViewProps
 
   const handleDecide = useCallback(() => {
     if (!isComplete) return;
-    onDecide(companion!, timeSlot!, priorityFeature!);
-  }, [companion, timeSlot, priorityFeature, isComplete, onDecide]);
+    onDecide(region === REGION_ANY_VALUE ? null : region, companion!, timeSlot!, priorityFeature!);
+  }, [region, companion, timeSlot, priorityFeature, isComplete, onDecide]);
+
+  const regionOptions = useMemo(
+    () => [
+      { value: REGION_ANY_VALUE, label: '상관없어요' },
+      ...availableRegions.map((r) => ({ value: r, label: r })),
+    ],
+    [availableRegions],
+  );
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
@@ -80,9 +99,22 @@ export function DecisionEntryView({ onDecide, onBrowse }: DecisionEntryViewProps
             </p>
           </div>
 
-          {/* ── STEP 1: 동행 ── */}
+          {/* ── STEP 1: 어디서 ── */}
           <StepSection
             step={1}
+            label="어디서 먹고 싶어?"
+            isActive={true}
+          >
+            <PillGroup
+              options={regionOptions}
+              selected={region}
+              onSelect={setRegion}
+            />
+          </StepSection>
+
+          {/* ── STEP 2: 동행 ── */}
+          <StepSection
+            step={2}
             label="누구랑 가?"
             isActive={true}
           >
@@ -93,9 +125,9 @@ export function DecisionEntryView({ onDecide, onBrowse }: DecisionEntryViewProps
             />
           </StepSection>
 
-          {/* ── STEP 2: 시간대 ── */}
+          {/* ── STEP 3: 시간대 ── */}
           <StepSection
-            step={2}
+            step={3}
             label="언제?"
             isActive={companion !== null}
           >
@@ -106,9 +138,9 @@ export function DecisionEntryView({ onDecide, onBrowse }: DecisionEntryViewProps
             />
           </StepSection>
 
-          {/* ── STEP 3: 우선 조건 ── */}
+          {/* ── STEP 4: 우선 조건 ── */}
           <StepSection
-            step={3}
+            step={4}
             label="가장 중요한 건?"
             isActive={companion !== null && timeSlot !== null}
           >
