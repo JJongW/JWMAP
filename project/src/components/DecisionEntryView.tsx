@@ -1,24 +1,27 @@
 /**
  * DecisionEntryView.tsx
- * 
+ *
  * 서비스의 새로운 기본 진입 화면.
  * "탐색(exploration)"이 아닌 "결정(decision)"에 초점을 맞춘 UX.
- * 
+ *
  * 구조:
  * 1. Hero 텍스트 - 서비스 정체성 전달
- * 2. 3단계 선택 - Companion → TimeSlot → PriorityFeature
- * 3. CTA 버튼 - 모든 선택 완료 시 활성화
- * 4. "직접 둘러보기" 텍스트 버튼 - 기존 browse 모드 진입
- * 
+ * 2. STEP1 지역: 시/도(전국구) 먼저 표시 → 클릭 시 세부지역 펼침
+ * 3. STEP2~4: 동행, 시간대, 우선조건
+ * 4. CTA 버튼 - 모든 선택 완료 시 활성화
+ * 5. "직접 둘러보기" 텍스트 버튼 - 기존 browse 모드 진입
+ *
  * 디자인 톤: calm, confident, minimal (Apple/Toss-like)
  */
 
 import { useState, useCallback, useMemo } from 'react';
+import type { Province } from '../types/location';
+import { inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
 
 interface DecisionEntryViewProps {
-  /** 등록된 장소가 있는 지역 목록 (데이터 기반). "상관없어요" 외 선택지로 사용 */
-  availableRegions: string[];
+  /** 시/도별 세부지역. STEP1에서 시/도 먼저 보여주고, 클릭 시 세부지역 펼침 */
+  availableProvincesWithDistricts: { province: Province; districts: string[] }[];
   /** 모든 선택 완료 후 CTA 클릭 시 호출 */
   onDecide: (
     region: string | null,
@@ -61,8 +64,13 @@ const REGION_ANY_VALUE = '';
 // 컴포넌트
 // ─────────────────────────────────────────────
 
-export function DecisionEntryView({ availableRegions, onDecide, onBrowse }: DecisionEntryViewProps) {
+export function DecisionEntryView({
+  availableProvincesWithDistricts,
+  onDecide,
+  onBrowse,
+}: DecisionEntryViewProps) {
   const [region, setRegion] = useState<string>(REGION_ANY_VALUE);
+  const [expandedProvince, setExpandedProvince] = useState<Province | null>(null);
   const [companion, setCompanion] = useState<Companion | null>(null);
   const [timeSlot, setTimeSlot] = useState<TimeSlot | null>(null);
   const [priorityFeature, setPriorityFeature] = useState<PriorityFeature | null>(null);
@@ -74,13 +82,28 @@ export function DecisionEntryView({ availableRegions, onDecide, onBrowse }: Deci
     onDecide(region === REGION_ANY_VALUE ? null : region, companion!, timeSlot!, priorityFeature!);
   }, [region, companion, timeSlot, priorityFeature, isComplete, onDecide]);
 
-  const regionOptions = useMemo(
-    () => [
-      { value: REGION_ANY_VALUE, label: '상관없어요' },
-      ...availableRegions.map((r) => ({ value: r, label: r })),
-    ],
-    [availableRegions],
+  const handleSelectRegion = useCallback((value: string) => {
+    setRegion(value);
+    setExpandedProvince(null);
+  }, []);
+
+  const handleExpandProvince = useCallback((province: Province) => {
+    setExpandedProvince(province);
+  }, []);
+
+  const handleBackToProvinces = useCallback(() => {
+    setExpandedProvince(null);
+  }, []);
+
+  const provinceOptions = useMemo(
+    () => availableProvincesWithDistricts.map(({ province }) => ({ value: province, label: province })),
+    [availableProvincesWithDistricts],
   );
+
+  const expandedData = useMemo(() => {
+    if (!expandedProvince) return null;
+    return availableProvincesWithDistricts.find((p) => p.province === expandedProvince);
+  }, [expandedProvince, availableProvincesWithDistricts]);
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
@@ -99,17 +122,50 @@ export function DecisionEntryView({ availableRegions, onDecide, onBrowse }: Deci
             </p>
           </div>
 
-          {/* ── STEP 1: 어디서 ── */}
+          {/* ── STEP 1: 어디서 (시/도 → 세부지역 2단계) ── */}
           <StepSection
             step={1}
             label="어디서 먹고 싶어?"
             isActive={true}
           >
-            <PillGroup
-              options={regionOptions}
-              selected={region}
-              onSelect={setRegion}
-            />
+            {expandedData ? (
+              <div className="space-y-3">
+                <PillGroup
+                  options={[
+                    { value: REGION_ANY_VALUE, label: '상관없어요' },
+                    { value: expandedData.province, label: `${expandedData.province} 전체` },
+                    ...expandedData.districts.map((d) => ({ value: d, label: d })),
+                  ]}
+                  selected={region}
+                  onSelect={handleSelectRegion}
+                />
+                <button
+                  type="button"
+                  onClick={handleBackToProvinces}
+                  className="text-sm text-gray-400 hover:text-gray-600"
+                >
+                  ← 시/도 선택으로
+                </button>
+              </div>
+            ) : (
+              <PillGroup
+                options={[
+                  { value: REGION_ANY_VALUE, label: '상관없어요' },
+                  ...provinceOptions,
+                ]}
+                selected={
+                  expandedProvince ??
+                  (region === REGION_ANY_VALUE ? REGION_ANY_VALUE : (inferProvinceFromRegion(region) || region))
+                }
+                onSelect={(value) => {
+                  if (value === REGION_ANY_VALUE) {
+                    setRegion(REGION_ANY_VALUE);
+                  } else {
+                    handleExpandProvince(value as Province);
+                  }
+                }}
+              />
+            )}
           </StepSection>
 
           {/* ── STEP 2: 동행 ── */}

@@ -13,6 +13,7 @@
  */
 
 import type { Location, Features, CategoryMain } from '../types/location';
+import { PROVINCES, inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
 
 // ─────────────────────────────────────────────
@@ -203,7 +204,9 @@ export function decideLocations(
 ): DecisionResult | null {
   const candidates =
     region && region.trim()
-      ? locations.filter((loc) => loc.region === region)
+      ? (PROVINCES as readonly string[]).includes(region)
+        ? locations.filter((loc) => inferProvinceFromRegion(loc.region) === region || loc.province === region)
+        : locations.filter((loc) => loc.region === region)
       : locations;
 
   const scored: ScoredLocation[] = [];

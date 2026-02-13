@@ -36,20 +36,22 @@ export default function App() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  /** Decision 진입 시 표시할 지역 목록: 데이터에 실제로 있는 region만, REGION_HIERARCHY 순서 유지 */
-  const availableRegions: string[] = (() => {
-    const set = new Set(locations.map((l) => l.region).filter(Boolean));
-    const ordered: string[] = [];
+  /** Decision STEP1: 시/도별 세부지역. 전국구로 시/도 먼저 보여주고, 클릭 시 세부지역 펼침 */
+  const availableProvincesWithDistricts: { province: Province; districts: string[] }[] = (() => {
+    const regionSet = new Set(locations.map((l) => l.region).filter(Boolean));
+    const result: { province: Province; districts: string[] }[] = [];
     for (const province of PROVINCES) {
-      const districts = REGION_HIERARCHY[province] || [];
-      for (const d of districts) {
-        if (set.has(d)) ordered.push(d);
+      const hierarchyDistricts = REGION_HIERARCHY[province] || [];
+      const dataDistricts = hierarchyDistricts.filter((d) => regionSet.has(d));
+      const extra = [...regionSet].filter(
+        (r) => inferProvinceFromRegion(r) === province && !hierarchyDistricts.includes(r)
+      );
+      const districts = [...new Set([...dataDistricts, ...extra])];
+      if (districts.length > 0) {
+        result.push({ province, districts });
       }
     }
-    for (const r of set) {
-      if (!ordered.includes(r)) ordered.push(r);
-    }
-    return ordered;
+    return result;
   })();
 
   // Helper: Get location province
@@ -406,7 +408,7 @@ export default function App() {
       {/* ── Decision Entry View (기본 진입 화면) ── */}
       {uiMode === 'decision' && (
         <DecisionEntryView
-          availableRegions={availableRegions}
+          availableProvincesWithDistricts={availableProvincesWithDistricts}
           onDecide={handleDecide}
           onBrowse={handleSwitchToBrowse}
         />
