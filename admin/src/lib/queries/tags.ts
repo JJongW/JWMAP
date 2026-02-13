@@ -1,6 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tag, TagType, LocationTag } from '@/types';
 
+export async function createTag(
+  supabase: SupabaseClient,
+  name: string,
+  type: TagType = 'feature'
+): Promise<Tag> {
+  const { data, error } = await supabase
+    .from('tags')
+    .insert({ name: name.trim(), type, sort_order: 0 })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Tag;
+}
+
 export async function getTags(supabase: SupabaseClient): Promise<Tag[]> {
   const { data, error } = await supabase
     .from('tags')
@@ -60,5 +74,52 @@ export async function setLocationTags(
       .from('location_tags')
       .insert(rows);
     if (insError) throw insError;
+  }
+}
+
+/** 여러 장소의 location_tags를 한 번에 조회 */
+export async function getLocationTagsForLocations(
+  supabase: SupabaseClient,
+  locationIds: string[]
+): Promise<Map<string, LocationTag[]>> {
+  if (locationIds.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('location_tags')
+    .select('*, tag:tags(*)')
+    .in('location_id', locationIds);
+
+  if (error) throw error;
+
+  const map = new Map<string, LocationTag[]>();
+  for (const row of data ?? []) {
+    const locId = (row as { location_id: string }).location_id;
+    if (!map.has(locId)) map.set(locId, []);
+    map.get(locId)!.push(row as unknown as LocationTag);
+  }
+  return map;
+}
+
+/**
+ * location_tags 업데이트 + locations.tags 동기화 (프로젝트 호환)
+ */
+export async function updateLocationTags(
+  supabase: SupabaseClient,
+  locationId: string,
+  tagIds: string[]
+): Promise<void> {
+  await setLocationTags(supabase, locationId, tagIds);
+
+  // locations.tags 동기화 (프로젝트가 locations.tags 사용)
+  if (tagIds.length === 0) {
+    await supabase.from('locations').update({ tags: [] }).eq('id', locationId);
+  } else {
+    const { data: tagRows } = await supabase
+      .from('tags')
+      .select('name')
+      .in('id', tagIds)
+      .order('name');
+    const tagNames = (tagRows ?? []).map((r) => (r as { name: string }).name);
+    await supabase.from('locations').update({ tags: tagNames }).eq('id', locationId);
   }
 }

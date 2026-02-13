@@ -1,5 +1,7 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import { getLocations } from '@/lib/queries/locations';
+import { getTags, getLocationTagsForLocations } from '@/lib/queries/tags';
+import type { LocationTag } from '@/types';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { LocationTable } from '@/components/locations/LocationTable';
 import { LocationFilters } from '@/components/locations/LocationFilters';
@@ -28,6 +30,21 @@ export default async function LocationsPage({ searchParams }: Props) {
   };
 
   const { data: locations, count } = await getLocations(supabase, filters);
+  const locationIds = (locations ?? []).map((l) => l.id);
+
+  // tags, location_tags 테이블이 없으면 빈 데이터 사용 (42703 undefined_column 방지)
+  let allTags: Awaited<ReturnType<typeof getTags>> = [];
+  let locationTagsMap: Map<string, LocationTag[]> = new Map();
+  try {
+    const [tagsResult, tagsMapResult] = await Promise.all([
+      getTags(supabase),
+      getLocationTagsForLocations(supabase, locationIds),
+    ]);
+    allTags = tagsResult;
+    locationTagsMap = tagsMapResult;
+  } catch {
+    // tags 또는 location_tags 테이블/컬럼 미존재 시 무시
+  }
 
   // Get unique regions for filter
   const { data: allRegions } = await supabase
@@ -54,10 +71,12 @@ export default async function LocationsPage({ searchParams }: Props) {
         <div className="grid gap-6 md:grid-cols-[240px_1fr]">
           <LocationFilters regions={regions} />
           <LocationTable
-            locations={locations}
+            locations={locations ?? []}
             totalCount={count}
             page={page}
             perPage={perPage}
+            allTags={allTags}
+            locationTagsByLocId={Object.fromEntries(locationTagsMap)}
           />
         </div>
       </div>

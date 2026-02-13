@@ -3,16 +3,18 @@
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { updateLocation, createLocation } from '@/lib/queries/locations';
+import { updateLocationTags } from '@/lib/queries/tags';
 import { locationFormSchema, type LocationFormValues } from '@/schemas/location';
 import { mapKakaoCategory, extractRegionFromAddress } from '@/lib/mappings';
 import type { Location } from '@/types';
 import { PlaceSearch, type PlaceResult } from './PlaceSearch';
 import { ImageUpload } from './ImageUpload';
 import { CurationLevelSelector } from './CurationLevelSelector';
+import { TagSelector } from './TagSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -71,9 +73,11 @@ function FieldError({ message }: { message?: string }) {
 interface Props {
   location?: Location;
   isNew?: boolean;
+  allTags?: import('@/types').Tag[];
+  locationTags?: import('@/types').LocationTag[];
 }
 
-export function LocationForm({ location, isNew }: Props) {
+export function LocationForm({ location, isNew, allTags = [], locationTags = [] }: Props) {
   const router = useRouter();
   const firstErrorRef = useRef<HTMLFormElement>(null);
 
@@ -129,6 +133,9 @@ export function LocationForm({ location, isNew }: Props) {
   const categoryMain = watch('category_main');
   const features = watch('features');
   const subCategories = categoryMain ? CATEGORY_HIERARCHY[categoryMain] ?? [] : [];
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(() =>
+    locationTags.map((lt) => lt.tag_id)
+  );
 
   // Scroll to first error on submit
   useEffect(() => {
@@ -173,10 +180,14 @@ export function LocationForm({ location, isNew }: Props) {
       const supabase = createClient();
       if (isNew) {
         const created = await createLocation(supabase, values as Omit<Location, 'id' | 'created_at'>);
+        if (selectedTagIds.length > 0) {
+          await updateLocationTags(supabase, created.id, selectedTagIds);
+        }
         toast.success('장소가 추가되었습니다');
         router.push(`/locations/${created.id}`);
       } else if (location) {
         await updateLocation(supabase, location.id, values as Partial<Location>);
+        await updateLocationTags(supabase, location.id, selectedTagIds);
         toast.success('저장되었습니다');
         router.refresh();
       }
@@ -408,6 +419,23 @@ export function LocationForm({ location, isNew }: Props) {
               render={({ field }) => (
                 <ImageUpload value={field.value} onChange={field.onChange} />
               )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Tags */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">태그</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground mb-2">
+              기존 태그에서 선택 (클릭하여 추가/해제)
+            </p>
+            <TagSelector
+              allTags={allTags}
+              selectedTagIds={selectedTagIds}
+              onChange={setSelectedTagIds}
             />
           </CardContent>
         </Card>

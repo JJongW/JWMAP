@@ -1,5 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import { getLocationById } from '@/lib/queries/locations';
+import { getTags, getLocationTags } from '@/lib/queries/tags';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { LocationForm } from '@/components/locations/LocationForm';
 import { notFound } from 'next/navigation';
@@ -11,17 +12,27 @@ interface Props {
 export default async function LocationDetailPage({ params }: Props) {
   const { id } = await params;
 
-  // New location
+  const supabase = await createServerSupabase();
+
+  let allTags: Awaited<ReturnType<typeof getTags>> = [];
+  try {
+    allTags = await getTags(supabase);
+  } catch {
+    // tags 테이블 미존재 시 빈 배열
+  }
+
   if (id === 'new') {
     return (
       <AdminLayout>
-        <LocationForm isNew />
+        <LocationForm isNew allTags={allTags} />
       </AdminLayout>
     );
   }
 
-  const supabase = await createServerSupabase();
-  const location = await getLocationById(supabase, id);
+  const [location, locationTags] = await Promise.all([
+    getLocationById(supabase, id),
+    getLocationTags(supabase, id).catch(() => [] as Awaited<ReturnType<typeof getLocationTags>>),
+  ]);
 
   if (!location) {
     notFound();
@@ -29,7 +40,7 @@ export default async function LocationDetailPage({ params }: Props) {
 
   return (
     <AdminLayout>
-      <LocationForm location={location} />
+      <LocationForm location={location} allTags={allTags} locationTags={locationTags} />
     </AdminLayout>
   );
 }

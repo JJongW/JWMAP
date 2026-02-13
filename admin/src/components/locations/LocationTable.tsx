@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import type { Location } from '@/types';
+import type { Location, Tag, LocationTag } from '@/types';
 import {
   Table,
   TableBody,
@@ -14,16 +14,29 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getCurationLabel } from './CurationLevelSelector';
+import {
+  InlinePriceLevelCell,
+  InlineCurationLevelCell,
+  InlineTagsCell,
+} from './InlineEditableCells';
 
 interface Props {
   locations: Location[];
   totalCount: number;
   page: number;
   perPage: number;
+  allTags: Tag[];
+  locationTagsByLocId: Record<string, LocationTag[]>;
 }
 
-export function LocationTable({ locations, totalCount, page, perPage }: Props) {
+export function LocationTable({
+  locations,
+  totalCount,
+  page,
+  perPage,
+  allTags,
+  locationTagsByLocId,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const totalPages = Math.ceil(totalCount / perPage);
@@ -33,8 +46,6 @@ export function LocationTable({ locations, totalCount, page, perPage }: Props) {
     params.set('page', p.toString());
     router.push(`/locations?${params.toString()}`);
   }
-
-  const priceLabelMap: Record<number, string> = { 1: '$', 2: '$$', 3: '$$$', 4: '$$$$' };
 
   return (
     <div className="space-y-4">
@@ -47,6 +58,7 @@ export function LocationTable({ locations, totalCount, page, perPage }: Props) {
               <TableHead>카테고리</TableHead>
               <TableHead className="text-center">가격대</TableHead>
               <TableHead className="text-center">큐레이션</TableHead>
+              <TableHead className="min-w-[140px]">태그</TableHead>
               <TableHead className="text-right">수정일</TableHead>
               <TableHead className="w-[60px]" />
             </TableRow>
@@ -54,7 +66,7 @@ export function LocationTable({ locations, totalCount, page, perPage }: Props) {
           <TableBody>
             {locations.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   장소가 없습니다
                 </TableCell>
               </TableRow>
@@ -76,10 +88,17 @@ export function LocationTable({ locations, totalCount, page, perPage }: Props) {
                   )}
                 </TableCell>
                 <TableCell className="text-center">
-                  {loc.price_level ? priceLabelMap[loc.price_level] ?? '-' : '-'}
+                  <InlinePriceLevelCell location={loc} />
                 </TableCell>
                 <TableCell className="text-center text-xs">
-                  {loc.curation_level ? getCurationLabel(loc.curation_level) : '-'}
+                  <InlineCurationLevelCell location={loc} />
+                </TableCell>
+                <TableCell>
+                  <InlineTagsCell
+                    location={loc}
+                    locationTags={locationTagsByLocId[loc.id] ?? []}
+                    allTags={allTags}
+                  />
                 </TableCell>
                 <TableCell className="text-right text-xs text-muted-foreground">
                   {loc.created_at ? new Date(loc.created_at).toLocaleDateString('ko-KR') : '-'}

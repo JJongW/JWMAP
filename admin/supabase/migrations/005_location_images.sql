@@ -9,5 +9,5 @@ CREATE TABLE IF NOT EXISTS location_images (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_location_images_location ON location_images(location_id);
-CREATE INDEX idx_location_images_primary ON location_images(location_id, is_primary) WHERE is_primary = true;
+CREATE INDEX IF NOT EXISTS idx_location_images_location ON location_images(location_id);
+CREATE INDEX IF NOT EXISTS idx_location_images_primary ON location_images(location_id, is_primary) WHERE is_primary = true;

@@ -7,4 +7,4 @@ CREATE TABLE IF NOT EXISTS tags (
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_tags_type ON tags(type);
+CREATE INDEX IF NOT EXISTS idx_tags_type ON tags(type);

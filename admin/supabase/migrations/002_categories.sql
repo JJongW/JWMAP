@@ -9,5 +9,5 @@ CREATE TABLE IF NOT EXISTS categories (
   UNIQUE (name, level, parent_id)
 );
 
-CREATE INDEX idx_categories_parent ON categories(parent_id);
-CREATE INDEX idx_categories_level ON categories(level);
+CREATE INDEX IF NOT EXISTS idx_categories_parent ON categories(parent_id);
+CREATE INDEX IF NOT EXISTS idx_categories_level ON categories(level);

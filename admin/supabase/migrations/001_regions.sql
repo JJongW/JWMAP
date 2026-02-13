@@ -10,6 +10,6 @@ CREATE TABLE IF NOT EXISTS regions (
   UNIQUE (path)
 );
 
-CREATE INDEX idx_regions_parent ON regions(parent_id);
-CREATE INDEX idx_regions_level ON regions(level);
-CREATE INDEX idx_regions_path ON regions(path);
+CREATE INDEX IF NOT EXISTS idx_regions_parent ON regions(parent_id);
+CREATE INDEX IF NOT EXISTS idx_regions_level ON regions(level);
+CREATE INDEX IF NOT EXISTS idx_regions_path ON regions(path);

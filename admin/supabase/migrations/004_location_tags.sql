@@ -7,5 +7,5 @@ CREATE TABLE IF NOT EXISTS location_tags (
   UNIQUE (location_id, tag_id)
 );
 
-CREATE INDEX idx_location_tags_location ON location_tags(location_id);
-CREATE INDEX idx_location_tags_tag ON location_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_location_tags_location ON location_tags(location_id);
+CREATE INDEX IF NOT EXISTS idx_location_tags_tag ON location_tags(tag_id);
