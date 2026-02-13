@@ -84,7 +84,7 @@ export function DecisionEntryView({
 
   const handleSelectRegion = useCallback((value: string) => {
     setRegion(value);
-    setExpandedProvince(null);
+    // 세부지역 선택 후에도 펼친 상태 유지 (선택 확인용)
   }, []);
 
   const handleExpandProvince = useCallback((province: Province) => {
