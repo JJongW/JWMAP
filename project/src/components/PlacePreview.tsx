@@ -2,7 +2,7 @@ import { ArrowLeft, MapPin, Navigation, ExternalLink, ChevronRight, Share2 } fro
 import type { Location, Province, Features } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import { getCardImageUrl } from '../utils/image';
-import { getRatingLabel, getRatingLabelClassName } from '../utils/rating';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, getPriceLevelLabel } from '../utils/curation';
 import { clickLogApi, searchLogApi } from '../utils/supabase';
 import { shareToKakao } from '../utils/kakaoShare';
 
@@ -141,9 +141,21 @@ export function PlacePreview({
                   : location.region}
               </p>
             </div>
-            <span className={`px-2 py-0.5 text-xs font-medium rounded flex-shrink-0 ${getRatingLabelClassName(getRatingLabel(location.rating))}`}>
-              {getRatingLabel(location.rating)}
-            </span>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {(() => {
+                const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+                return (
+                  <span className={`px-2 py-0.5 text-xs font-medium rounded ${getCurationBadgeClass(level)}`}>
+                    {getCurationLabel(level)}
+                  </span>
+                );
+              })()}
+              {getPriceLevelLabel(location.price_level) && (
+                <span className="px-2 py-0.5 text-xs font-medium rounded bg-emerald-50 text-emerald-700">
+                  {getPriceLevelLabel(location.price_level)}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* One-liner (highlighted) */}

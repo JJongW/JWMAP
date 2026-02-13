@@ -12,7 +12,7 @@ export const locationApi = {
   async getAll(): Promise<Location[]> {
     const columns = [
       'id', 'name', 'region', 'sub_region', 'category_main', 'category_sub',
-      'lat', 'lon', 'rating', 'imageUrl', 'tags', 'curator_visited',
+      'lat', 'lon', 'rating', 'curation_level', 'imageUrl', 'tags', 'curator_visited',
       'trust_score', 'popularity_score',
       'address', 'memo', 'short_desc', 'price_level', 'event_tags', 'features',
       'naver_place_id', 'kakao_place_id', 'visit_date', 'created_at', 'last_verified_at',
@@ -20,8 +20,8 @@ export const locationApi = {
     let result = await supabase
       .from('locations_search')
       .select(columns)
-      .order('popularity_score', { ascending: false, nullsFirst: false })
-      .order('rating', { ascending: false });
+      .order('curation_level', { ascending: false, nullsFirst: false })
+      .order('popularity_score', { ascending: false, nullsFirst: false });
 
     if (result.error) {
       const fallback = await supabase
@@ -86,6 +86,7 @@ export const locationApi = {
         visit_date: item.visit_date as string | undefined,
         last_verified_at: item.last_verified_at as string | undefined,
         created_at: item.created_at as string | undefined,
+        curation_level: item.curation_level as number | undefined,
         curator_visited: item.curator_visited,
         curator_visited_at: item.visit_date as string | undefined,
         categoryMain,
@@ -103,6 +104,7 @@ export const locationApi = {
       tags: inputTags,
       categoryMain,
       categorySub,
+      curation_level,
       features: inputFeatures,
       curator_visited,
       curator_visited_at,
@@ -126,6 +128,7 @@ export const locationApi = {
       category_main: categoryMain,
       category_sub: categorySub,
       features: inputFeatures || {}, // features가 없으면 빈 객체로 설정 (NOT NULL 제약 조건)
+      curation_level: curation_level ?? undefined,
     };
 
     // imageUrl이 있고 빈 문자열이 아니면 저장
@@ -199,6 +202,7 @@ export const locationApi = {
       visit_date: data.visit_date as string | undefined,
       last_verified_at: data.last_verified_at as string | undefined,
       created_at: data.created_at as string | undefined,
+      curation_level: data.curation_level as number | undefined,
       curator_visited: data.curator_visited,
       curator_visited_at: data.visit_date as string | undefined,
       // 카테고리 대분류/소분류
@@ -226,6 +230,7 @@ export const locationApi = {
       tags: inputTags,
       categoryMain,
       categorySub,
+      curation_level,
       curator_visited,
       curator_visited_at,
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -262,6 +267,10 @@ export const locationApi = {
     // curator_visited_at -> visit_date 매핑
     if (curator_visited_at !== undefined) {
       supabaseData.visit_date = curator_visited_at;
+    }
+
+    if (curation_level !== undefined) {
+      supabaseData.curation_level = curation_level;
     }
 
     if (curator_visited !== undefined) {
@@ -329,6 +338,7 @@ export const locationApi = {
       visit_date: data.visit_date as string | undefined,
       last_verified_at: data.last_verified_at as string | undefined,
       created_at: data.created_at as string | undefined,
+      curation_level: data.curation_level as number | undefined,
       curator_visited: data.curator_visited,
       curator_visited_at: data.visit_date as string | undefined,
     } as Location;

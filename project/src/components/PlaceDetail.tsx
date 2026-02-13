@@ -5,7 +5,7 @@ import { reviewApi, searchLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
-import { getRatingLabel, getRatingLabelClassName } from '../utils/rating';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, getPriceLevelLabel } from '../utils/curation';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
 
@@ -147,10 +147,20 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
             <div>
               <div className="flex items-start justify-between">
                 <h1 className="text-2xl font-bold text-accent">{location.name}</h1>
-                <div className="flex-shrink-0 ml-3">
-                  <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getRatingLabelClassName(getRatingLabel(location.rating))}`}>
-                    {getRatingLabel(location.rating)}
-                  </span>
+                <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
+                  {(() => {
+                    const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+                    return (
+                      <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getCurationBadgeClass(level)}`}>
+                        {getCurationLabel(level)}
+                      </span>
+                    );
+                  })()}
+                  {getPriceLevelLabel(location.price_level) && (
+                    <span className="px-2.5 py-1 text-sm font-medium rounded-lg bg-emerald-50 text-emerald-700">
+                      {getPriceLevelLabel(location.price_level)}
+                    </span>
+                  )}
                 </div>
               </div>
               <p className="text-sm text-accent/70 mt-1">{location.region}</p>
@@ -322,10 +332,20 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
             <div>
               <div className="flex items-start justify-between">
                 <h1 className="text-2xl font-bold text-accent">{location.name}</h1>
-                <div className="flex-shrink-0 ml-3">
-                  <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getRatingLabelClassName(getRatingLabel(location.rating))}`}>
-                    {getRatingLabel(location.rating)}
-                  </span>
+                <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
+                  {(() => {
+                    const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+                    return (
+                      <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getCurationBadgeClass(level)}`}>
+                        {getCurationLabel(level)}
+                      </span>
+                    );
+                  })()}
+                  {getPriceLevelLabel(location.price_level) && (
+                    <span className="px-2.5 py-1 text-sm font-medium rounded-lg bg-emerald-50 text-emerald-700">
+                      {getPriceLevelLabel(location.price_level)}
+                    </span>
+                  )}
                 </div>
               </div>
               <p className="text-sm text-accent/70 mt-1">{location.region}</p>

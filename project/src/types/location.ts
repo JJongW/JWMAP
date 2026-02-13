@@ -241,6 +241,7 @@ export interface Location {
   memo: string;
   address: string;
   rating: number;
+  curation_level?: number;
   imageUrl: string;
   eventTags?: string[];   // 이벤트 태그 (예: ['흑백요리사 시즌2'])
   features?: Features;    // 장소 특징

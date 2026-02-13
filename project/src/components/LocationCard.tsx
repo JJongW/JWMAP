@@ -3,7 +3,7 @@ import type { Location, Features, CategoryMain, CategorySub } from '../types/loc
 import { CATEGORY_HIERARCHY, CATEGORY_MAINS, getCategorySubsByMain } from '../types/location';
 import { MapPin, Edit2, Trash2, ExternalLink, X, Check, ImageIcon } from 'lucide-react';
 import { locationApi } from '../utils/supabase';
-import { getRatingLabel, getRatingFromLabel, getRatingLabelClassName, RATING_LABELS, isOwnerMode, type RatingLabel } from '../utils/rating';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, CURATION_LEVELS, isOwnerMode } from '../utils/curation';
 import { getCardImageUrl } from '../utils/image';
 import { CustomSelect } from './CustomSelect';
 import { ImageUpload } from './ImageUpload';
@@ -29,7 +29,9 @@ const featureOptions: { key: keyof Features; label: string }[] = [
 
 export function LocationCard({ location, onDelete, onUpdate, initialEditing = false }: LocationCardProps) {
   const [isEditing, setIsEditing] = useState(initialEditing);
-  const [editedRating, setEditedRating] = useState(location.rating);
+  const [editedCurationLevel, setEditedCurationLevel] = useState(
+    location.curation_level ?? ratingToCurationLevel(location.rating ?? 0)
+  );
   const [editedCuratorVisited, setEditedCuratorVisited] = useState(location.curator_visited !== false);
   const [editedImageUrl, setEditedImageUrl] = useState(location.imageUrl);
   const [editedCategoryMain, setEditedCategoryMain] = useState<CategoryMain | ''>(location.categoryMain || '');
@@ -43,7 +45,7 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
     if (!initialEditing) {
       setIsEditing(false);
     }
-    setEditedRating(location.rating);
+    setEditedCurationLevel(location.curation_level ?? ratingToCurationLevel(location.rating ?? 0));
     setEditedCuratorVisited(location.curator_visited !== false);
     setEditedImageUrl(location.imageUrl);
     setEditedCategoryMain(location.categoryMain || '');
@@ -72,7 +74,7 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
         Object.entries(editedFeatures).filter(([, value]) => value === true)
       );
       const updatedData = await locationApi.update(location.id, {
-        rating: editedRating,
+        curation_level: editedCurationLevel,
         curator_visited: editedCuratorVisited,
         imageUrl: editedImageUrl,
         categoryMain: editedCategoryMain || undefined,
@@ -265,20 +267,25 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
         <div className="flex justify-between items-start">
           <h3 className="text-lg font-bold text-accent">{location.name}</h3>
           {isEditing && isOwnerMode ? (
-            <select
-              value={getRatingLabel(editedRating)}
-              onChange={(e) => setEditedRating(getRatingFromLabel(e.target.value as RatingLabel))}
-              className="border border-base rounded-lg px-2 py-1 text-sm text-accent"
-            >
-              {RATING_LABELS.map((label) => (
-                <option key={label} value={label}>
-                  {label}
-                </option>
+            <div className="flex gap-1">
+              {CURATION_LEVELS.map((tier) => (
+                <button
+                  key={tier.level}
+                  type="button"
+                  onClick={() => setEditedCurationLevel(tier.level)}
+                  className={`px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
+                    editedCurationLevel === tier.level
+                      ? tier.badgeClass + ' ring-2 ring-offset-1 ring-current'
+                      : 'bg-gray-100 text-gray-400'
+                  }`}
+                >
+                  {tier.label}
+                </button>
               ))}
-            </select>
+            </div>
           ) : (
-            <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getRatingLabelClassName(getRatingLabel(editedRating))}`}>
-              {getRatingLabel(editedRating)}
+            <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getCurationBadgeClass(location.curation_level ?? ratingToCurationLevel(location.rating ?? 0))}`}>
+              {getCurationLabel(location.curation_level ?? ratingToCurationLevel(location.rating ?? 0))}
             </span>
           )}
         </div>

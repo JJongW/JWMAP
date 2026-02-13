@@ -2,7 +2,7 @@ import { MapPin } from 'lucide-react';
 import type { Location, Province } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import { getThumbnailUrl, getCardImageUrl } from '../utils/image';
-import { getRatingLabel, getRatingLabelClassName } from '../utils/rating';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
 
 interface LocationListProps {
   locations: Location[];
@@ -56,8 +56,8 @@ export function LocationList({
             }`}
           >
             <div className="flex gap-3">
-              {/* Thumbnail */}
-              <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+              {/* Thumbnail with curation overlay */}
+              <div className="relative w-[72px] h-[72px] rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
                 {location.imageUrl ? (
                   <img
                     src={getThumbnailUrl(location.imageUrl)}
@@ -73,6 +73,12 @@ export function LocationList({
                     <MapPin size={20} className="text-gray-300" />
                   </div>
                 )}
+                {/* Curation label overlay */}
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1.5 py-0.5 text-center">
+                  <span className="text-[10px] font-medium text-white">
+                    {getCurationLabel(location.curation_level ?? ratingToCurationLevel(location.rating ?? 0))}
+                  </span>
+                </div>
               </div>
 
               {/* Content */}
@@ -102,28 +108,23 @@ export function LocationList({
                     : location.region}
                 </p>
                 {location.short_desc && (
-                  <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                  <p className="text-sm font-medium text-gray-600 mt-1 line-clamp-2">
                     "{location.short_desc}"
                   </p>
                 )}
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className={`px-1.5 py-0.5 text-xs font-medium rounded ${getRatingLabelClassName(getRatingLabel(location.rating ?? 0))}`}>
-                    {getRatingLabel(location.rating ?? 0)}
-                  </span>
-                  {/* Feature chips */}
-                  {location.tags && location.tags.length > 0 && (
-                    <div className="flex gap-1">
-                      {location.tags.slice(0, 2).map(tag => (
-                        <span
-                          key={tag}
-                          className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                {/* Feature chips */}
+                {location.tags && location.tags.length > 0 && (
+                  <div className="flex gap-1 mt-1.5">
+                    {location.tags.slice(0, 2).map(tag => (
+                      <span
+                        key={tag}
+                        className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -207,6 +208,15 @@ export function LocationList({
                     </>
                   )}
                 </div>
+                {/* Curation badge */}
+                {(() => {
+                  const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+                  return (
+                    <span className={`absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded-lg ${getCurationBadgeClass(level)}`}>
+                      Lv.{level} {getCurationLabel(level)}
+                    </span>
+                  );
+                })()}
               </div>
 
               {/* Content */}
@@ -223,9 +233,14 @@ export function LocationList({
                       ? `${getLocationProvince(location)} · ${location.region}`
                       : location.region}
                   </p>
-                  <span className={`px-1.5 py-0.5 text-xs font-medium rounded flex-shrink-0 ${getRatingLabelClassName(getRatingLabel(location.rating ?? 0))}`}>
-                    {getRatingLabel(location.rating ?? 0)}
-                  </span>
+                  {(() => {
+                    const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+                    return (
+                      <span className={`px-1.5 py-0.5 text-xs font-medium rounded flex-shrink-0 ${getCurationBadgeClass(level)}`}>
+                        {getCurationLabel(level)}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

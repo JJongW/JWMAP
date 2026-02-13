@@ -5,7 +5,7 @@ import { ImageUpload } from './ImageUpload';
 import { PlaceSearch } from './PlaceSearch';
 import type { Features, Province, CategoryMain, CategorySub } from '../types/location';
 import { PROVINCES, REGION_HIERARCHY, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from '../types/location';
-import { RATING_LABELS, getRatingFromLabel, getRatingLabel, isOwnerMode, type RatingLabel } from '../utils/rating';
+import { CURATION_LEVELS, isOwnerMode } from '../utils/curation';
 import type { LLMSuggestions, TagSuggestion } from '../schemas/llmSuggestions';
 import { featureLabels, tagTypeLabels } from '../schemas/llmSuggestions';
 
@@ -27,6 +27,7 @@ interface AddLocationModalProps {
     address: string;
     imageUrl: string;
     rating: number;
+    curation_level?: number;
     curator_visited?: boolean;
     lon: number;
     lat: number;
@@ -48,7 +49,8 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     categorySub: '' as CategorySub | '',
     address: '',
     imageUrl: '',
-    rating: 3.25, // 쩝쩝박사 자주 방문 기본값
+    rating: 0,
+    curation_level: 2, // 추천픽 기본값
     curator_visited: true,
     lon: 0,
     lat: 0,
@@ -816,6 +818,7 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
       memo: formData.short_desc || formData.memo, // short_desc를 memo로 사용
       lat: finalLat,
       lon: finalLon,
+      curation_level: formData.curation_level,
       features: Object.keys(activeFeatures).length > 0 ? activeFeatures : {}, // 빈 객체로 전달 (NOT NULL 제약 조건)
       tags: customTags.length > 0 ? customTags : undefined,
     });
@@ -1126,21 +1129,26 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
             onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
           />
 
-          {/* 쩝쩝박사 라벨 (주인장만 수정 가능) */}
+          {/* 큐레이션 레벨 (주인장만 수정 가능) */}
           {isOwnerMode && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">주인장 평점</label>
-              <select
-                value={getRatingLabel(formData.rating)}
-                onChange={(e) => setFormData((prev) => ({ ...prev, rating: getRatingFromLabel(e.target.value as RatingLabel) }))}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              >
-                {RATING_LABELS.map((label) => (
-                  <option key={label} value={label}>
-                    {label}
-                  </option>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">큐레이션 레벨</label>
+              <div className="grid grid-cols-5 gap-1.5">
+                {CURATION_LEVELS.map((tier) => (
+                  <button
+                    key={tier.level}
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, curation_level: tier.level }))}
+                    className={`px-2 py-2 text-xs font-medium rounded-lg transition-colors text-center ${
+                      formData.curation_level === tier.level
+                        ? tier.badgeClass + ' ring-2 ring-offset-1 ring-current'
+                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                    }`}
+                  >
+                    {tier.label}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
           )}
 

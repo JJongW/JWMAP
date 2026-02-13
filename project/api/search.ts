@@ -120,6 +120,7 @@ interface Location {
   shortDesc?: string;
   features?: Record<string, boolean>;
   rating: number;
+  curationLevel?: number;
   priceLevel?: number;
   naverPlaceId?: string;
   kakaoPlaceId?: string;
@@ -501,10 +502,10 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
   // Execute: fetch more when filtering by location_keywords in memory (wider net)
   const limit = hasLocationKeywords ? 500 : (hasKeywords ? 200 : 100);
   const { data, error } = await dbQuery
+    .order('curation_level', { ascending: false, nullsFirst: false })
     .order('popularity_score', { ascending: false, nullsFirst: false })
     .order('trust_score', { ascending: false, nullsFirst: false })
     .order('curator_visited', { ascending: false, nullsFirst: false })
-    .order('rating', { ascending: false })
     .limit(limit);
 
   if (error) {
@@ -527,6 +528,7 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
     shortDesc: item.short_desc as string | undefined,
     features: item.features as Record<string, boolean> | undefined,
     rating: item.rating as number,
+    curationLevel: item.curation_level as number | undefined,
     priceLevel: item.price_level as number | undefined,
     naverPlaceId: item.naver_place_id as string | undefined,
     kakaoPlaceId: item.kakao_place_id as string | undefined,
@@ -850,6 +852,7 @@ async function searchWithFallback(
       shortDesc: item.short_desc as string | undefined,
       features: item.features as Record<string, boolean> | undefined,
       rating: item.rating as number,
+      curationLevel: item.curation_level as number | undefined,
       priceLevel: item.price_level as number | undefined,
       naverPlaceId: item.naver_place_id as string | undefined,
       kakaoPlaceId: item.kakao_place_id as string | undefined,

@@ -262,6 +262,7 @@ export default function App() {
     address: string;
     imageUrl: string;
     rating: number;
+    curation_level?: number;
     lon: number;
     lat: number;
     memo?: string;
