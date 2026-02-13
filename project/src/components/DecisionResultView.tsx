@@ -14,11 +14,12 @@
  */
 
 import { useState } from 'react';
-import { MapPin, Star, ChevronDown, Navigation } from 'lucide-react';
+import { MapPin, ChevronDown, Navigation } from 'lucide-react';
 import type { Location, Features } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
 import { getDifferentiator } from '../utils/decisionEngine';
 import { getCardImageUrl } from '../utils/image';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, getPriceLevelLabel } from '../utils/curation';
 
 interface DecisionResultViewProps {
   result: DecisionResult;
@@ -190,17 +191,26 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
 
       {/* 콘텐츠 */}
       <div className="p-5">
-        {/* 장소명 + 평점 */}
+        {/* 장소명 + 큐레이션 뱃지 + 가격대 */}
         <div className="mb-2 flex items-start justify-between gap-3">
           <h2 className="text-xl font-bold tracking-tight text-gray-900">
             {location.name}
           </h2>
-          {location.rating > 0 && (
-            <div className="flex shrink-0 items-center gap-1 text-sm text-gray-500">
-              <Star size={14} className="fill-amber-400 text-amber-400" />
-              <span>{location.rating.toFixed(1)}</span>
-            </div>
-          )}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {(() => {
+              const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+              return (
+                <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getCurationBadgeClass(level)}`}>
+                  {getCurationLabel(level)}
+                </span>
+              );
+            })()}
+            {getPriceLevelLabel(location.price_level) && (
+              <span className="px-2.5 py-1 text-sm font-medium rounded-lg bg-emerald-50 text-emerald-700">
+                {getPriceLevelLabel(location.price_level)}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 지역 */}
@@ -274,11 +284,14 @@ function SecondaryCard({ location, differentiator, onOpenDetail }: SecondaryCard
           <span className="truncate text-sm font-semibold text-gray-800">
             {location.name}
           </span>
-          {location.rating > 0 && (
-            <span className="shrink-0 text-xs text-gray-400">
-              {location.rating.toFixed(1)}
-            </span>
-          )}
+          {(() => {
+            const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+            return (
+              <span className={`shrink-0 px-1.5 py-0.5 text-xs font-medium rounded ${getCurationBadgeClass(level)}`}>
+                {getCurationLabel(level)}
+              </span>
+            );
+          })()}
         </div>
         <p className="mt-0.5 text-xs text-gray-500">
           {differentiator}

@@ -16,12 +16,13 @@
  */
 
 import { useState, useMemo } from 'react';
-import { ChevronDown, ChevronUp, MapPin, Star, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, MapPin, Search, X } from 'lucide-react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { getDetailImageUrl } from '../utils/image';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, getPriceLevelLabel } from '../utils/curation';
 import type { Location, Province, CategoryMain, CategorySub } from '../types/location';
 
 // ─────────────────────────────────────────────
@@ -334,13 +335,22 @@ function BrowseList({
             </p>
           </div>
 
-          {/* 우측: 평점 */}
-          {location.rating > 0 && (
-            <div className="ml-3 flex shrink-0 items-center gap-1 text-xs text-gray-400">
-              <Star size={12} className="fill-gray-300 text-gray-300" />
-              <span>{location.rating.toFixed(1)}</span>
-            </div>
-          )}
+          {/* 우측: 큐레이션 뱃지 + 가격대 */}
+          <div className="ml-3 flex shrink-0 items-center gap-1.5">
+            {(() => {
+              const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+              return (
+                <span className={`px-2 py-0.5 text-xs font-medium rounded ${getCurationBadgeClass(level)}`}>
+                  {getCurationLabel(level)}
+                </span>
+              );
+            })()}
+            {getPriceLevelLabel(location.price_level) && (
+              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-emerald-50 text-emerald-700">
+                {getPriceLevelLabel(location.price_level)}
+              </span>
+            )}
+          </div>
         </button>
       ))}
 
@@ -519,12 +529,21 @@ function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
           )}
         </div>
 
-        {location.rating > 0 && (
-          <div className="mt-2 flex items-center gap-1 text-sm text-gray-400">
-            <Star size={14} className="fill-gray-300 text-gray-300" />
-            <span>{location.rating.toFixed(1)}</span>
-          </div>
-        )}
+        <div className="mt-2 flex items-center gap-1.5">
+          {(() => {
+            const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+            return (
+              <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getCurationBadgeClass(level)}`}>
+                {getCurationLabel(level)}
+              </span>
+            );
+          })()}
+          {getPriceLevelLabel(location.price_level) && (
+            <span className="px-2.5 py-1 text-sm font-medium rounded-lg bg-emerald-50 text-emerald-700">
+              {getPriceLevelLabel(location.price_level)}
+            </span>
+          )}
+        </div>
 
         <p className="mt-4 text-sm text-gray-500">
           {location.address}
