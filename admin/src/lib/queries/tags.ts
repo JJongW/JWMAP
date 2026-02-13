@@ -15,15 +15,15 @@ export async function createTag(
   return data as Tag;
 }
 
+const sortByNameKo = (a: { name: string }, b: { name: string }) =>
+  a.name.localeCompare(b.name, 'ko-KR');
+
 export async function getTags(supabase: SupabaseClient): Promise<Tag[]> {
-  const { data, error } = await supabase
-    .from('tags')
-    .select('*')
-    .order('type')
-    .order('name');
+  const { data, error } = await supabase.from('tags').select('*');
 
   if (error) throw error;
-  return (data ?? []) as Tag[];
+  const tags = (data ?? []) as Tag[];
+  return tags.sort(sortByNameKo);
 }
 
 export async function getTagsByType(
@@ -33,11 +33,11 @@ export async function getTagsByType(
   const { data, error } = await supabase
     .from('tags')
     .select('*')
-    .eq('type', type)
-    .order('name');
+    .eq('type', type);
 
   if (error) throw error;
-  return (data ?? []) as Tag[];
+  const tags = (data ?? []) as Tag[];
+  return tags.sort(sortByNameKo);
 }
 
 export async function getLocationTags(
@@ -115,9 +115,10 @@ export async function updateLocationTags(
     const { data: tagRows } = await supabase
       .from('tags')
       .select('name')
-      .in('id', tagIds)
-      .order('name');
-    const tagNames = (tagRows ?? []).map((r) => (r as { name: string }).name);
+      .in('id', tagIds);
+    const tagNames = (tagRows ?? [])
+      .map((r) => (r as { name: string }).name)
+      .sort((a, b) => a.localeCompare(b, 'ko-KR'));
     await supabase.from('locations').update({ tags: tagNames }).eq('id', locationId);
   }
 }

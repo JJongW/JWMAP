@@ -156,8 +156,12 @@ export function InlineTagsCell({
   const [localTags, setLocalTags] = useState<Tag[]>([]);
 
   const selectedTagIds = new Set(locationTags.map((lt) => lt.tag_id));
-  const tagNames = locationTags.map((lt) => lt.tag?.name).filter(Boolean) as string[];
-  const tagsToShow = [...allTags, ...localTags.filter((t) => !allTags.some((a) => a.id === t.id))];
+  const tagNames = (
+    locationTags.map((lt) => lt.tag?.name).filter(Boolean) as string[]
+  ).sort((a, b) => a.localeCompare(b, 'ko-KR'));
+  const tagsToShow = [...allTags, ...localTags.filter((t) => !allTags.some((a) => a.id === t.id))].sort(
+    (a, b) => a.name.localeCompare(b.name, 'ko-KR')
+  );
 
   async function handleToggleTag(tagId: string) {
     if (isUpdating) return;

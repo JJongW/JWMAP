@@ -33,7 +33,7 @@ export function TagSelector({
   const tagsToShow = useMemo(() => {
     const ids = new Set(allTags.map((t) => t.id));
     const extra = localTags.filter((t) => !ids.has(t.id));
-    return [...allTags, ...extra];
+    return [...allTags, ...extra].sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'));
   }, [allTags, localTags]);
 
   function toggle(tagId: string) {
