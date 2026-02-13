@@ -108,7 +108,7 @@ export async function updateLocation(
   payload: Partial<Location>
 ): Promise<Location> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { id: _id, created_at: _ca, location_tags: _lt, location_images: _li, ...data } = payload;
+  const { id: _id, created_at: _ca, location_tags: _lt, ...data } = payload;
   const { data: result, error } = await supabase
     .from('locations')
     .update(data)
@@ -125,7 +125,7 @@ export async function createLocation(
   payload: Omit<Location, 'id' | 'created_at'>
 ): Promise<Location> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { location_tags: _lt, location_images: _li, ...data } = payload;
+  const { location_tags: _lt, ...data } = payload;
   const { data: result, error } = await supabase
     .from('locations')
     .insert(data)

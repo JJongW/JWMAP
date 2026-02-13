@@ -14,11 +14,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
-import {
-  InlinePriceLevelCell,
-  InlineCurationLevelCell,
-  InlineTagsCell,
-} from './InlineEditableCells';
+import { InlinePriceLevelCell } from './InlinePriceLevelCell';
+import { InlineCurationLevelCell } from './InlineCurationLevelCell';
+import { InlineTagsCell } from './InlineTagsCell';
 
 interface Props {
   locations: Location[];

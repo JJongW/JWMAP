@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MapPin, AlertTriangle, Settings } from 'lucide-react';
+import { LayoutDashboard, MapPin, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -43,15 +43,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="border-t p-3">
-        <Link
-          href="#"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted"
-        >
-          <Settings className="h-4 w-4" />
-          설정
-        </Link>
-      </div>
     </aside>
   );
 }

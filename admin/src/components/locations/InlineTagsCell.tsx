@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
-import { updateLocation } from '@/lib/queries/locations';
 import { createTag, updateLocationTags } from '@/lib/queries/tags';
 import {
   DropdownMenu,
@@ -12,129 +11,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ChevronDown, Check, Plus } from 'lucide-react';
-import { getCurationLabel, CURATION_LEVELS } from './CurationLevelSelector';
 import type { Location, Tag, LocationTag } from '@/types';
-
-const PRICE_OPTIONS = [
-  { value: 1, label: '₩ 저렴' },
-  { value: 2, label: '₩₩ 보통' },
-  { value: 3, label: '₩₩₩ 비쌈' },
-  { value: 4, label: '₩₩₩₩ 고급' },
-] as const;
-
-interface InlinePriceLevelCellProps {
-  location: Location;
-  onSuccess?: () => void;
-}
-
-export function InlinePriceLevelCell({ location, onSuccess }: InlinePriceLevelCellProps) {
-  const router = useRouter();
-  const [isUpdating, setIsUpdating] = useState(false);
-  const value = location.price_level;
-  const label = value ? PRICE_OPTIONS.find((o) => o.value === value)?.label ?? '-' : '-';
-
-  async function handleSelect(level: number | null) {
-    if (isUpdating) return;
-    setIsUpdating(true);
-    try {
-      const supabase = createClient();
-      await updateLocation(supabase, location.id, { price_level: level ?? null });
-      toast.success('가격대가 변경되었습니다');
-      onSuccess?.();
-      router.refresh();
-    } catch (err) {
-      toast.error('변경 실패: ' + (err as Error).message);
-    } finally {
-      setIsUpdating(false);
-    }
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 min-w-[60px] justify-between gap-1 font-normal text-muted-foreground hover:text-foreground"
-          disabled={isUpdating}
-        >
-          {label}
-          <ChevronDown className="h-3 w-3 opacity-50" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="center">
-        <DropdownMenuItem onClick={() => handleSelect(null)}>
-          <span className="text-muted-foreground">- 미설정</span>
-        </DropdownMenuItem>
-        {PRICE_OPTIONS.map((opt) => (
-          <DropdownMenuItem key={opt.value} onClick={() => handleSelect(opt.value)}>
-            {value === opt.value && <Check className="mr-2 h-4 w-4" />}
-            <span className={value === opt.value ? 'ml-6' : ''}>{opt.label}</span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-interface InlineCurationLevelCellProps {
-  location: Location;
-  onSuccess?: () => void;
-}
-
-export function InlineCurationLevelCell({ location, onSuccess }: InlineCurationLevelCellProps) {
-  const router = useRouter();
-  const [isUpdating, setIsUpdating] = useState(false);
-  const value = location.curation_level;
-
-  async function handleSelect(level: number | null) {
-    if (isUpdating) return;
-    setIsUpdating(true);
-    try {
-      const supabase = createClient();
-      await updateLocation(supabase, location.id, { curation_level: level ?? null });
-      toast.success('큐레이션이 변경되었습니다');
-      onSuccess?.();
-      router.refresh();
-    } catch (err) {
-      toast.error('변경 실패: ' + (err as Error).message);
-    } finally {
-      setIsUpdating(false);
-    }
-  }
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 min-w-[72px] justify-between gap-1 font-normal text-muted-foreground hover:text-foreground"
-          disabled={isUpdating}
-        >
-          {value ? getCurationLabel(value) : '-'}
-          <ChevronDown className="h-3 w-3 opacity-50" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="center">
-        <DropdownMenuItem onClick={() => handleSelect(null)}>
-          <span className="text-muted-foreground">- 미설정</span>
-        </DropdownMenuItem>
-        {CURATION_LEVELS.map((opt) => (
-          <DropdownMenuItem key={opt.value} onClick={() => handleSelect(opt.value)}>
-            {value === opt.value && <Check className="mr-2 h-4 w-4" />}
-            <span className={value === opt.value ? 'ml-6' : ''}>
-              Lv.{opt.value} {opt.label}
-            </span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 interface InlineTagsCellProps {
   location: Location;
@@ -156,12 +37,12 @@ export function InlineTagsCell({
   const [localTags, setLocalTags] = useState<Tag[]>([]);
 
   const selectedTagIds = new Set(locationTags.map((lt) => lt.tag_id));
-  const tagNames = (
-    locationTags.map((lt) => lt.tag?.name).filter(Boolean) as string[]
-  ).sort((a, b) => a.localeCompare(b, 'ko-KR'));
   const tagsToShow = [...allTags, ...localTags.filter((t) => !allTags.some((a) => a.id === t.id))].sort(
     (a, b) => a.name.localeCompare(b.name, 'ko-KR')
   );
+
+  // Use location.tags (string[]) for display
+  const displayTags = (location.tags ?? []).slice().sort((a, b) => a.localeCompare(b, 'ko-KR'));
 
   async function handleToggleTag(tagId: string) {
     if (isUpdating) return;
@@ -219,12 +100,20 @@ export function InlineTagsCell({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 min-w-[80px] max-w-[200px] justify-between gap-1 font-normal text-muted-foreground hover:text-foreground"
+          className="h-auto min-h-[28px] min-w-[80px] justify-between gap-1 px-2 py-1 font-normal text-muted-foreground hover:text-foreground"
           disabled={isUpdating}
         >
-          <span className="truncate">
-            {tagNames.length > 0 ? tagNames.join(', ') : '-'}
-          </span>
+          {displayTags.length > 0 ? (
+            <span className="flex flex-wrap gap-1">
+              {displayTags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-[11px] px-1.5 py-0">
+                  {tag}
+                </Badge>
+              ))}
+            </span>
+          ) : (
+            <span>-</span>
+          )}
           <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </DropdownMenuTrigger>

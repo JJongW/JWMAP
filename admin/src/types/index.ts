@@ -1,24 +1,3 @@
-// ---- Region ----
-export interface Region {
-  id: string;
-  name: string;
-  level: 1 | 2 | 3; // 1=시도, 2=구군, 3=동읍면
-  parent_id: string | null;
-  path: string;
-  sort_order: number;
-  created_at: string;
-}
-
-// ---- Category ----
-export interface Category {
-  id: string;
-  name: string;
-  level: 1 | 2; // 1=대분류, 2=소분류
-  parent_id: string | null;
-  sort_order: number;
-  created_at: string;
-}
-
 // ---- Tag ----
 export type TagType = 'mood' | 'feature' | 'situation' | 'season';
 
@@ -27,17 +6,6 @@ export interface Tag {
   name: string;
   type: TagType;
   sort_order: number;
-  created_at: string;
-}
-
-// ---- Location Image ----
-export interface LocationImage {
-  id: string;
-  location_id: string;
-  url: string;
-  is_primary: boolean;
-  sort_order: number;
-  caption: string | null;
   created_at: string;
 }
 
@@ -93,7 +61,6 @@ export interface Location {
   category_id: string | null;
   // joined data
   location_tags?: LocationTag[];
-  location_images?: LocationImage[];
 }
 
 // ---- Filters ----
@@ -108,14 +75,4 @@ export interface LocationFilters {
   has_tags?: boolean;
   page: number;
   per_page: number;
-}
-
-// ---- Dashboard Stats ----
-export interface DashboardStats {
-  total_locations: number;
-  no_tags_count: number;
-  no_image_count: number;
-  by_region: { region: string; count: number }[];
-  by_category: { category: string; count: number }[];
-  recent_updates: Location[];
 }

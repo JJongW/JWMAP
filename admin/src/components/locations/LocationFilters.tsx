@@ -13,11 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-
-const CATEGORY_MAINS = [
-  '밥', '면', '국물', '고기요리', '해산물',
-  '간편식', '양식·퓨전', '디저트', '카페', '술안주',
-];
+import { CATEGORY_MAINS } from '@/lib/constants';
 
 interface Props {
   regions: string[];
