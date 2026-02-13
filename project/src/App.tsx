@@ -403,8 +403,18 @@ export default function App() {
     }
   }, [locations]);
 
+  /** 화면 더블클릭 시 장소 추가 모달 열기 (숨겨진 단축키) */
+  const handleScreenDoubleClick = useCallback(() => {
+    setIsModalOpen(true);
+  }, []);
+
   return (
-    <>
+    <div
+      className="min-h-screen w-full"
+      onDoubleClick={handleScreenDoubleClick}
+      role="application"
+      aria-label="JWMAP 맛집 큐레이션"
+    >
       {/* ── Decision Entry View (기본 진입 화면) ── */}
       {uiMode === 'decision' && (
         <DecisionEntryView
@@ -474,6 +484,6 @@ export default function App() {
       )}
 
       <SpeedInsights />
-    </>
+    </div>
   );
 }
