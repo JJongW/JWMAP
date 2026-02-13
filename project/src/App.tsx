@@ -1,18 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
-import { MobileLayout } from './components/layout/MobileLayout';
-import { DesktopLayout } from './components/layout/DesktopLayout';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { AddLocationModal } from './components/AddLocationModal';
-import { Footer } from './components/Footer';
+import { DecisionEntryView } from './components/DecisionEntryView';
+import { DecisionResultView } from './components/DecisionResultView';
+import { BrowseConfirmView } from './components/BrowseConfirmView';
+import { BrowseView } from './components/BrowseView';
 import type { Location, Features, Province, CategoryMain, CategorySub } from './types/location';
-import { REGION_HIERARCHY, inferProvinceFromRegion, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from './types/location';
-import type { UiMode, BottomSheetState, SheetMode } from './types/ui';
-import { useBreakpoint } from './hooks/useBreakpoint';
+import { REGION_HIERARCHY, PROVINCES, inferProvinceFromRegion, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from './types/location';
+import type { UiMode, Companion, TimeSlot, PriorityFeature } from './types/ui';
 import { locationApi } from './utils/supabase';
+import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 export default function App() {
-  const { isMobile } = useBreakpoint();
-
   // Data state
   const [locations, setLocations] = useState<Location[]>([]);
 
@@ -23,22 +22,13 @@ export default function App() {
   const [selectedCategorySub, setSelectedCategorySub] = useState<CategorySub | '전체'>('전체');
   const [selectedEventTag, setSelectedEventTag] = useState<string | null>(null);
 
-  // Selection state
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  const [previewLocation, setPreviewLocation] = useState<Location | null>(null);
-  const [detailLocation, setDetailLocation] = useState<Location | null>(null); // 모바일 디테일 뷰용
-  const [hoveredLocationId, setHoveredLocationId] = useState<string | null>(null);
+  // UI Mode state
+  // 기본 시작 모드를 'decision'으로 설정 (의사결정 우선 UX)
+  // URL에 locationId 파라미터가 있으면 나중에 browse로 전환됨
+  const [uiMode, setUiMode] = useState<UiMode>('decision');
 
-  // UI Mode state (mobile)
-  const [uiMode, setUiMode] = useState<UiMode>('browse');
-  const [bottomSheetState, setBottomSheetState] = useState<BottomSheetState>('half');
-  const [sheetMode, setSheetMode] = useState<SheetMode>('list');
-
-  // Search state
-  const [isSearchMode, setIsSearchMode] = useState(false);
-  const [searchResults, setSearchResults] = useState<Location[]>([]);
-  const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
-  const preFilteredListRef = useRef<Location[]>([]);
+  // Decision flow state
+  const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
 
   // Pagination
   const [visibleLocations, setVisibleLocations] = useState<number>(10);
@@ -46,10 +36,21 @@ export default function App() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // User location state
-  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const mapRef = useRef<kakao.maps.Map | null>(null);
+  /** Decision 진입 시 표시할 지역 목록: 데이터에 실제로 있는 region만, REGION_HIERARCHY 순서 유지 */
+  const availableRegions: string[] = (() => {
+    const set = new Set(locations.map((l) => l.region).filter(Boolean));
+    const ordered: string[] = [];
+    for (const province of PROVINCES) {
+      const districts = REGION_HIERARCHY[province] || [];
+      for (const d of districts) {
+        if (set.has(d)) ordered.push(d);
+      }
+    }
+    for (const r of set) {
+      if (!ordered.includes(r)) ordered.push(r);
+    }
+    return ordered;
+  })();
 
   // Helper: Get location province
   const getLocationProvince = (location: Location): Province | null => {
@@ -182,8 +183,8 @@ export default function App() {
     return matchesProvince && matchesDistrict && matchesCategory && matchesEvent;
   });
 
-  // Displayed locations (search or filter)
-  const displayedLocations = isSearchMode ? searchResults : filteredLocations;
+  // Displayed locations (필터 기반)
+  const displayedLocations = filteredLocations;
 
   // Count functions
   const getProvinceCount = (province: Province | '전체'): number => {
@@ -251,7 +252,7 @@ export default function App() {
       console.error('Error fetching locations:', error);
     }
   };
-  
+
   // Add location
   const handleAddLocation = async (newLocation: {
     name: string;
@@ -279,79 +280,6 @@ export default function App() {
       console.error('Error adding location:', error);
       alert('새로운 장소 추가 중 문제가 발생했습니다.');
     }
-  };
-
-  // Update location
-  const handleUpdate = async (updatedLocation: Location) => {
-    try {
-      const data = await locationApi.update(updatedLocation.id, updatedLocation);
-      setLocations(prev => prev.map(loc => loc.id === data.id ? data : loc));
-      // 현재 선택된 장소도 업데이트
-      if (selectedLocation?.id === data.id) {
-        setSelectedLocation(data);
-      }
-      if (previewLocation?.id === data.id) {
-        setPreviewLocation(data);
-      }
-      if (detailLocation?.id === data.id) {
-        setDetailLocation(data);
-      }
-    } catch (error) {
-      console.error('Error updating location:', error);
-      alert('장소 수정 중 문제가 발생했습니다.');
-    }
-  };
-
-  // Delete location
-  const handleDelete = async (id: string) => {
-    try {
-      await locationApi.delete(id);
-      setLocations(prev => prev.filter(loc => loc.id !== id));
-      // 현재 선택된 장소가 삭제된 경우 초기화
-      if (selectedLocation?.id === id) {
-        setSelectedLocation(null);
-      }
-      if (previewLocation?.id === id) {
-        setPreviewLocation(null);
-      }
-      alert('장소가 삭제되었습니다.');
-    } catch (error) {
-      console.error('Error deleting location:', error);
-      alert('장소 삭제 중 문제가 발생했습니다.');
-    }
-  };
-
-  // Search handlers
-  const handleSearchResults = (places: Location[]) => {
-    if (!isSearchMode) {
-      preFilteredListRef.current = filteredLocations;
-    }
-    setSearchResults(places);
-    setIsSearchMode(true);
-    setVisibleLocations(10);
-
-    // Auto-switch to explore mode on mobile
-    if (isMobile) {
-      setUiMode('explore');
-      setBottomSheetState('half');
-    }
-  };
-
-  const handleSearchSelect = (placeId: string) => {
-    const place = searchResults.find(p => p.id === placeId);
-    if (place) {
-      setSelectedLocation(place);
-      setPreviewLocation(place);
-    }
-  };
-
-  const handleSearchReset = () => {
-    setIsSearchMode(false);
-    setSearchResults([]);
-    setCurrentSearchId(null);
-    setVisibleLocations(10);
-    setSelectedLocation(null);
-    setPreviewLocation(null);
   };
 
   // Filter handlers with reset
@@ -382,99 +310,68 @@ export default function App() {
     setVisibleLocations(10);
   };
 
-  // 이벤트 태그 토글 핸들러
-  const handleEventTagToggle = (tag: string | null) => {
-    setSelectedEventTag(tag);
-    setVisibleLocations(10);
-  };
+  // ─────────────────────────────────────────────
+  // Decision Flow 핸들러
+  // ─────────────────────────────────────────────
 
-  // 사용 가능한 이벤트 태그 목록 추출
-  const availableEventTags: string[] = (() => {
-    const eventTagSet = new Set<string>();
-    locations.forEach(location => {
-      if (location.eventTags && Array.isArray(location.eventTags)) {
-        location.eventTags.forEach(tag => {
-          if (tag && tag.trim()) {
-            eventTagSet.add(tag.trim());
-          }
-        });
-      }
-    });
-    // "흑백요리사 시즌2", "천하제빵 시즌1" 순서 유지
-    const orderedTags = ['흑백요리사 시즌2', '천하제빵 시즌1'];
-    const otherTags = Array.from(eventTagSet).filter(tag => !orderedTags.includes(tag));
-    return [...orderedTags.filter(tag => eventTagSet.has(tag)), ...otherTags];
-  })();
+  /** 4단계 선택 완료(지역·동행·시간·우선조건) → 결정 엔진 실행 → result 모드 전환 */
+  const handleDecide = useCallback((
+    region: string | null,
+    companion: Companion,
+    timeSlot: TimeSlot,
+    priorityFeature: PriorityFeature,
+  ) => {
+    const result = decideLocations(locations, companion, timeSlot, priorityFeature, region);
+    if (result) {
+      setDecisionResult(result);
+      setUiMode('result');
+    } else {
+      // 결과 없음: 사용자에게 알림 후 browse 모드로 전환
+      alert('조건에 맞는 장소가 아직 없어요. 직접 둘러볼까요?');
+      setUiMode('browse');
+    }
+  }, [locations]);
+
+  /**
+   * "직접 둘러보기" 클릭 → browse-confirm 인터스티셜로 이동
+   * browse로 곧바로 가지 않는다. 의도적 마찰(interstitial guard) 삽입.
+   */
+  const handleSwitchToBrowse = useCallback(() => {
+    setUiMode('browse-confirm');
+    setDecisionResult(null);
+  }, []);
+
+  /** browse-confirm에서 "직접 둘러보기" 확정 → 실제 browse 진입 */
+  const handleConfirmBrowse = useCallback(() => {
+    setUiMode('browse');
+  }, []);
+
+  /** Decision 화면으로 복귀 (다시 고르기 / escape hatch) */
+  const handleBackToDecision = useCallback(() => {
+    setUiMode('decision');
+    setDecisionResult(null);
+  }, []);
+
+  /** result → decision 전환 (다시 고르기) */
+  const handleRetryDecision = useCallback(() => {
+    setUiMode('decision');
+    setDecisionResult(null);
+  }, []);
+
+  /** result 화면에서 장소 상세 보기 → browse 모드로 전환 */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleDecisionOpenDetail = useCallback((_location: Location) => {
+    // 장소 상세를 보려면 browse 모드로 진입 (인터스티셜 스킵)
+    setUiMode('browse');
+  }, []);
 
   // Pagination
   const handleShowMore = () => {
     setVisibleLocations(prev => prev + 10);
   };
 
-  // Open detail - 모바일은 페이지로, PC는 SidebarDetail로
-  const handleOpenDetail = (location: Location) => {
-    setSelectedLocation(location);
-    setPreviewLocation(location);
-    if (isMobile) {
-      // 모바일: 페이지 형식으로 디테일 뷰 표시
-      setDetailLocation(location);
-    }
-    // PC: previewLocation이 설정되면 자동으로 SidebarDetail이 표시됨
-  };
-
-  // 사용자 위치 가져오기
-  const handleGetUserLocation = () => {
-    if (!navigator.geolocation) {
-      alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
-      return;
-    }
-
-    setIsLoadingLocation(true);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation({ lat: latitude, lon: longitude });
-        setIsLoadingLocation(false);
-
-        // 지도를 사용자 위치로 이동
-        if (mapRef.current) {
-          try {
-            const userLatLng = new kakao.maps.LatLng(latitude, longitude);
-            mapRef.current.setLevel(3);
-            mapRef.current.panTo(userLatLng);
-          } catch (e) {
-            console.error('지도 이동 오류:', e);
-          }
-        }
-      },
-      (error) => {
-        setIsLoadingLocation(false);
-        let errorMessage = '위치를 가져올 수 없습니다.';
-        
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = '위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = '위치 정보를 사용할 수 없습니다.';
-            break;
-          case error.TIMEOUT:
-            errorMessage = '위치 요청 시간이 초과되었습니다.';
-            break;
-        }
-        
-        alert(errorMessage);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
-  };
-
   // 지도 인스턴스 저장 (Map 컴포넌트에서 호출)
+  const mapRef = useRef<kakao.maps.Map | null>(null);
   const handleMapReady = (map: kakao.maps.Map) => {
     mapRef.current = map;
   };
@@ -484,114 +381,87 @@ export default function App() {
     fetchLocations();
   }, []);
 
-  // URL 쿼리 파라미터에서 locationId 확인하고 상세 화면 열기
+  // URL 쿼리 파라미터에서 locationId 확인
+  // 딥링크 진입 시 decision 모드를 건너뛰고 바로 browse로 전환
   useEffect(() => {
-    if (locations.length === 0) return; // locations가 로드되지 않았으면 대기
+    if (locations.length === 0) return;
 
     const urlParams = new URLSearchParams(window.location.search);
     const locationId = urlParams.get('locationId');
 
     if (locationId) {
-      // 해당 locationId를 가진 장소 찾기
       const location = locations.find(loc => loc.id === locationId);
       if (location) {
-        // 선택된 장소 설정
-        setSelectedLocation(location);
-        setPreviewLocation(location);
-        
-        if (isMobile) {
-          // 모바일: 페이지 형식으로 디테일 뷰 표시
-          setDetailLocation(location);
-        }
-        // PC: previewLocation이 설정되면 자동으로 SidebarDetail이 표시됨
-        
-        // URL에서 쿼리 파라미터 제거 (히스토리 업데이트)
+        // 딥링크 진입이므로 인터스티셜 없이 바로 browse
+        setUiMode('browse');
+        // URL에서 쿼리 파라미터 제거
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locations, isMobile]);
-
-  // Common layout props
-  const layoutProps = {
-    locations,
-    displayedLocations,
-    selectedLocation,
-    onSelectLocation: setSelectedLocation,
-    previewLocation,
-    onPreviewLocation: setPreviewLocation,
-    detailLocation,
-    onDetailLocationChange: setDetailLocation,
-    onOpenDetail: handleOpenDetail,
-    isSearchMode,
-    onSearchResults: handleSearchResults,
-    onSearchSelect: handleSearchSelect,
-    onSearchReset: handleSearchReset,
-    currentSearchId,
-    onSearchIdChange: setCurrentSearchId,
-    selectedProvince,
-    onProvinceChange: handleProvinceChange,
-    selectedDistrict,
-    onDistrictChange: handleDistrictChange,
-    selectedCategoryMain,
-    onCategoryMainChange: handleCategoryMainChange,
-    availableCategoryMains,
-    getCategoryMainCount,
-    selectedCategorySub,
-    onCategorySubChange: handleCategorySubChange,
-    availableCategorySubs,
-    getCategorySubCount,
-    availableDistricts,
-    getProvinceCount,
-    getDistrictCount,
-    visibleLocations,
-    onShowMore: handleShowMore,
-    onOpenAddModal: () => setIsModalOpen(true),
-    onUpdate: handleUpdate,
-    onDelete: handleDelete,
-    // Event Tag Filter
-    availableEventTags,
-    selectedEventTag,
-    onEventTagToggle: handleEventTagToggle,
-    // User Location
-    userLocation,
-    isLoadingLocation,
-    onGetUserLocation: handleGetUserLocation,
-    onMapReady: handleMapReady,
-  };
+  }, [locations]);
 
   return (
     <>
-      {/* Main Layout */}
-      {isMobile ? (
-        <MobileLayout
-          {...layoutProps}
-          uiMode={uiMode}
-          onModeChange={setUiMode}
-          bottomSheetState={bottomSheetState}
-          onBottomSheetStateChange={setBottomSheetState}
-          sheetMode={sheetMode}
-          onSheetModeChange={setSheetMode}
-        />
-      ) : (
-        <DesktopLayout
-          {...layoutProps}
-          hoveredLocationId={hoveredLocationId}
-          onHoverLocation={setHoveredLocationId}
+      {/* ── Decision Entry View (기본 진입 화면) ── */}
+      {uiMode === 'decision' && (
+        <DecisionEntryView
+          availableRegions={availableRegions}
+          onDecide={handleDecide}
+          onBrowse={handleSwitchToBrowse}
         />
       )}
 
-      {/* Footer - Only show in browse mode on mobile, always on desktop */}
-      {(!isMobile || (isMobile && uiMode === 'browse')) && (
-        <Footer />
+      {/* ── Decision Result View (결정 결과 화면) ── */}
+      {uiMode === 'result' && decisionResult && (
+        <DecisionResultView
+          result={decisionResult}
+          onRetry={handleRetryDecision}
+          onBrowse={handleSwitchToBrowse}
+          onOpenDetail={handleDecisionOpenDetail}
+        />
+      )}
+
+      {/* ── Browse Confirm (인터스티셜 가드) ── */}
+      {/* 의도적 마찰: browse 진입 전에 한 번 더 확인. Decision 복귀를 유도. */}
+      {uiMode === 'browse-confirm' && (
+        <BrowseConfirmView
+          onBackToDecision={handleBackToDecision}
+          onProceedToBrowse={handleConfirmBrowse}
+        />
+      )}
+
+      {/* ── Browse View (의도적으로 열등한 탐색 UX) ── */}
+      {uiMode === 'browse' && (
+        <BrowseView
+          displayedLocations={displayedLocations}
+          selectedProvince={selectedProvince}
+          onProvinceChange={handleProvinceChange}
+          selectedDistrict={selectedDistrict}
+          onDistrictChange={handleDistrictChange}
+          selectedCategoryMain={selectedCategoryMain}
+          onCategoryMainChange={handleCategoryMainChange}
+          availableCategoryMains={availableCategoryMains}
+          getCategoryMainCount={getCategoryMainCount}
+          selectedCategorySub={selectedCategorySub}
+          onCategorySubChange={handleCategorySubChange}
+          availableCategorySubs={availableCategorySubs}
+          getCategorySubCount={getCategorySubCount}
+          availableDistricts={availableDistricts}
+          getProvinceCount={getProvinceCount}
+          getDistrictCount={getDistrictCount}
+          visibleLocations={visibleLocations}
+          onShowMore={handleShowMore}
+          onBackToDecision={handleBackToDecision}
+          onMapReady={handleMapReady}
+        />
       )}
 
       {/* Add Location Modal */}
-        {isModalOpen && (
-          <AddLocationModal
-            onClose={() => setIsModalOpen(false)}
-            onSave={handleAddLocation}
+      {isModalOpen && (
+        <AddLocationModal
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleAddLocation}
           existingLocations={locations.map(loc => ({
             id: loc.id,
             name: loc.name,
@@ -600,8 +470,6 @@ export default function App() {
           }))}
         />
       )}
-
-      {/* Place Detail Modal - 더 이상 사용하지 않음 (모바일은 sheet, PC는 SidebarDetail 사용) */}
 
       <SpeedInsights />
     </>
