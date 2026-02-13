@@ -8,7 +8,7 @@ export async function createTag(
 ): Promise<Tag> {
   const { data, error } = await supabase
     .from('tags')
-    .insert({ name: name.trim(), type, sort_order: 0 })
+    .insert({ name: name.trim(), type })
     .select()
     .single();
   if (error) throw error;
@@ -20,7 +20,6 @@ export async function getTags(supabase: SupabaseClient): Promise<Tag[]> {
     .from('tags')
     .select('*')
     .order('type')
-    .order('sort_order')
     .order('name');
 
   if (error) throw error;
@@ -35,7 +34,6 @@ export async function getTagsByType(
     .from('tags')
     .select('*')
     .eq('type', type)
-    .order('sort_order')
     .order('name');
 
   if (error) throw error;
