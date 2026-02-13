@@ -21,7 +21,7 @@ import { Map } from './Map';
 import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
 import { useBreakpoint } from '../hooks/useBreakpoint';
-import { getDetailImageUrl } from '../utils/image';
+import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
 import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import type { Location, Province, CategoryMain, CategorySub } from '../types/location';
@@ -314,13 +314,31 @@ function BrowseList({
         <button
           key={location.id}
           onClick={() => onSelect(location)}
-          className={`flex w-full items-center justify-between px-1 py-3 text-left transition-colors ${
+          className={`flex w-full items-center gap-3 px-1 py-3 text-left transition-colors ${
             selectedId === location.id
               ? 'bg-gray-50'
               : 'hover:bg-gray-50'
           }`}
         >
-          {/* 좌측: 이름, 지역, 카테고리 */}
+          {/* 좌측: 작은 정사각형 썸네일 */}
+          <div className="w-10 h-10 shrink-0 rounded-lg bg-gray-100 overflow-hidden">
+            {location.imageUrl ? (
+              <img
+                src={getThumbnailUrl(location.imageUrl)}
+                alt={location.name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <MapPin size={16} className="text-gray-300" />
+              </div>
+            )}
+          </div>
+          {/* 중앙: 이름, 지역, 카테고리 */}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-gray-700">
               {location.name}
