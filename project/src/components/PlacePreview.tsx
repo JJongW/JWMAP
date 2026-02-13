@@ -2,7 +2,8 @@ import { ArrowLeft, MapPin, Navigation, ExternalLink, ChevronRight, Share2 } fro
 import type { Location, Province, Features } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import { getCardImageUrl } from '../utils/image';
-import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, getPriceLevelLabel } from '../utils/curation';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
+import { PriceLevelBadge } from './PriceLevelBadge';
 import { clickLogApi, searchLogApi } from '../utils/supabase';
 import { shareToKakao } from '../utils/kakaoShare';
 
@@ -150,11 +151,7 @@ export function PlacePreview({
                   </span>
                 );
               })()}
-              {getPriceLevelLabel(location.price_level) && (
-                <span className="px-2 py-0.5 text-xs font-medium rounded bg-emerald-50 text-emerald-700">
-                  {getPriceLevelLabel(location.price_level)}
-                </span>
-              )}
+              <PriceLevelBadge priceLevel={location.price_level} size="xs" />
             </div>
           </div>
 

@@ -22,7 +22,8 @@ import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { getDetailImageUrl } from '../utils/image';
-import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, getPriceLevelLabel } from '../utils/curation';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
+import { PriceLevelBadge } from './PriceLevelBadge';
 import type { Location, Province, CategoryMain, CategorySub } from '../types/location';
 
 // ─────────────────────────────────────────────
@@ -345,11 +346,7 @@ function BrowseList({
                 </span>
               );
             })()}
-            {getPriceLevelLabel(location.price_level) && (
-              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-emerald-50 text-emerald-700">
-                {getPriceLevelLabel(location.price_level)}
-              </span>
-            )}
+            <PriceLevelBadge priceLevel={location.price_level} size="xs" />
           </div>
         </button>
       ))}
@@ -538,11 +535,7 @@ function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
               </span>
             );
           })()}
-          {getPriceLevelLabel(location.price_level) && (
-            <span className="px-2.5 py-1 text-sm font-medium rounded-lg bg-emerald-50 text-emerald-700">
-              {getPriceLevelLabel(location.price_level)}
-            </span>
-          )}
+          <PriceLevelBadge priceLevel={location.price_level} size="sm" />
         </div>
 
         <p className="mt-4 text-sm text-gray-500">

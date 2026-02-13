@@ -5,7 +5,8 @@ import { reviewApi, searchLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
-import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, getPriceLevelLabel } from '../utils/curation';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
+import { PriceLevelBadge } from './PriceLevelBadge';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
 
@@ -156,11 +157,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
                       </span>
                     );
                   })()}
-                  {getPriceLevelLabel(location.price_level) && (
-                    <span className="px-2.5 py-1 text-sm font-medium rounded-lg bg-emerald-50 text-emerald-700">
-                      {getPriceLevelLabel(location.price_level)}
-                    </span>
-                  )}
+                  <PriceLevelBadge priceLevel={location.price_level} size="sm" />
                 </div>
               </div>
               <p className="text-sm text-accent/70 mt-1">{location.region}</p>
@@ -341,11 +338,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
                       </span>
                     );
                   })()}
-                  {getPriceLevelLabel(location.price_level) && (
-                    <span className="px-2.5 py-1 text-sm font-medium rounded-lg bg-emerald-50 text-emerald-700">
-                      {getPriceLevelLabel(location.price_level)}
-                    </span>
-                  )}
+                  <PriceLevelBadge priceLevel={location.price_level} size="sm" />
                 </div>
               </div>
               <p className="text-sm text-accent/70 mt-1">{location.region}</p>

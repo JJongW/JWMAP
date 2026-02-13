@@ -19,7 +19,8 @@ import type { Location, Features } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
 import { getDifferentiator } from '../utils/decisionEngine';
 import { getCardImageUrl } from '../utils/image';
-import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, getPriceLevelLabel } from '../utils/curation';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
+import { PriceLevelBadge } from './PriceLevelBadge';
 
 interface DecisionResultViewProps {
   result: DecisionResult;
@@ -205,11 +206,7 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
                 </span>
               );
             })()}
-            {getPriceLevelLabel(location.price_level) && (
-              <span className="px-2.5 py-1 text-sm font-medium rounded-lg bg-emerald-50 text-emerald-700">
-                {getPriceLevelLabel(location.price_level)}
-              </span>
-            )}
+            <PriceLevelBadge priceLevel={location.price_level} size="sm" />
           </div>
         </div>
 
