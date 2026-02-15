@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { updateLocation, createLocation } from '@/lib/queries/locations';
 import { updateLocationTags } from '@/lib/queries/tags';
-import { locationFormSchema, type LocationFormValues } from '@/schemas/location';
+import { locationFormSchema, type LocationFormInput, type LocationFormValues } from '@/schemas/location';
 import { mapKakaoCategoryByDomain, extractRegionFromAddress } from '@/lib/mappings';
 import { parseMapClipboard } from '@/lib/mapClipboardParser';
 import type { Location } from '@/types';
@@ -78,7 +78,7 @@ export function LocationForm({
   const router = useRouter();
   const firstErrorRef = useRef<HTMLFormElement>(null);
 
-  const form = useForm<LocationFormValues>({
+  const form = useForm<LocationFormInput, unknown, LocationFormValues>({
     resolver: zodResolver(locationFormSchema),
     defaultValues: location
       ? {
@@ -522,7 +522,7 @@ export function LocationForm({
               control={control}
               name="imageUrl"
               render={({ field }) => (
-                <ImageUpload value={field.value} onChange={field.onChange} />
+                <ImageUpload value={field.value ?? ''} onChange={field.onChange} />
               )}
             />
           </CardContent>

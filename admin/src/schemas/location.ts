@@ -23,4 +23,5 @@ export const locationFormSchema = z.object({
   event_tags: z.array(z.string()).default([]),
 });
 
-export type LocationFormValues = z.infer<typeof locationFormSchema>;
+export type LocationFormInput = z.input<typeof locationFormSchema>;
+export type LocationFormValues = z.output<typeof locationFormSchema>;
