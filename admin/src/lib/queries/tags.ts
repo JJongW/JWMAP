@@ -9,38 +9,75 @@ function getTagJoinTable(domain: LocationDomainTable): 'location_tags' | 'attrac
 export async function createTag(
   supabase: SupabaseClient,
   name: string,
-  type: TagType = 'feature'
+  type: TagType = 'feature',
+  domain: 'food' | 'space' = 'food'
 ): Promise<Tag> {
   const { data, error } = await supabase
     .from('tags')
-    .insert({ name: name.trim(), type })
+    .insert({ name: name.trim(), type, domain })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    // domain 컬럼 미적용 환경 호환
+    if (error.code === '42703') {
+      const fallback = await supabase
+        .from('tags')
+        .insert({ name: name.trim(), type })
+        .select()
+        .single();
+      if (fallback.error) throw fallback.error;
+      return fallback.data as Tag;
+    }
+    throw error;
+  }
   return data as Tag;
 }
 
 const sortByNameKo = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, 'ko-KR');
 
-export async function getTags(supabase: SupabaseClient): Promise<Tag[]> {
-  const { data, error } = await supabase.from('tags').select('*');
-
-  if (error) throw error;
+export async function getTags(
+  supabase: SupabaseClient,
+  domain: 'food' | 'space' = 'food'
+): Promise<Tag[]> {
+  const { data, error } = await supabase.from('tags').select('*').eq('domain', domain);
+  if (error) {
+    // domain 컬럼 미적용 환경 호환
+    if (error.code === '42703') {
+      const fallback = await supabase.from('tags').select('*');
+      if (fallback.error) throw fallback.error;
+      const tags = (fallback.data ?? []) as Tag[];
+      return tags.sort(sortByNameKo);
+    }
+    throw error;
+  }
   const tags = (data ?? []) as Tag[];
   return tags.sort(sortByNameKo);
 }
 
 export async function getTagsByType(
   supabase: SupabaseClient,
-  type: TagType
+  type: TagType,
+  domain: 'food' | 'space' = 'food'
 ): Promise<Tag[]> {
   const { data, error } = await supabase
     .from('tags')
     .select('*')
-    .eq('type', type);
+    .eq('type', type)
+    .eq('domain', domain);
 
-  if (error) throw error;
+  if (error) {
+    if (error.code === '42703') {
+      const fallback = await supabase
+        .from('tags')
+        .select('*')
+        .eq('type', type);
+      if (fallback.error) throw fallback.error;
+      const tags = (fallback.data ?? []) as Tag[];
+      return tags.sort(sortByNameKo);
+    }
+    throw error;
+  }
   const tags = (data ?? []) as Tag[];
   return tags.sort(sortByNameKo);
 }

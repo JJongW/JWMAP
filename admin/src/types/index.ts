@@ -5,6 +5,7 @@ export interface Tag {
   id: string;
   name: string;
   type: TagType;
+  domain?: 'food' | 'space';
   sort_order: number;
   created_at: string;
 }
@@ -19,17 +20,7 @@ export interface LocationTag {
 }
 
 // ---- Features ----
-export interface Features {
-  solo_ok?: boolean;
-  quiet?: boolean;
-  wait_short?: boolean;
-  date_ok?: boolean;
-  group_ok?: boolean;
-  parking?: boolean;
-  pet_friendly?: boolean;
-  reservation?: boolean;
-  late_night?: boolean;
-}
+export type Features = Record<string, boolean>;
 
 // ---- Location ----
 export interface Location {

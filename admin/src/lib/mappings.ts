@@ -1,3 +1,5 @@
+import type { LocationDomainTable } from '@/lib/queries/locations';
+
 // 카카오 카테고리 → 우리 카테고리 매핑
 export function mapKakaoCategory(kakaoCategory: string): { main?: string; sub?: string } {
   const l = kakaoCategory.toLowerCase();
@@ -63,6 +65,37 @@ export function mapKakaoCategory(kakaoCategory: string): { main?: string; sub?: 
   if (l.includes('일식') || l.includes('초밥')) return { main: '양식·퓨전' };
 
   return {};
+}
+
+export function mapKakaoCategoryByDomain(
+  kakaoCategory: string,
+  domain: LocationDomainTable
+): { main?: string; sub?: string } {
+  if (domain === 'attractions') {
+    const l = kakaoCategory.toLowerCase();
+
+    if (l.includes('미술관')) return { main: '전시/문화', sub: '미술관' };
+    if (l.includes('박물관')) return { main: '전시/문화', sub: '박물관' };
+    if (l.includes('전시') || l.includes('갤러리')) return { main: '전시/문화', sub: '전시관' };
+    if (l.includes('문화') || l.includes('복합')) return { main: '전시/문화', sub: '복합문화공간' };
+
+    if (l.includes('팝업')) return { main: '팝업/이벤트', sub: '브랜드 팝업' };
+    if (l.includes('페어') || l.includes('마켓')) return { main: '팝업/이벤트', sub: '페어/마켓' };
+    if (l.includes('체험')) return { main: '팝업/이벤트', sub: '체험형 팝업' };
+
+    if (l.includes('소품')) return { main: '쇼핑/소품', sub: '소품샵' };
+    if (l.includes('편집샵')) return { main: '쇼핑/소품', sub: '편집샵' };
+    if (l.includes('서점')) return { main: '쇼핑/소품', sub: '독립서점' };
+    if (l.includes('라이프')) return { main: '쇼핑/소품', sub: '라이프스타일숍' };
+
+    if (l.includes('전망')) return { main: '공간/휴식', sub: '전망대' };
+    if (l.includes('공원') || l.includes('정원')) return { main: '공간/휴식', sub: '공원/정원' };
+    if (l.includes('포토')) return { main: '공간/휴식', sub: '포토스팟' };
+
+    return {};
+  }
+
+  return mapKakaoCategory(kakaoCategory);
 }
 
 // 주소 → 지역 자동 추출

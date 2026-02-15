@@ -15,7 +15,7 @@ export default async function AttractionDetailPage({ params }: Props) {
 
   let allTags: Awaited<ReturnType<typeof getTags>> = [];
   try {
-    allTags = await getTags(supabase);
+    allTags = await getTags(supabase, 'space');
   } catch {
     // tags 테이블 미존재 시 빈 배열
   }
@@ -29,6 +29,7 @@ export default async function AttractionDetailPage({ params }: Props) {
           domain="attractions"
           domainLabel="볼거리 장소"
           listPath="/attractions"
+          tagDomain="space"
         />
       </AdminLayout>
     );
@@ -52,6 +53,7 @@ export default async function AttractionDetailPage({ params }: Props) {
         domain="attractions"
         domainLabel="볼거리 장소"
         listPath="/attractions"
+        tagDomain="space"
       />
     </AdminLayout>
   );

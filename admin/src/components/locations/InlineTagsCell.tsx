@@ -21,6 +21,7 @@ interface InlineTagsCellProps {
   location: Location;
   locationTags: LocationTag[];
   allTags: Tag[];
+  tagDomain?: 'food' | 'space';
   onSuccess?: () => void;
 }
 
@@ -28,6 +29,7 @@ export function InlineTagsCell({
   location,
   locationTags,
   allTags,
+  tagDomain = 'food',
   onSuccess,
 }: InlineTagsCellProps) {
   const router = useRouter();
@@ -53,7 +55,7 @@ export function InlineTagsCell({
     setIsUpdating(true);
     try {
       const supabase = createClient();
-      await updateLocationTags(supabase, location.id, newIds);
+      await updateLocationTags(supabase, location.id, newIds, tagDomain === 'space' ? 'attractions' : 'locations');
       toast.success('태그가 변경되었습니다');
       onSuccess?.();
       router.refresh();
@@ -78,10 +80,10 @@ export function InlineTagsCell({
     setIsUpdating(true);
     try {
       const supabase = createClient();
-      const created = await createTag(supabase, name);
+      const created = await createTag(supabase, name, 'feature', tagDomain);
       setLocalTags((prev) => [...prev, created]);
       const newIds = [...selectedTagIds, created.id];
-      await updateLocationTags(supabase, location.id, newIds);
+      await updateLocationTags(supabase, location.id, newIds, tagDomain === 'space' ? 'attractions' : 'locations');
       toast.success(`"${created.name}" 태그 추가`);
       onSuccess?.();
       router.refresh();

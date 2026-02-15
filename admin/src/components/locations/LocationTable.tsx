@@ -26,6 +26,7 @@ interface Props {
   allTags: Tag[];
   locationTagsByLocId: Record<string, LocationTag[]>;
   basePath?: string;
+  tagDomain?: 'food' | 'space';
 }
 
 export function LocationTable({
@@ -36,6 +37,7 @@ export function LocationTable({
   allTags,
   locationTagsByLocId,
   basePath = '/locations',
+  tagDomain = 'food',
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -98,6 +100,7 @@ export function LocationTable({
                     location={loc}
                     locationTags={locationTagsByLocId[loc.id] ?? []}
                     allTags={allTags}
+                    tagDomain={tagDomain}
                   />
                 </TableCell>
                 <TableCell className="text-right text-xs text-muted-foreground">

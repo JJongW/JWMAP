@@ -15,6 +15,7 @@ interface TagSelectorProps {
   allTags: Tag[];
   selectedTagIds: string[];
   onChange: (tagIds: string[]) => void;
+  domain?: 'food' | 'space';
   className?: string;
 }
 
@@ -23,6 +24,7 @@ export function TagSelector({
   allTags,
   selectedTagIds,
   onChange,
+  domain = 'food',
   className,
 }: TagSelectorProps) {
   const [localTags, setLocalTags] = useState<Tag[]>(allTags);
@@ -59,7 +61,7 @@ export function TagSelector({
     setIsAdding(true);
     try {
       const supabase = createClient();
-      const created = await createTag(supabase, name);
+      const created = await createTag(supabase, name, 'feature', domain);
       setLocalTags((prev) => [...prev, created]);
       onChange([...selectedTagIds, created.id]);
       setNewTagName('');

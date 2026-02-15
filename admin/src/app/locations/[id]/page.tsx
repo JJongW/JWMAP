@@ -16,7 +16,7 @@ export default async function LocationDetailPage({ params }: Props) {
 
   let allTags: Awaited<ReturnType<typeof getTags>> = [];
   try {
-    allTags = await getTags(supabase);
+    allTags = await getTags(supabase, 'food');
   } catch {
     // tags 테이블 미존재 시 빈 배열
   }

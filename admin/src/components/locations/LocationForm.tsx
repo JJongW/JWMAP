@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import { updateLocation, createLocation } from '@/lib/queries/locations';
 import { updateLocationTags } from '@/lib/queries/tags';
 import { locationFormSchema, type LocationFormValues } from '@/schemas/location';
-import { mapKakaoCategory, extractRegionFromAddress } from '@/lib/mappings';
+import { mapKakaoCategoryByDomain, extractRegionFromAddress } from '@/lib/mappings';
 import type { Location } from '@/types';
 import { PlaceSearch, type PlaceResult } from './PlaceSearch';
 import { ImageUpload } from './ImageUpload';
@@ -31,7 +31,12 @@ import { Badge } from '@/components/ui/badge';
 import { Save, ArrowLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
-import { CATEGORY_HIERARCHY, FEATURE_OPTIONS } from '@/lib/constants';
+import {
+  CATEGORY_HIERARCHY,
+  FEATURE_OPTIONS,
+  ATTRACTION_CATEGORY_HIERARCHY,
+  ATTRACTION_FEATURE_OPTIONS,
+} from '@/lib/constants';
 import type { LocationDomainTable } from '@/lib/queries/locations';
 
 function RequiredMark() {
@@ -56,6 +61,7 @@ interface Props {
   domain?: LocationDomainTable;
   domainLabel?: string;
   listPath?: string;
+  tagDomain?: 'food' | 'space';
 }
 
 export function LocationForm({
@@ -66,6 +72,7 @@ export function LocationForm({
   domain = 'locations',
   domainLabel = '장소',
   listPath = '/locations',
+  tagDomain = domain === 'attractions' ? 'space' : 'food',
 }: Props) {
   const router = useRouter();
   const firstErrorRef = useRef<HTMLFormElement>(null);
@@ -119,9 +126,15 @@ export function LocationForm({
     formState: { errors, isSubmitting, isSubmitted },
   } = form;
 
+  const isAttractionDomain = domain === 'attractions';
+  const categoryHierarchy = isAttractionDomain ? ATTRACTION_CATEGORY_HIERARCHY : CATEGORY_HIERARCHY;
+  const featureOptions = isAttractionDomain ? ATTRACTION_FEATURE_OPTIONS : FEATURE_OPTIONS;
+  const curationLabel = isAttractionDomain ? '큐레이션 레벨' : '쩝쩝박사 레벨';
+  const priceLabel = isAttractionDomain ? '입장료 레벨' : '가격대';
+
   const categoryMain = watch('category_main');
   const features = watch('features');
-  const subCategories = categoryMain ? CATEGORY_HIERARCHY[categoryMain] ?? [] : [];
+  const subCategories = categoryMain ? categoryHierarchy[categoryMain] ?? [] : [];
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(() =>
     locationTags.map((lt) => lt.tag_id)
   );
@@ -155,7 +168,7 @@ export function LocationForm({
     }
 
     // Auto-map category from kakao categoryDetail (full chain for better matching)
-    const mapped = mapKakaoCategory(place.categoryDetail || place.category);
+    const mapped = mapKakaoCategoryByDomain(place.categoryDetail || place.category, domain);
     if (mapped.main) {
       setValue('category_main', mapped.main);
       if (mapped.sub) {
@@ -317,7 +330,7 @@ export function LocationForm({
                       <SelectValue placeholder="선택 (장소 검색 시 자동입력)" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.keys(CATEGORY_HIERARCHY).map((c) => (
+                      {Object.keys(categoryHierarchy).map((c) => (
                         <SelectItem key={c} value={c}>{c}</SelectItem>
                       ))}
                     </SelectContent>
@@ -349,7 +362,7 @@ export function LocationForm({
               />
             </div>
             <div data-field="curation_level">
-              <Label>쩝쩝박사 레벨</Label>
+              <Label>{curationLabel}</Label>
               <Controller
                 control={control}
                 name="curation_level"
@@ -365,7 +378,7 @@ export function LocationForm({
               <FieldError message={errors.curation_level?.message} />
             </div>
             <div>
-              <Label>가격대</Label>
+              <Label>{priceLabel}</Label>
               <Controller
                 control={control}
                 name="price_level"
@@ -378,10 +391,21 @@ export function LocationForm({
                       <SelectValue placeholder="선택" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">$ 저렴</SelectItem>
-                      <SelectItem value="2">$$ 보통</SelectItem>
-                      <SelectItem value="3">$$$ 비쌈</SelectItem>
-                      <SelectItem value="4">$$$$ 고급</SelectItem>
+                      {isAttractionDomain ? (
+                        <>
+                          <SelectItem value="1">무료</SelectItem>
+                          <SelectItem value="2">저가</SelectItem>
+                          <SelectItem value="3">보통</SelectItem>
+                          <SelectItem value="4">고가</SelectItem>
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem value="1">$ 저렴</SelectItem>
+                          <SelectItem value="2">$$ 보통</SelectItem>
+                          <SelectItem value="3">$$$ 비쌈</SelectItem>
+                          <SelectItem value="4">$$$$ 고급</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 )}
@@ -429,6 +453,7 @@ export function LocationForm({
               allTags={allTags}
               selectedTagIds={selectedTagIds}
               onChange={setSelectedTagIds}
+              domain={tagDomain}
             />
           </CardContent>
         </Card>
@@ -440,7 +465,7 @@ export function LocationForm({
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {FEATURE_OPTIONS.map((f) => {
+              {featureOptions.map((f) => {
                 const active = features?.[f.key as keyof typeof features];
                 return (
                   <Badge
