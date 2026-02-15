@@ -42,6 +42,7 @@ import type { LocationDomainTable } from '@/lib/queries/locations';
 
 const SHORT_MAP_HOSTS = new Set(['kko.to', 'naver.me']);
 const KAKAO_PLACE_URL_REGEX = /place\.map\.kakao\.com\/\d{4,}/i;
+const NAVER_PLACE_URL_REGEX = /(?:map\.naver\.com|m\.place\.naver\.com).*\/place\/\d{4,}/i;
 
 function getHostname(url: string): string | null {
   try {
@@ -103,7 +104,8 @@ interface PlaceDetailPayload {
   sub_region: string | null;
   category_main: string | null;
   category_sub: string | null;
-  kakao_place_id: string;
+  kakao_place_id?: string | null;
+  naver_place_id?: string | null;
   imageUrl: string;
   tags: string[];
   short_desc: string | null;
@@ -306,19 +308,23 @@ export function LocationForm({
       const firstParsed = parseMapClipboard(rawMapText);
       const expandedUrls = await resolveShortMapUrls(firstParsed.sourceUrls);
 
-      // place.map.kakao.com URL 수집 (원본 + 단축 링크 확장 결과)
+      // place URL 수집 (카카오 + 네이버, 원본 + 단축 링크 확장 결과)
+      const isKakaoPlace = (u: string) => KAKAO_PLACE_URL_REGEX.test(u);
+      const isNaverPlace = (u: string) => NAVER_PLACE_URL_REGEX.test(u);
       const placeUrls = [
-        ...firstParsed.sourceUrls.filter((u) => KAKAO_PLACE_URL_REGEX.test(u)),
-        ...expandedUrls.map((e) => e.finalUrl).filter((u) => KAKAO_PLACE_URL_REGEX.test(u)),
+        ...firstParsed.sourceUrls.filter((u) => isKakaoPlace(u) || isNaverPlace(u)),
+        ...expandedUrls.map((e) => e.finalUrl).filter((u) => isKakaoPlace(u) || isNaverPlace(u)),
       ];
       const uniquePlaceUrls = Array.from(new Set(placeUrls));
       const firstPlaceUrl = uniquePlaceUrls[0];
+      const isNaver = firstPlaceUrl ? isNaverPlace(firstPlaceUrl) : false;
 
       // place URL이 있으면 place-detail API로 전체 필드 자동 채우기
       if (firstPlaceUrl) {
-        const res = await fetch(
-          `/api/map-link/place-detail?url=${encodeURIComponent(firstPlaceUrl)}&domain=${domain}`
-        );
+        const apiPath = isNaver
+          ? `/api/map-link/place-detail-naver?url=${encodeURIComponent(firstPlaceUrl)}`
+          : `/api/map-link/place-detail?url=${encodeURIComponent(firstPlaceUrl)}&domain=${domain}`;
+        const res = await fetch(apiPath);
         if (res.ok) {
           const payload = (await res.json()) as PlaceDetailPayload;
           const applied: string[] = [];
@@ -339,8 +345,14 @@ export function LocationForm({
             setValue('sub_region', payload.sub_region);
             applied.push('세부 지역');
           }
-          setValue('kakao_place_id', payload.kakao_place_id);
-          applied.push('카카오 Place ID');
+          if (payload.kakao_place_id) {
+            setValue('kakao_place_id', payload.kakao_place_id);
+            applied.push('카카오 Place ID');
+          }
+          if (payload.naver_place_id) {
+            setValue('naver_place_id', payload.naver_place_id);
+            applied.push('네이버 Place ID');
+          }
           if (payload.category_main) {
             setValue('category_main', payload.category_main);
             applied.push('카테고리 대분류');
@@ -560,7 +572,7 @@ export function LocationForm({
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              place.map.kakao.com 링크만 붙여넣어도 장소명·주소·위도·경도·지역·카테고리·Place ID·이미지·태그·설명이 자동으로 채워집니다. kko.to 단축 링크도 지원합니다.
+              카카오맵(place.map.kakao.com) 또는 네이버지도(map.naver.com/place) 링크만 붙여넣어도 장소명·주소·위도·경도·지역·Place ID·이미지·태그·설명이 자동으로 채워집니다.
             </p>
             <Textarea
               value={rawMapText}
