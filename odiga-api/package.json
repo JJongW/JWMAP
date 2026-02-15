@@ -1,6 +1,9 @@
 {
   "name": "odiga-api",
   "private": true,
+  "scripts": {
+    "build": "echo 'no build needed'"
+  },
   "dependencies": {
     "@langchain/core": "^0.3.0",
     "@langchain/google-genai": "^0.1.0",

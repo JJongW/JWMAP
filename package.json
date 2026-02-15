@@ -4,7 +4,8 @@
   "packageManager": "npm@10.9.2",
   "workspaces": [
     "admin",
-    "project"
+    "project",
+    "odiga-api"
   ],
   "scripts": {
     "dev": "turbo run dev --parallel",
