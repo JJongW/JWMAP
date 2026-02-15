@@ -122,6 +122,30 @@
 - 모노레포 루트 워크스페이스에서 `project/backend`를 제거해 `admin` + `project` 2개 패키지로 단순화했습니다.
 - `project` 패키지에서 백엔드 전용 의존성(`mysql2`, `sharp`)도 함께 제거해 의존성 표면을 축소했습니다.
 
+## 2차 미사용 코드 정리 (2026-02)
+
+- 엔트리포인트(`src/main.tsx`, `src/App.tsx`, `api/*.ts`) 기준 import graph를 재점검해 도달 불가 레거시 파일을 제거했습니다.
+- 삭제 파일:
+  - `src/data/locations.ts` (정적 샘플 데이터)
+  - `src/utils/location.ts` (미사용 거리 유틸)
+  - `src/components/layout/DesktopLayout.tsx`
+  - `src/components/layout/MobileLayout.tsx`
+  - `src/components/layout/Sidebar.tsx`
+  - `src/components/layout/BottomSheet.tsx`
+  - `src/components/SidebarDetail.tsx`
+  - `src/components/PlacePreview.tsx`
+  - `src/components/LocationList.tsx`
+  - `src/components/TopSearchBar.tsx`
+  - `src/components/EventTagFilter.tsx`
+  - `src/components/MyLocationButton.tsx`
+  - `src/components/MobileOverlay.tsx`
+  - `src/components/EventBanner.tsx`
+  - `src/components/Footer.tsx`
+  - `src/hooks/useBottomSheet.ts`
+  - `src/utils/apiClient.ts`
+- 타입 정리:
+  - `src/types/ui.ts`에서 bottom-sheet 전용 타입/상수를 제거하고 현재 사용 타입(`UiMode`, 결정 플로우 타입, `BREAKPOINTS`)만 유지했습니다.
+
 ## 검증 기준
 
 - `npm run build` 통과
