@@ -35,16 +35,53 @@ Return ONLY valid JSON with this exact schema:
   "special_context": string | null
 }
 
+## Valid region values
+
+The "region" field MUST be one of these exact values, or null:
+
+서울 regions: 강남, 서초, 잠실/송파/강동, 영등포/여의도/강서, 건대/성수/왕십리, 종로/중구, 홍대/합정/마포/연남, 용산/이태원/한남, 성북/노원/중랑, 구로/관악/동작, 신촌/연희, 창동/도봉산, 회기/청량리, 강동/고덕, 연신내/구파발, 마곡/김포, 미아/수유/북한산, 목동/양천, 금천/가산
+경기 regions: 수원, 성남/분당, 고양/일산, 용인, 부천, 안양/과천, 안산, 화성/동탄, 평택, 의정부, 파주, 김포, 광명, 광주, 하남, 시흥, 군포/의왕, 오산, 이천, 안성, 양평/여주, 구리/남양주, 포천/동두천, 양주, 가평, 연천
+인천 regions: 부평, 송도/연수, 계양, 남동구, 서구/검단, 중구/동구, 강화/옹진
+부산 regions: 서면, 해운대, 광안리/수영, 센텀시티, 남포동/중앙동, 동래/온천장, 사상/덕천, 기장, 사하/다대포, 연산/토곡
+Province-level values (use when query is broad): 서울, 경기, 인천, 부산, 대구, 대전, 광주, 울산, 세종, 강원, 충북, 충남, 전북, 전남, 경북, 경남, 제주
+
+## Station/Landmark → region mapping
+
+When the user mentions a station name, neighborhood, or landmark, map it to the correct region value above:
+- 서울대입구역, 서울대입구, 신림, 신림역, 봉천, 낙성대, 사당, 이수, 노량진 → "구로/관악/동작"
+- 압구정, 선릉, 역삼, 삼성, 논현, 학동, 선정릉, 청담, 도산, 가로수길, 코엑스, 봉은사 → "강남"
+- 교대, 방배, 서래마을, 양재, 반포, 고속터미널, 내방 → "서초"
+- 을지로, 명동, 광화문, 경복궁, 북촌, 서촌, 익선동, 동대문, 안국, 인사동, 충무로, 시청, 을지로3가, 을지로4가 → "종로/중구"
+- 뚝섬, 왕십리, 성수, 건대, 건국대, 서울숲, 행당 → "건대/성수/왕십리"
+- 여의나루, 여의도, 영등포, 당산, 목동, 마곡, 발산, 우장산, 김포공항, 가양, 양천 → "영등포/여의도/강서"
+- 홍대, 합정, 상수, 망원, 연남, 연남동, 마포, 공덕, 애오개 → "홍대/합정/마포/연남"
+- 이태원, 한남, 한남동, 용산, 해방촌, 경리단길, 녹사평, 효창 → "용산/이태원/한남"
+- 잠실, 송파, 강동, 천호, 올림픽공원, 석촌, 방이, 문정, 가든파이브 → "잠실/송파/강동"
+- 신촌, 이대, 연희, 연희동, 서강 → "신촌/연희"
+- 성북, 노원, 중랑, 혜화, 대학로, 한성대, 길음, 상계 → "성북/노원/중랑"
+- 구로, 구로디지털단지, 가산, 가산디지털단지, 금천 → "금천/가산" or "구로/관악/동작"
+- 회기, 청량리, 외대, 경희대 → "회기/청량리"
+- 창동, 도봉산, 쌍문 → "창동/도봉산"
+- 연신내, 불광, 구파발 → "연신내/구파발"
+- 미아, 수유, 북한산 → "미아/수유/북한산"
+
+If the user mentions "서울" broadly without a specific area, set region to "서울".
+If you cannot map a place name to any region, set region to null.
+
 Rules:
 - "오늘 점심 뭐 먹을까?" → response_type: "single", activity_type: "맛집"
 - "커피 마시고 싶다" → response_type: "single", activity_type: "카페"
 - "강남 데이트 코스 짜줘" → response_type: "course"
 - "라멘 맛집" → response_type: "single", activity_type: "면"
 - "홍대 카페 투어" → response_type: "course", activity_type: "카페"
+- "서울대입구역 맛집" → region: "구로/관악/동작"
+- "압구정 카페" → region: "강남"
+- "을지로 술집" → region: "종로/중구"
 - If unclear, default to "single"
 - Extract season from context (e.g. "벚꽃" → "봄", "눈" → "겨울")
 - Infer mode from people_count if not explicit
 - vibe should capture mood/atmosphere keywords
+- The region field MUST be one of the valid region values listed above, or null. NEVER return a raw station/landmark name as region.
 - Return null for fields you cannot determine
 - Output ONLY JSON. No explanation.`;
 
