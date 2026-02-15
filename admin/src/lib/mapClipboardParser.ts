@@ -118,17 +118,22 @@ function parseNameAndCategoryFromLine(line: string): { name?: string; categoryRa
   return { name: cleaned };
 }
 
+/** 리뷰/설명 형태 문장 추출 (카카오맵 복붙 콘텐츠용) */
 function extractReviewSnippets(text: string): string[] {
+  const cleaned = (line: string) =>
+    line.replace(/\s*\.{2,}\s*더보기\s*$/, '').replace(/\s+$/, '').trim();
+
   const lines = text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length >= 16 && line.length <= 120)
+    .split(/[\n\r]+/)
+    .map((l) => cleaned(l.trim()))
+    .filter((line) => line.length >= 12 && line.length <= 150)
     .filter((line) => /[가-힣]/.test(line))
-    .filter((line) => !line.includes('http'))
+    .filter((line) => !line.includes('http') && !line.startsWith('http'))
     .filter((line) => !line.startsWith('#'))
-    .filter((line) => !/^\d{2}\.\d{2}\.\d{2}\.?$/.test(line))
-    .filter((line) => !LINE_NOISE_KEYWORDS.some((keyword) => line.includes(keyword)))
-    .slice(0, 2);
+    .filter((line) => !/^\d{2}\.\d{2}\.?\d{0,2}\s*$/.test(line))
+    .filter((line) => !LINE_NOISE_KEYWORDS.some((k) => line.includes(k)))
+    .filter((line) => !/^[0-9점\.\s]+$/.test(line))
+    .slice(0, 5);
 
   return Array.from(new Set(lines));
 }

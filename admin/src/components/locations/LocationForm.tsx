@@ -353,18 +353,40 @@ export function LocationForm({
             setValue('imageUrl', payload.imageUrl);
             applied.push('이미지');
           }
-          if (payload.short_desc) {
-            setValue('short_desc', payload.short_desc, { shouldValidate: true });
+
+          // 붙여넣은 텍스트에서 리뷰·해시태그 추출 후 place-detail 결과와 병합
+          const pasted = firstParsed;
+          const isAddressLike = (s: string) =>
+            /서울|경기|인천|부산|^\d|동\s|구\s|로\s|길\s/.test(s) || s.length < 20;
+
+          // 한줄 설명: 복붙 리뷰 스니펫 우선 (주소 형태보다 감성적 설명이 낫음)
+          const shortDesc =
+            pasted.reviewSnippets.find((r) => !isAddressLike(r)) ??
+            (payload.short_desc && !isAddressLike(payload.short_desc) ? payload.short_desc : null);
+          if (shortDesc) {
+            setValue('short_desc', shortDesc, { shouldValidate: true });
             applied.push('한줄 설명');
           }
-          if (payload.memo) {
-            const mergedMemo = mergeMemo(watch('memo'), payload.memo.split('\n').filter(Boolean));
+
+          // 메모: place-detail 내용 + 복붙 리뷰·해시태그 병합
+          const memoParts: string[] = [];
+          if (payload.memo) memoParts.push(...payload.memo.split('\n').filter(Boolean));
+          if (pasted.reviewSnippets.length > 0) {
+            memoParts.push(...pasted.reviewSnippets.map((s) => `- 리뷰: ${s}`));
+          }
+          if (pasted.hashtags.length > 0) {
+            memoParts.push(`- 해시태그: #${pasted.hashtags.join(' #')}`);
+          }
+          if (memoParts.length > 0) {
+            const mergedMemo = mergeMemo(watch('memo'), memoParts);
             setValue('memo', mergedMemo, { shouldValidate: true });
             applied.push('메모');
           }
-          // 태그: 기존 태그와 이름 매칭 후 selectedTagIds에 추가
-          if (payload.tags.length > 0) {
-            const matchedIds = payload.tags
+
+          // 태그: place-detail + 복붙 해시태그 병합
+          const allTagNames = [...new Set([...payload.tags, ...pasted.hashtags])];
+          if (allTagNames.length > 0) {
+            const matchedIds = allTagNames
               .map((name) => allTags.find((t) => t.name.toLowerCase() === name.toLowerCase())?.id)
               .filter((id): id is string => !!id);
             if (matchedIds.length > 0) {
