@@ -1,7 +1,7 @@
 {
   "name": "odiga",
   "version": "0.1.0",
-  "description": "AI-powered walking course recommendation CLI",
+  "description": "AI-powered place & course recommendation CLI",
   "type": "module",
   "bin": {
     "odiga": "./dist/index.js"
@@ -13,11 +13,12 @@
     "lint": "eslint src/"
   },
   "dependencies": {
+    "@langchain/core": "^0.3.0",
+    "@langchain/google-genai": "^0.1.0",
     "@supabase/supabase-js": "^2.95.3",
     "chalk": "^5.4.1",
     "dotenv": "^16.4.7",
-    "enquirer": "^2.4.1",
-    "openai": "^4.77.0"
+    "enquirer": "^2.4.1"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
