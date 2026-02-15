@@ -6,6 +6,13 @@ export interface ParsedMapClipboard {
   kakao_place_id?: string;
   naver_place_id?: string;
   categoryHint?: string;
+  categoryRaw?: string;
+  rating?: number;
+  reviewCount?: number;
+  hashtags: string[];
+  websiteUrl?: string;
+  nearbyTransit?: string;
+  reviewSnippets: string[];
   sourceUrls: string[];
 }
 
@@ -23,6 +30,107 @@ function pickFirstMatch(text: string, patterns: RegExp[]): string | undefined {
     if (value) return value;
   }
   return undefined;
+}
+
+const LINE_NOISE_KEYWORDS = [
+  '본문 바로가기',
+  '메뉴 바로가기',
+  'kakaomap',
+  '검색창',
+  '프로필',
+  '로드뷰',
+  '공유',
+  '즐겨찾기',
+  '출발',
+  '도착',
+  '홈',
+  '사진',
+  '후기',
+  '블로그',
+  '랭킹',
+  '북마크',
+  'URL',
+  '주소',
+  '복사',
+  '펼치기',
+  '인증 매장',
+  '매장관리',
+  '정보 수정',
+  '이 지역 검색 랭킹',
+  '업데이트',
+  '접기',
+  '장소 더보기',
+  '블로그 리뷰',
+  '프린트하기',
+  '약관 및 정책',
+  '공지사항',
+  '개인정보처리방침',
+  '고객센터',
+];
+
+const LEFT_CATEGORY_SUFFIXES = [
+  '문구',
+  '카페',
+  '식당',
+  '박물관',
+  '미술관',
+  '전시관',
+  '소품샵',
+  '편집샵',
+  '서점',
+  '갤러리',
+];
+
+function isLikelyNoiseLine(line: string): boolean {
+  const compact = line.replace(/\s+/g, '').toLowerCase();
+  if (!compact) return true;
+  if (compact.startsWith('http://') || compact.startsWith('https://')) return true;
+  if (/^\d+(\.\d+)?$/.test(compact)) return true;
+  return LINE_NOISE_KEYWORDS.some((keyword) => compact.includes(keyword.replace(/\s+/g, '').toLowerCase()));
+}
+
+function parseNameAndCategoryFromLine(line: string): { name?: string; categoryRaw?: string } {
+  const cleaned = line
+    .replace(/\s*\|\s*카카오맵.*$/i, '')
+    .replace(/\s*[-|]\s*NAVER\s*Map.*$/i, '')
+    .trim();
+
+  if (!cleaned) return {};
+
+  if (cleaned.includes(',')) {
+    const commaIndex = cleaned.indexOf(',');
+    const left = cleaned.slice(0, commaIndex).trim();
+    const right = cleaned.slice(commaIndex + 1).trim();
+
+    if (left && right) {
+      for (const suffix of LEFT_CATEGORY_SUFFIXES) {
+        if (left.endsWith(suffix) && left.length > suffix.length) {
+          return {
+            name: left.slice(0, -suffix.length).trim(),
+            categoryRaw: `${suffix},${right}`,
+          };
+        }
+      }
+      return { name: left, categoryRaw: `${left.includes(' ') ? '' : ''}${right ? `${left},${right}` : left}` };
+    }
+  }
+
+  return { name: cleaned };
+}
+
+function extractReviewSnippets(text: string): string[] {
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 16 && line.length <= 120)
+    .filter((line) => /[가-힣]/.test(line))
+    .filter((line) => !line.includes('http'))
+    .filter((line) => !line.startsWith('#'))
+    .filter((line) => !/^\d{2}\.\d{2}\.\d{2}\.?$/.test(line))
+    .filter((line) => !LINE_NOISE_KEYWORDS.some((keyword) => line.includes(keyword)))
+    .slice(0, 2);
+
+  return Array.from(new Set(lines));
 }
 
 function extractCoordsFromUrl(url: string): { lat?: number; lon?: number } {
@@ -50,20 +158,21 @@ function extractCoordsFromUrl(url: string): { lat?: number; lon?: number } {
 export function parseMapClipboard(raw: string): ParsedMapClipboard {
   const text = raw.trim();
   if (!text) {
-    return { sourceUrls: [] };
+    return { sourceUrls: [], hashtags: [], reviewSnippets: [] };
   }
 
   const sourceUrls = Array.from(text.matchAll(/https?:\/\/[^\s)]+/g)).map((m) => m[0]);
+  const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
 
-  const name =
+  const explicitName =
     pickFirstMatch(text, [
       /(?:장소명|상호|이름)\s*[:：]\s*([^\n]+)/i,
       /(?:name)\s*[:：]\s*([^\n]+)/i,
-    ]) ??
-    text
-      .split('\n')
-      .map((line) => line.trim())
-      .find((line) => line && !line.startsWith('http') && line.length <= 40);
+    ]);
+
+  const firstMeaningfulLine = lines.find((line) => !isLikelyNoiseLine(line) && line.length <= 60);
+  const nameAndCategory = parseNameAndCategoryFromLine(firstMeaningfulLine ?? '');
+  const name = explicitName ?? nameAndCategory.name;
 
   const address = pickFirstMatch(text, [
     /(?:주소|road address|address)\s*[:：]\s*([^\n]+)/i,
@@ -109,6 +218,36 @@ export function parseMapClipboard(raw: string): ParsedMapClipboard {
     /(?:category)\s*[:：]\s*([^\n]+)/i,
   ]);
 
+  const categoryRaw =
+    nameAndCategory.categoryRaw ??
+    pickFirstMatch(text, [
+      /([가-힣A-Za-z]+,\s*[가-힣A-Za-z]+)/,
+      /(?:업종)\s*[:：]?\s*([^\n]+)/i,
+    ]);
+
+  const ratingRaw = pickFirstMatch(text, [
+    /(?:평점|별점)\s*[:：]?\s*(\d\.\d)/i,
+    /(\d\.\d)\s*(?:후기|리뷰)/i,
+  ]);
+  const rating = toNumber(ratingRaw);
+
+  const reviewCountRaw = pickFirstMatch(text, [
+    /(?:후기|리뷰)\s*[:：]?\s*(\d{1,4})/i,
+    /(\d{1,4})\s*(?:후기|리뷰)/i,
+  ]);
+  const reviewCount = reviewCountRaw ? Number(reviewCountRaw) : undefined;
+
+  const hashtags = Array.from(new Set(Array.from(text.matchAll(/#[\p{L}\p{N}_-]+/gu)).map((m) => m[0])));
+
+  const websiteUrl =
+    pickFirstMatch(text, [/URL\s*[:：]?\s*(https?:\/\/[^\s\n]+)/i]) ??
+    sourceUrls.find(
+      (url) => !url.includes('kko.to') && !url.includes('kakao.com') && !url.includes('naver.com'),
+    );
+
+  const nearbyTransit = pickFirstMatch(text, [/([가-힣A-Za-z0-9\s]+역\s*\d+번 출구[^\n]*)/]);
+  const reviewSnippets = extractReviewSnippets(text);
+
   return {
     name,
     address,
@@ -117,6 +256,13 @@ export function parseMapClipboard(raw: string): ParsedMapClipboard {
     kakao_place_id,
     naver_place_id,
     categoryHint,
+    categoryRaw,
+    rating,
+    reviewCount,
+    hashtags,
+    websiteUrl,
+    nearbyTransit,
+    reviewSnippets,
     sourceUrls,
   };
 }

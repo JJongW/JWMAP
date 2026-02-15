@@ -64,6 +64,17 @@ function FieldError({ message }: { message?: string }) {
   );
 }
 
+function mergeMemo(existingMemo: string | undefined, lines: string[]): string {
+  const base = (existingMemo ?? '').trim();
+  const cleanLines = lines.map((line) => line.trim()).filter(Boolean);
+  if (cleanLines.length === 0) return base;
+
+  const block = ['[카카오맵 수집 메모]', ...cleanLines].join('\n');
+  if (!base) return block;
+  if (base.includes('[카카오맵 수집 메모]')) return base;
+  return `${base}\n\n${block}`;
+}
+
 interface Props {
   location?: Location;
   isNew?: boolean;
@@ -73,6 +84,13 @@ interface Props {
   domainLabel?: string;
   listPath?: string;
   tagDomain?: 'food' | 'space';
+}
+
+interface ResolvedShortMapUrl {
+  finalUrl: string;
+  title?: string | null;
+  description?: string | null;
+  kakaoPlaceId?: string | null;
 }
 
 export function LocationForm({
@@ -226,7 +244,7 @@ export function LocationForm({
     });
   }
 
-  async function resolveShortMapUrls(urls: string[]): Promise<string[]> {
+  async function resolveShortMapUrls(urls: string[]): Promise<ResolvedShortMapUrl[]> {
     const shortUrls = urls.filter((url) => {
       const host = getHostname(url);
       return host ? SHORT_MAP_HOSTS.has(host) : false;
@@ -238,15 +256,26 @@ export function LocationForm({
       shortUrls.map(async (url) => {
         const response = await fetch(`/api/map-link/expand?url=${encodeURIComponent(url)}`);
         if (!response.ok) return null;
-        const payload = (await response.json()) as { finalUrl?: string };
-        return payload.finalUrl ?? null;
+        const payload = (await response.json()) as {
+          finalUrl?: string;
+          title?: string | null;
+          description?: string | null;
+          kakaoPlaceId?: string | null;
+        };
+        if (!payload.finalUrl) return null;
+        return {
+          finalUrl: payload.finalUrl,
+          title: payload.title,
+          description: payload.description,
+          kakaoPlaceId: payload.kakaoPlaceId,
+        };
       })
     );
 
-    return results
-      .filter((r): r is PromiseFulfilledResult<string | null> => r.status === 'fulfilled')
-      .map((r) => r.value)
-      .filter((value): value is string => Boolean(value));
+    return results.flatMap((result) => {
+      if (result.status !== 'fulfilled' || !result.value) return [];
+      return [result.value];
+    });
   }
 
   async function applyClipboardAssist() {
@@ -259,7 +288,19 @@ export function LocationForm({
     try {
       const firstParsed = parseMapClipboard(rawMapText);
       const expandedUrls = await resolveShortMapUrls(firstParsed.sourceUrls);
-      const mergedText = expandedUrls.length > 0 ? `${rawMapText}\n${expandedUrls.join('\n')}` : rawMapText;
+      const expandedHints = expandedUrls
+        .map((entry) =>
+          [
+            entry.finalUrl,
+            entry.title ? `장소명: ${entry.title}` : null,
+            entry.description ? `설명: ${entry.description}` : null,
+            entry.kakaoPlaceId ? `kakao_place_id: ${entry.kakaoPlaceId}` : null,
+          ]
+            .filter(Boolean)
+            .join('\n')
+        )
+        .join('\n');
+      const mergedText = expandedHints ? `${rawMapText}\n${expandedHints}` : rawMapText;
       const parsed = parseMapClipboard(mergedText);
       const applied: string[] = [];
 
@@ -297,8 +338,9 @@ export function LocationForm({
         setValue('naver_place_id', parsed.naver_place_id);
         applied.push('네이버 Place ID');
       }
-      if (parsed.categoryHint) {
-        const mapped = mapKakaoCategoryByDomain(parsed.categoryHint, domain);
+      const categorySource = parsed.categoryRaw ?? parsed.categoryHint;
+      if (categorySource) {
+        const mapped = mapKakaoCategoryByDomain(categorySource, domain);
         if (mapped.main) {
           setValue('category_main', mapped.main);
           applied.push('카테고리 대분류');
@@ -307,6 +349,29 @@ export function LocationForm({
           setValue('category_sub', mapped.sub);
           applied.push('카테고리 소분류');
         }
+      }
+
+      if (!watch('short_desc') && parsed.reviewSnippets.length > 0) {
+        setValue('short_desc', parsed.reviewSnippets[0], { shouldValidate: true });
+        applied.push('한줄 설명');
+      }
+
+      const memoLines: string[] = [];
+      if (typeof parsed.rating === 'number') memoLines.push(`- 카맵 평점: ${parsed.rating.toFixed(1)}`);
+      if (typeof parsed.reviewCount === 'number') memoLines.push(`- 카맵 후기 수: ${parsed.reviewCount}`);
+      if (parsed.websiteUrl) memoLines.push(`- 공식 URL: ${parsed.websiteUrl}`);
+      if (parsed.nearbyTransit) memoLines.push(`- 대중교통: ${parsed.nearbyTransit}`);
+      if (parsed.hashtags.length > 0) memoLines.push(`- 해시태그: ${parsed.hashtags.join(' ')}`);
+      if (parsed.reviewSnippets.length > 0) {
+        for (const snippet of parsed.reviewSnippets.slice(0, 2)) {
+          memoLines.push(`- 리뷰 메모: ${snippet}`);
+        }
+      }
+
+      if (memoLines.length > 0) {
+        const mergedMemo = mergeMemo(watch('memo'), memoLines);
+        setValue('memo', mergedMemo, { shouldValidate: true });
+        applied.push('메모 보강');
       }
 
       if (applied.length === 0) {
