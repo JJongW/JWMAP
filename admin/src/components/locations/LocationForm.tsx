@@ -32,6 +32,7 @@ import { Save, ArrowLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 import { CATEGORY_HIERARCHY, FEATURE_OPTIONS } from '@/lib/constants';
+import type { LocationDomainTable } from '@/lib/queries/locations';
 
 function RequiredMark() {
   return <span className="text-red-500 ml-0.5">*</span>;
@@ -52,9 +53,20 @@ interface Props {
   isNew?: boolean;
   allTags?: import('@/types').Tag[];
   locationTags?: import('@/types').LocationTag[];
+  domain?: LocationDomainTable;
+  domainLabel?: string;
+  listPath?: string;
 }
 
-export function LocationForm({ location, isNew, allTags = [], locationTags = [] }: Props) {
+export function LocationForm({
+  location,
+  isNew,
+  allTags = [],
+  locationTags = [],
+  domain = 'locations',
+  domainLabel = '장소',
+  listPath = '/locations',
+}: Props) {
   const router = useRouter();
   const firstErrorRef = useRef<HTMLFormElement>(null);
 
@@ -156,14 +168,18 @@ export function LocationForm({ location, isNew, allTags = [], locationTags = [] 
     try {
       const supabase = createClient();
       if (isNew) {
-        const created = await createLocation(supabase, values as Omit<Location, 'id' | 'created_at'>);
+        const created = await createLocation(
+          supabase,
+          values as Omit<Location, 'id' | 'created_at'>,
+          domain
+        );
         if (selectedTagIds.length > 0) {
           await updateLocationTags(supabase, created.id, selectedTagIds);
         }
-        toast.success('장소가 추가되었습니다');
-        router.push(`/locations/${created.id}`);
+        toast.success(`${domainLabel}이(가) 추가되었습니다`);
+        router.push(`${listPath}/${created.id}`);
       } else if (location) {
-        await updateLocation(supabase, location.id, values as Partial<Location>);
+        await updateLocation(supabase, location.id, values as Partial<Location>, domain);
         await updateLocationTags(supabase, location.id, selectedTagIds);
         toast.success('저장되었습니다');
         router.refresh();
@@ -195,13 +211,13 @@ export function LocationForm({ location, isNew, allTags = [], locationTags = [] 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/locations">
+          <Link href={listPath}>
             <Button type="button" variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
           <h1 className="text-2xl font-bold">
-            {isNew ? '장소 추가' : location?.name ?? '편집'}
+            {isNew ? `${domainLabel} 추가` : location?.name ?? '편집'}
           </h1>
         </div>
         <Button type="submit" disabled={isSubmitting}>

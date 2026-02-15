@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Features, Province, CategoryMain, CategorySub } from '../types/location';
+import type { Features, Province, CategoryMain, CategorySub, ContentMode } from '../types/location';
 import { REGION_HIERARCHY, getCategorySubsByMain } from '../types/location';
 import { extractRegionFromAddress } from '../utils/regionMapper';
 import { mapKakaoCategoryToOurs } from '../utils/categoryMapper';
@@ -29,15 +29,17 @@ export interface AddLocationPayload {
   kakao_place_id?: string;
   features?: Features;
   tags?: string[];
+  contentType?: ContentMode;
 }
 
 interface UseAddLocationFormParams {
   existingLocations: ExistingLocationSummary[];
   onSave: (location: AddLocationPayload) => void;
   onClose: () => void;
+  contentMode: ContentMode;
 }
 
-export function useAddLocationForm({ existingLocations, onSave, onClose }: UseAddLocationFormParams) {
+export function useAddLocationForm({ existingLocations, onSave, onClose, contentMode }: UseAddLocationFormParams) {
   const [formData, setFormData] = useState({
     name: '',
     province: '' as Province | '',
@@ -54,6 +56,7 @@ export function useAddLocationForm({ existingLocations, onSave, onClose }: UseAd
     memo: '',
     short_desc: '',
     kakao_place_id: '',
+    contentType: contentMode,
   });
   const [features, setFeatures] = useState<Features>({});
   const [customTags, setCustomTags] = useState<string[]>([]);
@@ -63,7 +66,7 @@ export function useAddLocationForm({ existingLocations, onSave, onClose }: UseAd
 
   const availableDistricts = formData.province ? REGION_HIERARCHY[formData.province] || [] : [];
   const availableCategorySubs = formData.categoryMain && formData.categoryMain !== '전체'
-    ? getCategorySubsByMain(formData.categoryMain)
+    ? getCategorySubsByMain(formData.categoryMain, contentMode)
     : [];
 
   const suggestedFeaturesText = suggestions?.features

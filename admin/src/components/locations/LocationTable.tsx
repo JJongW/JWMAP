@@ -25,6 +25,7 @@ interface Props {
   perPage: number;
   allTags: Tag[];
   locationTagsByLocId: Record<string, LocationTag[]>;
+  basePath?: string;
 }
 
 export function LocationTable({
@@ -34,6 +35,7 @@ export function LocationTable({
   perPage,
   allTags,
   locationTagsByLocId,
+  basePath = '/locations',
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,7 +44,7 @@ export function LocationTable({
   function goToPage(p: number) {
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', p.toString());
-    router.push(`/locations?${params.toString()}`);
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   return (
@@ -72,7 +74,7 @@ export function LocationTable({
             {locations.map((loc) => (
               <TableRow key={loc.id}>
                 <TableCell className="font-medium">
-                  <Link href={`/locations/${loc.id}`} className="hover:underline">
+                  <Link href={`${basePath}/${loc.id}`} className="hover:underline">
                     {loc.name}
                   </Link>
                 </TableCell>
@@ -102,7 +104,7 @@ export function LocationTable({
                   {loc.created_at ? new Date(loc.created_at).toLocaleDateString('ko-KR') : '-'}
                 </TableCell>
                 <TableCell>
-                  <Link href={`/locations/${loc.id}`}>
+                  <Link href={`${basePath}/${loc.id}`}>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>

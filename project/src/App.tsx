@@ -4,8 +4,14 @@ import { DecisionEntryView } from './components/DecisionEntryView';
 import { DecisionResultView } from './components/DecisionResultView';
 import { BrowseConfirmView } from './components/BrowseConfirmView';
 import { BrowseView } from './components/BrowseView';
-import type { Location, Features, Province, CategoryMain, CategorySub } from './types/location';
-import { REGION_HIERARCHY, PROVINCES, inferProvinceFromRegion, CATEGORY_MAINS, getCategorySubsByMain } from './types/location';
+import type { Location, Features, Province, CategoryMain, CategorySub, ContentMode } from './types/location';
+import {
+  REGION_HIERARCHY,
+  PROVINCES,
+  inferProvinceFromRegion,
+  getCategoryMainsByMode,
+  getCategorySubsByMain,
+} from './types/location';
 import type { UiMode, Companion, TimeSlot, PriorityFeature } from './types/ui';
 import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
@@ -14,6 +20,7 @@ import { getLocationProvince, resolveCategoryMain } from './utils/locationHelper
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 export default function App() {
+  const [contentMode, setContentMode] = useState<ContentMode>('food');
   // Data state
   const [locations, setLocations] = useState<Location[]>([]);
 
@@ -79,17 +86,18 @@ export default function App() {
 
   // 대분류 목록 생성 (데이터에 있는 대분류만 표시)
   const availableCategoryMains: CategoryMain[] = (() => {
+    const categoryMains = getCategoryMainsByMode(contentMode);
     if (!locationsForCategoryFilter || locationsForCategoryFilter.length === 0) {
       return ['전체'];
     }
-    return ['전체', ...CATEGORY_MAINS.filter(main => {
+    return ['전체', ...categoryMains.filter(main => {
       if (main === '전체') return false;
       return locationsForCategoryFilter.some(l => {
         // categoryMain이 직접 있는 경우
         if (l.categoryMain === main) return true;
         // categorySub가 있으면 그것으로부터 대분류 역추론
         if (l.categorySub) {
-          const inferredMain = resolveCategoryMain(l);
+          const inferredMain = resolveCategoryMain(l, contentMode);
           if (inferredMain === main) return true;
         }
         return false;
@@ -106,7 +114,7 @@ export default function App() {
       return [];
     }
     try {
-      const subs = getCategorySubsByMain(selectedCategoryMain);
+      const subs = getCategorySubsByMain(selectedCategoryMain, contentMode);
       if (!subs || subs.length === 0) {
         return [];
       }
@@ -203,7 +211,7 @@ export default function App() {
         
         // 3. categorySub만 있고 categoryMain이 없는 경우, 역추론으로 확인
         if (l.categorySub && !l.categoryMain) {
-          const inferredMain = resolveCategoryMain(l);
+          const inferredMain = resolveCategoryMain(l, contentMode);
           if (inferredMain === main) return true;
         }
         
@@ -230,14 +238,14 @@ export default function App() {
   };
 
   // Data fetching
-  const fetchLocations = async () => {
+  const fetchLocations = useCallback(async () => {
     try {
-      const data = await locationApi.getAll();
+      const data = await locationApi.getAll(contentMode);
       setLocations(data);
     } catch (error) {
       console.error('Error fetching locations:', error);
     }
-  };
+  }, [contentMode]);
 
   // Add location
   const handleAddLocation = async (newLocation: {
@@ -257,9 +265,16 @@ export default function App() {
     kakao_place_id?: string;
     features?: Features;
     tags?: string[];
+    contentType?: ContentMode;
   }) => {
     try {
-      const data = await locationApi.create(newLocation as Omit<Location, 'id'>);
+      const data = await locationApi.create(
+        {
+          ...newLocation,
+          contentType: contentMode,
+        } as Omit<Location, 'id'>,
+        contentMode
+      );
       setLocations(prev => [...prev, data]);
       alert('새로운 장소가 추가되었습니다.');
     } catch (error) {
@@ -377,7 +392,15 @@ export default function App() {
   // Load data on mount
   useEffect(() => {
     fetchLocations();
-  }, []);
+    setFilters(DEFAULT_FILTER_STATE);
+    setVisibleLocations(10);
+    if (contentMode === 'space') {
+      setUiMode('browse');
+      setDecisionResult(null);
+    } else {
+      setUiMode('decision');
+    }
+  }, [contentMode, fetchLocations]);
 
   // URL 쿼리 파라미터에서 locationId 확인
   // 딥링크 진입 시 decision 모드를 건너뛰고 바로 browse로 전환
@@ -409,10 +432,35 @@ export default function App() {
       className="min-h-screen w-full"
       onDoubleClick={handleScreenDoubleClick}
       role="application"
-      aria-label="JWMAP 맛집 큐레이션"
+      aria-label="JWMAP 큐레이션"
     >
+      <div className="fixed right-4 top-4 z-[60] rounded-xl border border-gray-200 bg-white/95 p-1 shadow-sm backdrop-blur">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setContentMode('food')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+              contentMode === 'food'
+                ? 'bg-gray-900 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            맛집/카페
+          </button>
+          <button
+            onClick={() => setContentMode('space')}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+              contentMode === 'space'
+                ? 'bg-gray-900 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            볼거리
+          </button>
+        </div>
+      </div>
+
       {/* ── Decision Entry View (기본 진입 화면) ── */}
-      {uiMode === 'decision' && (
+      {uiMode === 'decision' && contentMode === 'food' && (
         <DecisionEntryView
           availableProvincesWithDistricts={availableProvincesWithDistricts}
           onDecide={handleDecide}
@@ -421,7 +469,7 @@ export default function App() {
       )}
 
       {/* ── Decision Result View (결정 결과 화면) ── */}
-      {uiMode === 'result' && decisionResult && (
+      {uiMode === 'result' && decisionResult && contentMode === 'food' && (
         <DecisionResultView
           result={decisionResult}
           onRetry={handleRetryDecision}
@@ -469,6 +517,7 @@ export default function App() {
       {/* Add Location Modal */}
       {isModalOpen && (
         <AddLocationModal
+          contentMode={contentMode}
           onClose={() => setIsModalOpen(false)}
           onSave={handleAddLocation}
           existingLocations={locations.map(loc => ({

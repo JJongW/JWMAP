@@ -39,6 +39,7 @@ export function mapRowToLocation(item: Row): Location {
     last_verified_at: item.last_verified_at as string | undefined,
     created_at: item.created_at as string | undefined,
     curation_level: item.curation_level as number | undefined,
+    contentType: (item.content_type ?? item.contentType ?? 'food') as Location['contentType'],
     curator_visited: item.curator_visited as boolean | undefined,
     curator_visited_at: (item.visit_date as string | undefined) ?? (item.curator_visited_at as string | undefined),
     categoryMain,
@@ -66,6 +67,7 @@ export function mapLocationCreateToRow(location: Omit<Location, 'id'>): Row {
     category_sub: location.categorySub,
     features: location.features || {},
     curation_level: location.curation_level ?? undefined,
+    content_type: location.contentType ?? 'food',
   };
 
   const imageUrl = trimOrUndefined(location.imageUrl);
@@ -96,6 +98,7 @@ export function mapLocationUpdateToRow(location: Partial<Location>): Row {
   if (location.categoryMain !== undefined) row.category_main = location.categoryMain;
   if (location.categorySub !== undefined) row.category_sub = location.categorySub;
   if (location.curation_level !== undefined) row.curation_level = location.curation_level;
+  if (location.contentType !== undefined) row.content_type = location.contentType;
   if (location.curator_visited !== undefined) row.curator_visited = location.curator_visited;
   if (location.curator_visited_at !== undefined) row.visit_date = location.curator_visited_at;
 

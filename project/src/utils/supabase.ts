@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Location, Review, VisitType, Features } from '../types/location';
+import type { ContentMode, Location, Review, VisitType, Features } from '../types/location';
 import {
   mapLocationCreateToRow,
   mapLocationUpdateToRow,
@@ -11,26 +11,36 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+function getLocationTable(mode: ContentMode): string {
+  return mode === 'space' ? 'attractions' : 'locations';
+}
+
+function getLocationSearchView(mode: ContentMode): string {
+  return mode === 'space' ? 'attractions_search' : 'locations_search';
+}
+
 // 장소 관련 API 함수들
 export const locationApi = {
   // 모든 장소 가져오기 (locations_search: popularity_score for ranking)
-  async getAll(): Promise<Location[]> {
+  async getAll(mode: ContentMode = 'food'): Promise<Location[]> {
+    const table = getLocationTable(mode);
+    const searchView = getLocationSearchView(mode);
     const columns = [
       'id', 'name', 'region', 'sub_region', 'category_main', 'category_sub',
       'lat', 'lon', 'rating', 'curation_level', 'imageUrl', 'tags', 'curator_visited',
       'trust_score', 'popularity_score',
-      'address', 'memo', 'short_desc', 'price_level', 'event_tags', 'features',
+      'address', 'memo', 'short_desc', 'price_level', 'event_tags', 'features', 'content_type',
       'naver_place_id', 'kakao_place_id', 'visit_date', 'created_at', 'last_verified_at',
     ].join(', ');
     let result = await supabase
-      .from('locations_search')
+      .from(searchView)
       .select(columns)
       .order('curation_level', { ascending: false, nullsFirst: false })
       .order('popularity_score', { ascending: false, nullsFirst: false });
 
     if (result.error) {
       const fallback = await supabase
-        .from('locations')
+        .from(table)
         .select('*')
         .order('rating', { ascending: false });
       if (fallback.error) throw fallback.error;
@@ -43,11 +53,12 @@ export const locationApi = {
   },
 
   // 장소 추가
-  async create(location: Omit<Location, 'id'>): Promise<Location> {
+  async create(location: Omit<Location, 'id'>, mode: ContentMode = 'food'): Promise<Location> {
+    const table = getLocationTable(mode);
     const supabaseData = mapLocationCreateToRow(location);
 
     const { data, error } = await supabase
-      .from('locations')
+      .from(table)
       .insert([supabaseData])
       .select()
       .single();
@@ -58,9 +69,10 @@ export const locationApi = {
   },
 
   // 장소 삭제
-  async delete(id: string): Promise<void> {
+  async delete(id: string, mode: ContentMode = 'food'): Promise<void> {
+    const table = getLocationTable(mode);
     const { error } = await supabase
-      .from('locations')
+      .from(table)
       .delete()
       .eq('id', id);
 
@@ -68,11 +80,12 @@ export const locationApi = {
   },
 
   // 장소 수정
-  async update(id: string, location: Partial<Location>): Promise<Location> {
+  async update(id: string, location: Partial<Location>, mode: ContentMode = 'food'): Promise<Location> {
+    const table = getLocationTable(mode);
     const supabaseData = mapLocationUpdateToRow(location);
 
     const { data, error } = await supabase
-      .from('locations')
+      .from(table)
       .update(supabaseData)
       .eq('id', id)
       .select()

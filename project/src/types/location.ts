@@ -101,90 +101,14 @@ export function inferProvinceFromRegion(region: string): Province | null {
 // Region은 이제 string으로 유연하게 처리 (하위 호환성 + 확장성)
 export type Region = string;
 
-// 카테고리 대분류
-export type CategoryMain =
-  | '전체'
-  | '밥'
-  | '면'
-  | '국물'
-  | '고기요리'
-  | '해산물'
-  | '간편식'
-  | '양식·퓨전'
-  | '디저트'
-  | '카페'
-  | '술안주';
+export type ContentMode = 'food' | 'space';
 
-// 카테고리 소분류
-export type CategorySub =
-  // 밥류
-  | '덮밥'
-  | '정식'
-  | '도시락'
-  | '백반'
-  | '돈까스'
-  | '한식'
-  | '카레'
-  // 면류
-  | '라멘'
-  | '국수'
-  | '파스타'
-  | '쌀국수'
-  | '우동'
-  | '냉면'
-  | '소바'
-  // 국물요리
-  | '국밥'
-  | '찌개'
-  | '탕'
-  | '전골'
-  // 고기요리
-  | '구이'
-  | '스테이크'
-  | '바비큐'
-  | '수육'
-  // 해산물
-  | '해산물요리'
-  | '회'
-  | '해물찜'
-  | '해물탕'
-  | '조개/굴'
-  // 간편식
-  | '김밥'
-  | '샌드위치'
-  | '토스트'
-  | '햄버거'
-  | '타코'
-  | '분식'
-  // 양식·퓨전
-  | '베트남'
-  | '아시안'
-  | '인도'
-  | '양식'
-  | '중식'
-  | '프랑스'
-  | '파스타'
-  | '피자'
-  | '리조또'
-  | '브런치'
-  // 디저트
-  | '케이크'
-  | '베이커리'
-  | '도넛'
-  | '아이스크림'
-  // 카페
-  | '커피'
-  | '차'
-  | '논커피'
-  | '와인바/바'
-  | '카공카페'  // 카공(공부) 카페
-  // 술안주
-  | '이자카야'
-  | '포차'
-  | '안주 전문';
+// 카테고리 타입은 모드별 계층(Food/Space)을 공통 표현하기 위해 string으로 유연화
+export type CategoryMain = string;
+export type CategorySub = string;
 
-// 카테고리 계층 구조
-export const CATEGORY_HIERARCHY: Record<CategoryMain, CategorySub[]> = {
+// 음식/카페 모드 카테고리
+export const FOOD_CATEGORY_HIERARCHY: Record<CategoryMain, CategorySub[]> = {
   '전체': [],
   '밥': ['덮밥', '정식', '도시락', '백반', '돈까스', '한식', '카레'],
   '면': ['라멘', '국수', '파스타', '쌀국수', '우동', '냉면', '소바'],
@@ -198,12 +122,33 @@ export const CATEGORY_HIERARCHY: Record<CategoryMain, CategorySub[]> = {
   '술안주': ['이자카야', '포차', '안주 전문'],
 };
 
-// 모든 대분류 목록
-export const CATEGORY_MAINS: CategoryMain[] = Object.keys(CATEGORY_HIERARCHY) as CategoryMain[];
+// 전시/팝업/소품샵 모드 카테고리
+export const SPACE_CATEGORY_HIERARCHY: Record<CategoryMain, CategorySub[]> = {
+  '전체': [],
+  '전시/문화': ['미술관', '박물관', '전시관', '복합문화공간'],
+  '팝업/이벤트': ['브랜드 팝업', '시즌 팝업', '체험형 팝업', '페어/마켓'],
+  '쇼핑/소품': ['소품샵', '편집샵', '독립서점', '라이프스타일숍'],
+  '공간/휴식': ['전망대', '공원/정원', '포토스팟', '야외공간'],
+};
+
+// 하위 호환: 기존 import 경로를 유지하기 위한 기본(음식) 계층
+export const CATEGORY_HIERARCHY: Record<CategoryMain, CategorySub[]> = FOOD_CATEGORY_HIERARCHY;
+
+export function getCategoryHierarchyByMode(mode: ContentMode): Record<CategoryMain, CategorySub[]> {
+  return mode === 'space' ? SPACE_CATEGORY_HIERARCHY : FOOD_CATEGORY_HIERARCHY;
+}
+
+// 하위 호환: 기존 상수명은 음식 모드를 기본값으로 유지
+export const CATEGORY_MAINS: CategoryMain[] = Object.keys(FOOD_CATEGORY_HIERARCHY) as CategoryMain[];
+
+export function getCategoryMainsByMode(mode: ContentMode): CategoryMain[] {
+  return Object.keys(getCategoryHierarchyByMode(mode)) as CategoryMain[];
+}
 
 // 특정 대분류의 소분류 목록 가져오기
-export function getCategorySubsByMain(main: CategoryMain): CategorySub[] {
-  return CATEGORY_HIERARCHY[main] || [];
+export function getCategorySubsByMain(main: CategoryMain, mode: ContentMode = 'food'): CategorySub[] {
+  const hierarchy = getCategoryHierarchyByMode(mode);
+  return hierarchy[main] || [];
 }
 
 // 기존 Category 타입 (하위 호환성 유지)
@@ -252,6 +197,7 @@ export interface Location {
   naver_place_id?: string;  // 네이버 장소 ID
   // 메타 정보
   price_level?: number;     // 가격대 (1-4)
+  contentType?: ContentMode; // food(맛집/카페) | space(전시/팝업/소품샵)
   visit_date?: string;      // 방문 일자
   last_verified_at?: string; // 마지막 검증 일시
   created_at?: string;      // 생성 일시

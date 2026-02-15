@@ -146,6 +146,17 @@
 - 타입 정리:
   - `src/types/ui.ts`에서 bottom-sheet 전용 타입/상수를 제거하고 현재 사용 타입(`UiMode`, 결정 플로우 타입, `BREAKPOINTS`)만 유지했습니다.
 
+## 도메인 모드 분리 (2026-02)
+
+- 서비스 도메인을 `food`(맛집/카페)와 `space`(전시/팝업/소품샵)로 분리했습니다.
+- `src/App.tsx`에 모드 스위치를 추가해 사용자 관점에서 명확히 전환되도록 구성했습니다.
+- `src/types/location.ts`에 모드별 카테고리 계층(`FOOD_CATEGORY_HIERARCHY`, `SPACE_CATEGORY_HIERARCHY`)을 도입했습니다.
+- `src/utils/supabase.ts`는 모드에 따라 테이블/뷰를 분기합니다.
+  - `food`: `locations_search` → fallback `locations`
+  - `space`: `attractions_search` → fallback `attractions`
+- 장소 추가 폼(`AddLocationModal`, `useAddLocationForm`)도 현재 모드의 카테고리 집합을 따르도록 변경했습니다.
+- DB 분리 적용용 SQL 예시는 `docs/sql/create_attractions.sql`에 추가했습니다.
+
 ## 검증 기준
 
 - `npm run build` 통과

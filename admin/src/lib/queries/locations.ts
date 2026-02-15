@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Location, LocationFilters } from '@/types';
 
+export type LocationDomainTable = 'locations' | 'attractions';
+
 // Use select('*') to avoid column name mismatches between environments
 const LOCATION_COLUMNS = '*';
 
@@ -48,10 +50,11 @@ function mapRow(row: Record<string, unknown>): Location {
 
 export async function getLocations(
   supabase: SupabaseClient,
-  filters: LocationFilters
+  filters: LocationFilters,
+  table: LocationDomainTable = 'locations'
 ): Promise<{ data: Location[]; count: number }> {
   let query = supabase
-    .from('locations')
+    .from(table)
     .select(LOCATION_COLUMNS, { count: 'exact' });
 
   if (filters.search) {
@@ -87,10 +90,11 @@ export async function getLocations(
 
 export async function getLocationById(
   supabase: SupabaseClient,
-  id: string
+  id: string,
+  table: LocationDomainTable = 'locations'
 ): Promise<Location | null> {
   const { data, error } = await supabase
-    .from('locations')
+    .from(table)
     .select(LOCATION_COLUMNS)
     .eq('id', id)
     .single();
@@ -105,12 +109,13 @@ export async function getLocationById(
 export async function updateLocation(
   supabase: SupabaseClient,
   id: string,
-  payload: Partial<Location>
+  payload: Partial<Location>,
+  table: LocationDomainTable = 'locations'
 ): Promise<Location> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { id: _id, created_at: _ca, location_tags: _lt, ...data } = payload;
   const { data: result, error } = await supabase
-    .from('locations')
+    .from(table)
     .update(data)
     .eq('id', id)
     .select(LOCATION_COLUMNS)
@@ -122,12 +127,13 @@ export async function updateLocation(
 
 export async function createLocation(
   supabase: SupabaseClient,
-  payload: Omit<Location, 'id' | 'created_at'>
+  payload: Omit<Location, 'id' | 'created_at'>,
+  table: LocationDomainTable = 'locations'
 ): Promise<Location> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { location_tags: _lt, ...data } = payload;
   const { data: result, error } = await supabase
-    .from('locations')
+    .from(table)
     .insert(data)
     .select(LOCATION_COLUMNS)
     .single();
@@ -138,8 +144,9 @@ export async function createLocation(
 
 export async function deleteLocation(
   supabase: SupabaseClient,
-  id: string
+  id: string,
+  table: LocationDomainTable = 'locations'
 ): Promise<void> {
-  const { error } = await supabase.from('locations').delete().eq('id', id);
+  const { error } = await supabase.from(table).delete().eq('id', id);
   if (error) throw error;
 }

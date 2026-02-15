@@ -1,8 +1,8 @@
 import { X } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
 import { ImageUpload } from './ImageUpload';
-import type { Features, Province, CategoryMain, CategorySub } from '../types/location';
-import { PROVINCES, CATEGORY_MAINS } from '../types/location';
+import type { Features, Province, CategoryMain, CategorySub, ContentMode } from '../types/location';
+import { PROVINCES, getCategoryMainsByMode } from '../types/location';
 import { CURATION_LEVELS, isOwnerMode } from '../utils/curation';
 import { useAddLocationForm, type AddLocationPayload } from '../hooks/useAddLocationForm';
 import { AddLocationActions } from './add-location/AddLocationActions';
@@ -14,12 +14,13 @@ import {
 } from './add-location/PlaceSearchSection';
 
 interface AddLocationModalProps {
+  contentMode: ContentMode;
   onClose: () => void;
   onSave: (location: AddLocationPayload) => void;
   existingLocations?: ExistingLocationSummary[];
 }
 
-export function AddLocationModal({ onClose, onSave, existingLocations = [] }: AddLocationModalProps) {
+export function AddLocationModal({ contentMode, onClose, onSave, existingLocations = [] }: AddLocationModalProps) {
   const {
     formData,
     setFormData,
@@ -39,7 +40,7 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
     handleTagToggle,
     handleGetSuggestions,
     handleSubmit,
-  } = useAddLocationForm({ existingLocations, onSave, onClose });
+  } = useAddLocationForm({ existingLocations, onSave, onClose, contentMode });
 
   const featureOptions: { key: keyof Features; label: string }[] = [
     { key: 'solo_ok', label: '혼밥 가능' },
@@ -58,7 +59,9 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* 헤더 */}
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">새로운 장소 추가</h2>
+          <h2 className="text-lg font-bold text-gray-900">
+            {contentMode === 'space' ? '새 볼거리 장소 추가' : '새로운 장소 추가'}
+          </h2>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
@@ -116,7 +119,7 @@ export function AddLocationModal({ onClose, onSave, existingLocations = [] }: Ad
               categoryMain: value as CategoryMain,
               categorySub: '', // 대분류 변경 시 소분류 초기화
             }))}
-            options={CATEGORY_MAINS.filter(main => main !== '전체')}
+            options={getCategoryMainsByMode(contentMode).filter(main => main !== '전체')}
             placeholder="카테고리 대분류를 선택하세요"
           />
 

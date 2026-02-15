@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MapPin, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, MapPin, AlertTriangle, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard', label: '대시보드', icon: LayoutDashboard },
-  { href: '/locations', label: '장소 관리', icon: MapPin },
+  { href: '/locations', label: '맛집/카페 관리', icon: MapPin },
+  { href: '/attractions', label: '볼거리 관리', icon: Sparkles },
   { href: '/locations/incomplete', label: '데이터 품질', icon: AlertTriangle },
 ];
 
@@ -25,6 +26,8 @@ export function Sidebar() {
         {navItems.map((item) => {
           const active = item.href === '/locations'
             ? pathname === '/locations' || (pathname.startsWith('/locations/') && !pathname.startsWith('/locations/incomplete'))
+            : item.href === '/attractions'
+              ? pathname === '/attractions' || pathname.startsWith('/attractions/')
             : pathname.startsWith(item.href);
           return (
             <Link
