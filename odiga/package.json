@@ -1,0 +1,30 @@
+{
+  "name": "odiga",
+  "version": "0.1.0",
+  "description": "AI-powered walking course recommendation CLI",
+  "type": "module",
+  "bin": {
+    "odiga": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.95.3",
+    "chalk": "^5.4.1",
+    "dotenv": "^16.4.7",
+    "enquirer": "^2.4.1",
+    "openai": "^4.77.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
