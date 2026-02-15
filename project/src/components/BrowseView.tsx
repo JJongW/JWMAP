@@ -25,6 +25,24 @@ import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
 import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import type { Location, Province, CategoryMain, CategorySub } from '../types/location';
+import type { FilterState } from '../types/filter';
+
+interface BrowseFilterControls {
+  onProvinceChange: (province: Province | '전체') => void;
+  onDistrictChange: (district: string | '전체') => void;
+  onCategoryMainChange: (main: CategoryMain | '전체') => void;
+  onCategorySubChange: (sub: CategorySub | '전체') => void;
+}
+
+interface BrowseFilterOptions {
+  availableCategoryMains: CategoryMain[];
+  getCategoryMainCount: (main: CategoryMain | '전체') => number;
+  availableCategorySubs: CategorySub[];
+  getCategorySubCount: (sub: CategorySub) => number;
+  availableDistricts: string[];
+  getProvinceCount: (province: Province | '전체') => number;
+  getDistrictCount: (district: string) => number;
+}
 
 // ─────────────────────────────────────────────
 // Props
@@ -35,21 +53,24 @@ interface BrowseViewProps {
   displayedLocations: Location[];
 
   // Filters
-  selectedProvince: Province | '전체';
-  onProvinceChange: (province: Province | '전체') => void;
-  selectedDistrict: string | '전체';
-  onDistrictChange: (district: string | '전체') => void;
-  selectedCategoryMain: CategoryMain | '전체';
-  onCategoryMainChange: (main: CategoryMain | '전체') => void;
-  availableCategoryMains: CategoryMain[];
-  getCategoryMainCount: (main: CategoryMain | '전체') => number;
-  selectedCategorySub: CategorySub | '전체';
-  onCategorySubChange: (sub: CategorySub | '전체') => void;
-  availableCategorySubs: CategorySub[];
-  getCategorySubCount: (sub: CategorySub) => number;
-  availableDistricts: string[];
-  getProvinceCount: (province: Province | '전체') => number;
-  getDistrictCount: (district: string) => number;
+  filterState?: FilterState;
+  filterControls?: BrowseFilterControls;
+  filterOptions?: BrowseFilterOptions;
+  selectedProvince?: Province | '전체';
+  onProvinceChange?: (province: Province | '전체') => void;
+  selectedDistrict?: string | '전체';
+  onDistrictChange?: (district: string | '전체') => void;
+  selectedCategoryMain?: CategoryMain | '전체';
+  onCategoryMainChange?: (main: CategoryMain | '전체') => void;
+  availableCategoryMains?: CategoryMain[];
+  getCategoryMainCount?: (main: CategoryMain | '전체') => number;
+  selectedCategorySub?: CategorySub | '전체';
+  onCategorySubChange?: (sub: CategorySub | '전체') => void;
+  availableCategorySubs?: CategorySub[];
+  getCategorySubCount?: (sub: CategorySub) => number;
+  availableDistricts?: string[];
+  getProvinceCount?: (province: Province | '전체') => number;
+  getDistrictCount?: (district: string) => number;
 
   // Pagination
   visibleLocations: number;
@@ -64,6 +85,9 @@ interface BrowseViewProps {
 
 export function BrowseView({
   displayedLocations,
+  filterState,
+  filterControls,
+  filterOptions,
   selectedProvince,
   onProvinceChange,
   selectedDistrict,
@@ -85,6 +109,21 @@ export function BrowseView({
   onMapReady,
 }: BrowseViewProps) {
   const { isMobile } = useBreakpoint();
+  const resolvedSelectedProvince = filterState?.selectedProvince ?? selectedProvince ?? '전체';
+  const resolvedSelectedDistrict = filterState?.selectedDistrict ?? selectedDistrict ?? '전체';
+  const resolvedSelectedCategoryMain = filterState?.selectedCategoryMain ?? selectedCategoryMain ?? '전체';
+  const resolvedSelectedCategorySub = filterState?.selectedCategorySub ?? selectedCategorySub ?? '전체';
+  const resolvedOnProvinceChange = filterControls?.onProvinceChange ?? onProvinceChange ?? (() => undefined);
+  const resolvedOnDistrictChange = filterControls?.onDistrictChange ?? onDistrictChange ?? (() => undefined);
+  const resolvedOnCategoryMainChange = filterControls?.onCategoryMainChange ?? onCategoryMainChange ?? (() => undefined);
+  const resolvedOnCategorySubChange = filterControls?.onCategorySubChange ?? onCategorySubChange ?? (() => undefined);
+  const resolvedAvailableCategoryMains = filterOptions?.availableCategoryMains ?? availableCategoryMains ?? ['전체'];
+  const resolvedGetCategoryMainCount = filterOptions?.getCategoryMainCount ?? getCategoryMainCount ?? (() => 0);
+  const resolvedAvailableCategorySubs = filterOptions?.availableCategorySubs ?? availableCategorySubs ?? [];
+  const resolvedGetCategorySubCount = filterOptions?.getCategorySubCount ?? getCategorySubCount ?? (() => 0);
+  const resolvedAvailableDistricts = filterOptions?.availableDistricts ?? availableDistricts ?? [];
+  const resolvedGetProvinceCount = filterOptions?.getProvinceCount ?? getProvinceCount ?? (() => 0);
+  const resolvedGetDistrictCount = filterOptions?.getDistrictCount ?? getDistrictCount ?? (() => 0);
 
   // 검색어 — LLM 없이 이름/지역/카테고리 단순 매칭
   const [searchQuery, setSearchQuery] = useState('');
@@ -197,21 +236,21 @@ export function BrowseView({
             {isFilterExpanded && (
               <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50/50 p-4">
                 <FilterSection
-                  selectedProvince={selectedProvince}
-                  onProvinceChange={onProvinceChange}
-                  getProvinceCount={getProvinceCount}
-                  selectedDistrict={selectedDistrict}
-                  onDistrictChange={onDistrictChange}
-                  availableDistricts={availableDistricts}
-                  getDistrictCount={getDistrictCount}
-                  selectedCategoryMain={selectedCategoryMain}
-                  onCategoryMainChange={onCategoryMainChange}
-                  availableCategoryMains={availableCategoryMains}
-                  getCategoryMainCount={getCategoryMainCount}
-                  selectedCategorySub={selectedCategorySub}
-                  onCategorySubChange={onCategorySubChange}
-                  availableCategorySubs={availableCategorySubs}
-                  getCategorySubCount={getCategorySubCount}
+                  selectedProvince={resolvedSelectedProvince}
+                  onProvinceChange={resolvedOnProvinceChange}
+                  getProvinceCount={resolvedGetProvinceCount}
+                  selectedDistrict={resolvedSelectedDistrict}
+                  onDistrictChange={resolvedOnDistrictChange}
+                  availableDistricts={resolvedAvailableDistricts}
+                  getDistrictCount={resolvedGetDistrictCount}
+                  selectedCategoryMain={resolvedSelectedCategoryMain}
+                  onCategoryMainChange={resolvedOnCategoryMainChange}
+                  availableCategoryMains={resolvedAvailableCategoryMains}
+                  getCategoryMainCount={resolvedGetCategoryMainCount}
+                  selectedCategorySub={resolvedSelectedCategorySub}
+                  onCategorySubChange={resolvedOnCategorySubChange}
+                  availableCategorySubs={resolvedAvailableCategorySubs}
+                  getCategorySubCount={resolvedGetCategorySubCount}
                 />
               </div>
             )}

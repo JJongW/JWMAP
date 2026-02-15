@@ -5,10 +5,12 @@ import { DecisionResultView } from './components/DecisionResultView';
 import { BrowseConfirmView } from './components/BrowseConfirmView';
 import { BrowseView } from './components/BrowseView';
 import type { Location, Features, Province, CategoryMain, CategorySub } from './types/location';
-import { REGION_HIERARCHY, PROVINCES, inferProvinceFromRegion, CATEGORY_MAINS, CATEGORY_HIERARCHY, getCategorySubsByMain } from './types/location';
+import { REGION_HIERARCHY, PROVINCES, inferProvinceFromRegion, CATEGORY_MAINS, getCategorySubsByMain } from './types/location';
 import type { UiMode, Companion, TimeSlot, PriorityFeature } from './types/ui';
+import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
+import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 export default function App() {
@@ -16,11 +18,7 @@ export default function App() {
   const [locations, setLocations] = useState<Location[]>([]);
 
   // Filter state
-  const [selectedProvince, setSelectedProvince] = useState<Province | '전체'>('전체');
-  const [selectedDistrict, setSelectedDistrict] = useState<string | '전체'>('전체');
-  const [selectedCategoryMain, setSelectedCategoryMain] = useState<CategoryMain | '전체'>('전체');
-  const [selectedCategorySub, setSelectedCategorySub] = useState<CategorySub | '전체'>('전체');
-  const [selectedEventTag, setSelectedEventTag] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
 
   // UI Mode state
   // 기본 시작 모드를 'decision'으로 설정 (의사결정 우선 UX)
@@ -54,11 +52,7 @@ export default function App() {
     return result;
   })();
 
-  // Helper: Get location province
-  const getLocationProvince = (location: Location): Province | null => {
-    if (location.province) return location.province;
-    return inferProvinceFromRegion(location.region);
-  };
+  const { selectedProvince, selectedDistrict, selectedCategoryMain, selectedCategorySub, selectedEventTag } = filters;
 
   // Available districts for selected province
   const availableDistricts: string[] = selectedProvince === '전체'
@@ -83,16 +77,6 @@ export default function App() {
     return matchesProvince && matchesDistrict && matchesEvent;
   });
 
-  // categorySub로부터 대분류를 역추론하는 헬퍼 함수
-  const getMainFromSub = (sub: CategorySub): CategoryMain | null => {
-    for (const [main, subs] of Object.entries(CATEGORY_HIERARCHY) as [CategoryMain, CategorySub[]][]) {
-      if (subs.includes(sub)) {
-        return main;
-      }
-    }
-    return null;
-  };
-
   // 대분류 목록 생성 (데이터에 있는 대분류만 표시)
   const availableCategoryMains: CategoryMain[] = (() => {
     if (!locationsForCategoryFilter || locationsForCategoryFilter.length === 0) {
@@ -105,7 +89,7 @@ export default function App() {
         if (l.categoryMain === main) return true;
         // categorySub가 있으면 그것으로부터 대분류 역추론
         if (l.categorySub) {
-          const inferredMain = getMainFromSub(l.categorySub);
+          const inferredMain = resolveCategoryMain(l);
           if (inferredMain === main) return true;
         }
         return false;
@@ -160,7 +144,7 @@ export default function App() {
       }
       // 2. categorySub가 있으면 그것으로부터 대분류 역추론
       else if (location.categorySub) {
-        locationMain = getMainFromSub(location.categorySub);
+        locationMain = resolveCategoryMain(location);
       }
       
       // 대분류가 없거나 일치하지 않으면 제외
@@ -219,7 +203,7 @@ export default function App() {
         
         // 3. categorySub만 있고 categoryMain이 없는 경우, 역추론으로 확인
         if (l.categorySub && !l.categoryMain) {
-          const inferredMain = getMainFromSub(l.categorySub);
+          const inferredMain = resolveCategoryMain(l);
           if (inferredMain === main) return true;
         }
         
@@ -286,29 +270,41 @@ export default function App() {
 
   // Filter handlers with reset
   const handleProvinceChange = (province: Province | '전체') => {
-    setSelectedProvince(province);
-    setSelectedDistrict('전체');
-    setSelectedCategoryMain('전체');
-    setSelectedCategorySub('전체');
-    setSelectedEventTag(null);
+    setFilters((prev) => ({
+      ...prev,
+      selectedProvince: province,
+      selectedDistrict: '전체',
+      selectedCategoryMain: '전체',
+      selectedCategorySub: '전체',
+      selectedEventTag: null,
+    }));
     setVisibleLocations(10);
   };
 
   const handleDistrictChange = (district: string | '전체') => {
-    setSelectedDistrict(district);
-    setSelectedCategoryMain('전체');
-    setSelectedCategorySub('전체');
+    setFilters((prev) => ({
+      ...prev,
+      selectedDistrict: district,
+      selectedCategoryMain: '전체',
+      selectedCategorySub: '전체',
+    }));
     setVisibleLocations(10);
   };
 
   const handleCategoryMainChange = (main: CategoryMain | '전체') => {
-    setSelectedCategoryMain(main);
-    setSelectedCategorySub('전체'); // 대분류 변경 시 소분류 초기화
+    setFilters((prev) => ({
+      ...prev,
+      selectedCategoryMain: main,
+      selectedCategorySub: '전체',
+    }));
     setVisibleLocations(10);
   };
 
   const handleCategorySubChange = (sub: CategorySub | '전체') => {
-    setSelectedCategorySub(sub);
+    setFilters((prev) => ({
+      ...prev,
+      selectedCategorySub: sub,
+    }));
     setVisibleLocations(10);
   };
 
@@ -447,21 +443,22 @@ export default function App() {
       {uiMode === 'browse' && (
         <BrowseView
           displayedLocations={displayedLocations}
-          selectedProvince={selectedProvince}
-          onProvinceChange={handleProvinceChange}
-          selectedDistrict={selectedDistrict}
-          onDistrictChange={handleDistrictChange}
-          selectedCategoryMain={selectedCategoryMain}
-          onCategoryMainChange={handleCategoryMainChange}
-          availableCategoryMains={availableCategoryMains}
-          getCategoryMainCount={getCategoryMainCount}
-          selectedCategorySub={selectedCategorySub}
-          onCategorySubChange={handleCategorySubChange}
-          availableCategorySubs={availableCategorySubs}
-          getCategorySubCount={getCategorySubCount}
-          availableDistricts={availableDistricts}
-          getProvinceCount={getProvinceCount}
-          getDistrictCount={getDistrictCount}
+          filterState={filters}
+          filterControls={{
+            onProvinceChange: handleProvinceChange,
+            onDistrictChange: handleDistrictChange,
+            onCategoryMainChange: handleCategoryMainChange,
+            onCategorySubChange: handleCategorySubChange,
+          }}
+          filterOptions={{
+            availableCategoryMains,
+            getCategoryMainCount,
+            availableCategorySubs,
+            getCategorySubCount,
+            availableDistricts,
+            getProvinceCount,
+            getDistrictCount,
+          }}
           visibleLocations={visibleLocations}
           onShowMore={handleShowMore}
           onBackToDecision={handleBackToDecision}

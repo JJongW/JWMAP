@@ -1,5 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Location, Review, VisitType, Features } from '../types/location';
+import {
+  mapLocationCreateToRow,
+  mapLocationUpdateToRow,
+  mapRowToLocation,
+} from './locationMapper';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -34,116 +39,12 @@ export const locationApi = {
 
     const data = result.data;
     
-    // Supabase의 snake_case를 camelCase로 변환
-    // event_tags -> eventTags, image_url -> imageUrl
-    return ((data || []) as unknown as Record<string, unknown>[]).map((item) => {
-      let eventTags = item.event_tags || item.eventTags || [];
-      
-      // JSON 문자열인 경우 파싱
-      if (typeof eventTags === 'string') {
-        try {
-          eventTags = JSON.parse(eventTags);
-        } catch {
-          console.warn('이벤트 태그 파싱 실패:', eventTags);
-          eventTags = [];
-        }
-      }
-      
-      // 배열이 아닌 경우 빈 배열로 변환
-      if (!Array.isArray(eventTags)) {
-        eventTags = [];
-      }
-      
-      const imageUrl = (item.imageUrl ?? item.image_url ?? '') as string;
-      const { image_url: _img, ...rest } = item;
-      
-      // tags 파싱
-      let tags = item.tags || [];
-      if (typeof tags === 'string') {
-        try {
-          tags = JSON.parse(tags);
-        } catch {
-          tags = [];
-        }
-      }
-      if (!Array.isArray(tags)) {
-        tags = [];
-      }
-
-      const categoryMain = (item.category_main || item.categoryMain) as string | undefined;
-      const categorySub = (item.category_sub || item.categorySub) as string | undefined;
-      return {
-        ...rest,
-        category: (categorySub || categoryMain || '') as string,
-        imageUrl: imageUrl as string,
-        eventTags: eventTags as string[],
-        features: (item.features || {}) as Features,
-        tags: tags as string[],
-        // DB 필드 매핑
-        sub_region: item.sub_region as string | undefined,
-        naver_place_id: item.naver_place_id as string | undefined,
-        price_level: item.price_level as number | undefined,
-        visit_date: item.visit_date as string | undefined,
-        last_verified_at: item.last_verified_at as string | undefined,
-        created_at: item.created_at as string | undefined,
-        curation_level: item.curation_level as number | undefined,
-        curator_visited: item.curator_visited,
-        curator_visited_at: item.visit_date as string | undefined,
-        categoryMain,
-        categorySub,
-      } as Location;
-    });
+    return ((data || []) as unknown as Record<string, unknown>[]).map((item) => mapRowToLocation(item));
   },
 
   // 장소 추가
   async create(location: Omit<Location, 'id'>): Promise<Location> {
-    // camelCase를 snake_case로 변환하여 Supabase에 저장
-    const {
-      eventTags: inputEventTags,
-      imageUrl,
-      tags: inputTags,
-      categoryMain,
-      categorySub,
-      curation_level,
-      features: inputFeatures,
-      curator_visited,
-      curator_visited_at,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      curator_visit_slot: _curator_visit_slot,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      disclosure: _disclosure,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      category: _category,
-      ...rest
-    } = location;
-
-    // rest에서 features 제거 (명시적으로 처리하기 위해)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { features: _features, ...restWithoutFeatures } = rest as Record<string, unknown>;
-
-    const supabaseData: Record<string, unknown> = {
-      ...restWithoutFeatures,
-      event_tags: inputEventTags || [],
-      tags: inputTags || [],
-      category_main: categoryMain,
-      category_sub: categorySub,
-      features: inputFeatures || {}, // features가 없으면 빈 객체로 설정 (NOT NULL 제약 조건)
-      curation_level: curation_level ?? undefined,
-    };
-
-    // imageUrl이 있고 빈 문자열이 아니면 저장
-    if (imageUrl && imageUrl.trim()) {
-      supabaseData.imageUrl = imageUrl;
-    }
-
-    // curator_visited_at이 있으면 visit_date로 저장
-    if (curator_visited_at) {
-      supabaseData.visit_date = curator_visited_at;
-    }
-
-    if (curator_visited !== undefined) {
-      supabaseData.curator_visited = curator_visited;
-    }
+    const supabaseData = mapLocationCreateToRow(location);
 
     const { data, error } = await supabase
       .from('locations')
@@ -153,62 +54,7 @@ export const locationApi = {
 
     if (error) throw error;
     
-    // 응답 데이터를 camelCase로 변환
-    let responseEventTags = data.event_tags || data.eventTags || [];
-    
-    // JSON 문자열인 경우 파싱
-    if (typeof responseEventTags === 'string') {
-      try {
-        responseEventTags = JSON.parse(responseEventTags);
-      } catch {
-        console.warn('이벤트 태그 파싱 실패:', responseEventTags);
-        responseEventTags = [];
-      }
-    }
-    
-    // 배열이 아닌 경우 빈 배열로 변환
-    if (!Array.isArray(responseEventTags)) {
-      responseEventTags = [];
-    }
-    
-    // imageUrl 처리
-    const responseImageUrl = data.imageUrl || data.image_url || '';
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { image_url: _imageUrlCreate, ...responseData } = data;
-
-    // tags 파싱
-    let responseTags = data.tags || [];
-    if (typeof responseTags === 'string') {
-      try {
-        responseTags = JSON.parse(responseTags);
-      } catch {
-        responseTags = [];
-      }
-    }
-    if (!Array.isArray(responseTags)) {
-      responseTags = [];
-    }
-
-    return {
-      ...responseData,
-      imageUrl: responseImageUrl,
-      eventTags: responseEventTags,
-      features: (data.features || {}) as Features,
-      tags: responseTags as string[],
-      // DB 필드 매핑
-      sub_region: data.sub_region as string | undefined,
-      naver_place_id: data.naver_place_id as string | undefined,
-      price_level: data.price_level as number | undefined,
-      visit_date: data.visit_date as string | undefined,
-      last_verified_at: data.last_verified_at as string | undefined,
-      created_at: data.created_at as string | undefined,
-      curation_level: data.curation_level as number | undefined,
-      curator_visited: data.curator_visited,
-      curator_visited_at: data.visit_date as string | undefined,
-      // 카테고리 대분류/소분류
-      categoryMain: (data.category_main || data.categoryMain) as string | undefined,
-      categorySub: (data.category_sub || data.categorySub) as string | undefined,
-    } as Location;
+    return mapRowToLocation(data as Record<string, unknown>);
   },
 
   // 장소 삭제
@@ -223,59 +69,7 @@ export const locationApi = {
 
   // 장소 수정
   async update(id: string, location: Partial<Location>): Promise<Location> {
-    // camelCase를 snake_case로 변환하여 Supabase에 저장
-    const {
-      eventTags: inputEventTags,
-      imageUrl,
-      tags: inputTags,
-      categoryMain,
-      categorySub,
-      curation_level,
-      curator_visited,
-      curator_visited_at,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      curator_visit_slot: _curator_visit_slot,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      disclosure: _disclosure,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      category: _category,
-      ...rest
-    } = location;
-
-    const supabaseData: Record<string, unknown> = { ...rest };
-
-    if (inputEventTags !== undefined) {
-      supabaseData.event_tags = inputEventTags;
-    }
-
-    if (inputTags !== undefined) {
-      supabaseData.tags = inputTags;
-    }
-
-    if (categoryMain !== undefined) {
-      supabaseData.category_main = categoryMain;
-    }
-    if (categorySub !== undefined) {
-      supabaseData.category_sub = categorySub;
-    }
-
-    // imageUrl 처리
-    if (imageUrl !== undefined && imageUrl && imageUrl.trim()) {
-      supabaseData.imageUrl = imageUrl;
-    }
-
-    // curator_visited_at -> visit_date 매핑
-    if (curator_visited_at !== undefined) {
-      supabaseData.visit_date = curator_visited_at;
-    }
-
-    if (curation_level !== undefined) {
-      supabaseData.curation_level = curation_level;
-    }
-
-    if (curator_visited !== undefined) {
-      supabaseData.curator_visited = curator_visited;
-    }
+    const supabaseData = mapLocationUpdateToRow(location);
 
     const { data, error } = await supabase
       .from('locations')
@@ -289,59 +83,7 @@ export const locationApi = {
       throw error;
     }
     
-    // 응답 데이터를 camelCase로 변환
-    let responseEventTags = data.event_tags || data.eventTags || [];
-    
-    // JSON 문자열인 경우 파싱
-    if (typeof responseEventTags === 'string') {
-      try {
-        responseEventTags = JSON.parse(responseEventTags);
-      } catch {
-        console.warn('이벤트 태그 파싱 실패:', responseEventTags);
-        responseEventTags = [];
-      }
-    }
-    
-    // 배열이 아닌 경우 빈 배열로 변환
-    if (!Array.isArray(responseEventTags)) {
-      responseEventTags = [];
-    }
-    
-    // imageUrl 처리
-    const responseImageUrl = data.imageUrl || data.image_url || '';
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { image_url: _imageUrlUpdate, ...responseData } = data;
-
-    // tags 파싱
-    let responseTags = data.tags || [];
-    if (typeof responseTags === 'string') {
-      try {
-        responseTags = JSON.parse(responseTags);
-      } catch {
-        responseTags = [];
-      }
-    }
-    if (!Array.isArray(responseTags)) {
-      responseTags = [];
-    }
-
-    return {
-      ...responseData,
-      imageUrl: responseImageUrl,
-      eventTags: responseEventTags,
-      features: (data.features || {}) as Features,
-      tags: responseTags as string[],
-      // DB 필드 매핑
-      sub_region: data.sub_region as string | undefined,
-      naver_place_id: data.naver_place_id as string | undefined,
-      price_level: data.price_level as number | undefined,
-      visit_date: data.visit_date as string | undefined,
-      last_verified_at: data.last_verified_at as string | undefined,
-      created_at: data.created_at as string | undefined,
-      curation_level: data.curation_level as number | undefined,
-      curator_visited: data.curator_visited,
-      curator_visited_at: data.visit_date as string | undefined,
-    } as Location;
+    return mapRowToLocation(data as Record<string, unknown>);
   }
 };
 
