@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "main": "db.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "build": "echo \"No build step for backend\"",
+    "lint": "echo \"No lint configured for backend\"",
+    "test": "echo \"No tests configured for backend\""
   },
   "keywords": [],
   "author": "",

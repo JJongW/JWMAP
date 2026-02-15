@@ -15,73 +15,21 @@
  * "결정은 우리가 더 잘한다"를 체감하게 하는 대비(contrast)가 핵심이다.
  */
 
-import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp, MapPin, Search, X } from 'lucide-react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
 import { useBreakpoint } from '../hooks/useBreakpoint';
+import { useBrowseViewController } from '../hooks/useBrowseViewController';
 import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
 import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
-import type { Location, Province, CategoryMain, CategorySub } from '../types/location';
-import type { FilterState } from '../types/filter';
-
-interface BrowseFilterControls {
-  onProvinceChange: (province: Province | '전체') => void;
-  onDistrictChange: (district: string | '전체') => void;
-  onCategoryMainChange: (main: CategoryMain | '전체') => void;
-  onCategorySubChange: (sub: CategorySub | '전체') => void;
-}
-
-interface BrowseFilterOptions {
-  availableCategoryMains: CategoryMain[];
-  getCategoryMainCount: (main: CategoryMain | '전체') => number;
-  availableCategorySubs: CategorySub[];
-  getCategorySubCount: (sub: CategorySub) => number;
-  availableDistricts: string[];
-  getProvinceCount: (province: Province | '전체') => number;
-  getDistrictCount: (district: string) => number;
-}
+import type { Location } from '../types/location';
+import type { BrowseViewProps } from './browse/types';
 
 // ─────────────────────────────────────────────
 // Props
 // ─────────────────────────────────────────────
-
-interface BrowseViewProps {
-  // Data
-  displayedLocations: Location[];
-
-  // Filters
-  filterState?: FilterState;
-  filterControls?: BrowseFilterControls;
-  filterOptions?: BrowseFilterOptions;
-  selectedProvince?: Province | '전체';
-  onProvinceChange?: (province: Province | '전체') => void;
-  selectedDistrict?: string | '전체';
-  onDistrictChange?: (district: string | '전체') => void;
-  selectedCategoryMain?: CategoryMain | '전체';
-  onCategoryMainChange?: (main: CategoryMain | '전체') => void;
-  availableCategoryMains?: CategoryMain[];
-  getCategoryMainCount?: (main: CategoryMain | '전체') => number;
-  selectedCategorySub?: CategorySub | '전체';
-  onCategorySubChange?: (sub: CategorySub | '전체') => void;
-  availableCategorySubs?: CategorySub[];
-  getCategorySubCount?: (sub: CategorySub) => number;
-  availableDistricts?: string[];
-  getProvinceCount?: (province: Province | '전체') => number;
-  getDistrictCount?: (district: string) => number;
-
-  // Pagination
-  visibleLocations: number;
-  onShowMore: () => void;
-
-  // Navigation
-  onBackToDecision: () => void;
-
-  // Map
-  onMapReady?: (map: kakao.maps.Map) => void;
-}
 
 export function BrowseView({
   displayedLocations,
@@ -109,74 +57,61 @@ export function BrowseView({
   onMapReady,
 }: BrowseViewProps) {
   const { isMobile } = useBreakpoint();
-  const resolvedSelectedProvince = filterState?.selectedProvince ?? selectedProvince ?? '전체';
-  const resolvedSelectedDistrict = filterState?.selectedDistrict ?? selectedDistrict ?? '전체';
-  const resolvedSelectedCategoryMain = filterState?.selectedCategoryMain ?? selectedCategoryMain ?? '전체';
-  const resolvedSelectedCategorySub = filterState?.selectedCategorySub ?? selectedCategorySub ?? '전체';
-  const resolvedOnProvinceChange = filterControls?.onProvinceChange ?? onProvinceChange ?? (() => undefined);
-  const resolvedOnDistrictChange = filterControls?.onDistrictChange ?? onDistrictChange ?? (() => undefined);
-  const resolvedOnCategoryMainChange = filterControls?.onCategoryMainChange ?? onCategoryMainChange ?? (() => undefined);
-  const resolvedOnCategorySubChange = filterControls?.onCategorySubChange ?? onCategorySubChange ?? (() => undefined);
-  const resolvedAvailableCategoryMains = filterOptions?.availableCategoryMains ?? availableCategoryMains ?? ['전체'];
-  const resolvedGetCategoryMainCount = filterOptions?.getCategoryMainCount ?? getCategoryMainCount ?? (() => 0);
-  const resolvedAvailableCategorySubs = filterOptions?.availableCategorySubs ?? availableCategorySubs ?? [];
-  const resolvedGetCategorySubCount = filterOptions?.getCategorySubCount ?? getCategorySubCount ?? (() => 0);
-  const resolvedAvailableDistricts = filterOptions?.availableDistricts ?? availableDistricts ?? [];
-  const resolvedGetProvinceCount = filterOptions?.getProvinceCount ?? getProvinceCount ?? (() => 0);
-  const resolvedGetDistrictCount = filterOptions?.getDistrictCount ?? getDistrictCount ?? (() => 0);
-
-  // 검색어 — LLM 없이 이름/지역/카테고리 단순 매칭
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // 지도 접힘/펼침 상태 — 기본은 접힘 (발견 도구가 아니라 확인 도구)
-  const [isMapExpanded, setIsMapExpanded] = useState(false);
-  // 필터 접힘/펼침 — 기본은 접힘 (높은 마찰)
-  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
-  // 선택된 장소 (지도 마커 클릭 또는 리스트 클릭)
-  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
-  // 상세 보기 (모바일)
-  const [detailLocation, setDetailLocation] = useState<Location | null>(null);
-
-  /**
-   * 검색어 기반 로컬 필터링 (LLM 미사용).
-   * 이름, 지역, 카테고리(대분류/소분류)를 부분 일치(includes)로 필터링한다.
-   * 검색어가 비어있으면 displayedLocations를 그대로 사용.
-   */
-  const searchFilteredLocations = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return displayedLocations;
-
-    return displayedLocations.filter((loc) => {
-      const name = loc.name.toLowerCase();
-      const region = loc.region.toLowerCase();
-      const catMain = (loc.categoryMain || '').toLowerCase();
-      const catSub = (loc.categorySub || '').toLowerCase();
-      const address = (loc.address || '').toLowerCase();
-      return (
-        name.includes(q) ||
-        region.includes(q) ||
-        catMain.includes(q) ||
-        catSub.includes(q) ||
-        address.includes(q)
-      );
-    });
-  }, [searchQuery, displayedLocations]);
-
-  /** 리스트/마커 클릭 → 상세 보기 */
-  const handleLocationSelect = (location: Location) => {
-    setSelectedLocation(location);
-    if (isMobile) {
-      setDetailLocation(location);
-    }
-  };
-
-  /** 지도 마커 클릭 */
-  const handleMarkerClick = (location: Location) => {
-    setSelectedLocation(location);
-    if (isMobile) {
-      setDetailLocation(location);
-    }
-  };
+  const {
+    resolvedSelectedProvince,
+    resolvedSelectedDistrict,
+    resolvedSelectedCategoryMain,
+    resolvedSelectedCategorySub,
+    resolvedOnProvinceChange,
+    resolvedOnDistrictChange,
+    resolvedOnCategoryMainChange,
+    resolvedOnCategorySubChange,
+    resolvedAvailableCategoryMains,
+    resolvedGetCategoryMainCount,
+    resolvedAvailableCategorySubs,
+    resolvedGetCategorySubCount,
+    resolvedAvailableDistricts,
+    resolvedGetProvinceCount,
+    resolvedGetDistrictCount,
+    searchQuery,
+    setSearchQuery,
+    isMapExpanded,
+    setIsMapExpanded,
+    isFilterExpanded,
+    setIsFilterExpanded,
+    selectedLocation,
+    setSelectedLocation,
+    detailLocation,
+    setDetailLocation,
+    searchFilteredLocations,
+    handleLocationSelect,
+    handleMarkerClick,
+  } = useBrowseViewController({
+    displayedLocations,
+    filterState,
+    filterControls,
+    filterOptions,
+    selectedProvince,
+    onProvinceChange,
+    selectedDistrict,
+    onDistrictChange,
+    selectedCategoryMain,
+    onCategoryMainChange,
+    availableCategoryMains,
+    getCategoryMainCount,
+    selectedCategorySub,
+    onCategorySubChange,
+    availableCategorySubs,
+    getCategorySubCount,
+    availableDistricts,
+    getProvinceCount,
+    getDistrictCount,
+    visibleLocations,
+    onShowMore,
+    onBackToDecision,
+    onMapReady,
+    isMobile,
+  });
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">

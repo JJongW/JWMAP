@@ -1,0 +1,23 @@
+{
+  "name": "jwmap-monorepo",
+  "private": true,
+  "packageManager": "npm@10.9.2",
+  "workspaces": [
+    "admin",
+    "project",
+    "project/backend"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "dev:changed": "turbo run dev --filter=...[HEAD^1] --parallel",
+    "build:changed": "turbo run build --filter=...[HEAD^1]",
+    "lint:changed": "turbo run lint --filter=...[HEAD^1]",
+    "test:changed": "turbo run test --filter=...[HEAD^1]"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.6"
+  }
+}

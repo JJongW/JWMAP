@@ -98,7 +98,7 @@
 ### Phase D: 대형 컴포넌트 분해
 
 - [x] `AddLocationModal` 섹션 컴포넌트 추출
-- [ ] `BrowseView` 제어 로직 분리
+- [x] `BrowseView` 제어 로직 분리
 - [x] 공통 UI/도메인 함수 재사용화
 
 ## 현재 반영 구조 (2026-02)
