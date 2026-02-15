@@ -1,4 +1,6 @@
 {
+  "installCommand": "npm install",
+  "buildCommand": "",
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/:path*" }
   ]
