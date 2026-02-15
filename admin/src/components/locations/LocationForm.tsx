@@ -40,6 +40,16 @@ import {
 } from '@/lib/constants';
 import type { LocationDomainTable } from '@/lib/queries/locations';
 
+const SHORT_MAP_HOSTS = new Set(['kko.to', 'naver.me']);
+
+function getHostname(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 function RequiredMark() {
   return <span className="text-red-500 ml-0.5">*</span>;
 }
@@ -139,6 +149,7 @@ export function LocationForm({
     locationTags.map((lt) => lt.tag_id)
   );
   const [rawMapText, setRawMapText] = useState('');
+  const [isResolvingMapLink, setIsResolvingMapLink] = useState(false);
 
   // Scroll to first error on submit
   useEffect(() => {
@@ -215,62 +226,100 @@ export function LocationForm({
     });
   }
 
-  function applyClipboardAssist() {
-    const parsed = parseMapClipboard(rawMapText);
-    const applied: string[] = [];
+  async function resolveShortMapUrls(urls: string[]): Promise<string[]> {
+    const shortUrls = urls.filter((url) => {
+      const host = getHostname(url);
+      return host ? SHORT_MAP_HOSTS.has(host) : false;
+    });
 
-    if (parsed.name) {
-      setValue('name', parsed.name, { shouldValidate: true });
-      applied.push('장소명');
-    }
-    if (parsed.address) {
-      setValue('address', parsed.address, { shouldValidate: true });
-      applied.push('주소');
+    if (shortUrls.length === 0) return [];
 
-      const regionResult = extractRegionFromAddress(parsed.address);
-      if (regionResult?.region) {
-        setValue('region', regionResult.region, { shouldValidate: true });
-        applied.push('지역');
-      }
-      if (regionResult?.sub_region) {
-        setValue('sub_region', regionResult.sub_region);
-        applied.push('세부 지역');
-      }
-    }
-    if (typeof parsed.lat === 'number') {
-      setValue('lat', parsed.lat, { shouldValidate: true });
-      applied.push('위도');
-    }
-    if (typeof parsed.lon === 'number') {
-      setValue('lon', parsed.lon, { shouldValidate: true });
-      applied.push('경도');
-    }
-    if (parsed.kakao_place_id) {
-      setValue('kakao_place_id', parsed.kakao_place_id);
-      applied.push('카카오 Place ID');
-    }
-    if (parsed.naver_place_id) {
-      setValue('naver_place_id', parsed.naver_place_id);
-      applied.push('네이버 Place ID');
-    }
-    if (parsed.categoryHint) {
-      const mapped = mapKakaoCategoryByDomain(parsed.categoryHint, domain);
-      if (mapped.main) {
-        setValue('category_main', mapped.main);
-        applied.push('카테고리 대분류');
-      }
-      if (mapped.sub) {
-        setValue('category_sub', mapped.sub);
-        applied.push('카테고리 소분류');
-      }
-    }
+    const results = await Promise.allSettled(
+      shortUrls.map(async (url) => {
+        const response = await fetch(`/api/map-link/expand?url=${encodeURIComponent(url)}`);
+        if (!response.ok) return null;
+        const payload = (await response.json()) as { finalUrl?: string };
+        return payload.finalUrl ?? null;
+      })
+    );
 
-    if (applied.length === 0) {
-      toast.info('추출 가능한 값이 없습니다. 링크/텍스트 형식을 확인해주세요.');
+    return results
+      .filter((r): r is PromiseFulfilledResult<string | null> => r.status === 'fulfilled')
+      .map((r) => r.value)
+      .filter((value): value is string => Boolean(value));
+  }
+
+  async function applyClipboardAssist() {
+    if (!rawMapText.trim()) {
+      toast.info('먼저 지도 링크/텍스트를 붙여넣어 주세요.');
       return;
     }
 
-    toast.success(`빠른 입력 적용 완료: ${applied.join(', ')}`);
+    setIsResolvingMapLink(true);
+    try {
+      const firstParsed = parseMapClipboard(rawMapText);
+      const expandedUrls = await resolveShortMapUrls(firstParsed.sourceUrls);
+      const mergedText = expandedUrls.length > 0 ? `${rawMapText}\n${expandedUrls.join('\n')}` : rawMapText;
+      const parsed = parseMapClipboard(mergedText);
+      const applied: string[] = [];
+
+      if (parsed.name) {
+        setValue('name', parsed.name, { shouldValidate: true });
+        applied.push('장소명');
+      }
+      if (parsed.address) {
+        setValue('address', parsed.address, { shouldValidate: true });
+        applied.push('주소');
+
+        const regionResult = extractRegionFromAddress(parsed.address);
+        if (regionResult?.region) {
+          setValue('region', regionResult.region, { shouldValidate: true });
+          applied.push('지역');
+        }
+        if (regionResult?.sub_region) {
+          setValue('sub_region', regionResult.sub_region);
+          applied.push('세부 지역');
+        }
+      }
+      if (typeof parsed.lat === 'number') {
+        setValue('lat', parsed.lat, { shouldValidate: true });
+        applied.push('위도');
+      }
+      if (typeof parsed.lon === 'number') {
+        setValue('lon', parsed.lon, { shouldValidate: true });
+        applied.push('경도');
+      }
+      if (parsed.kakao_place_id) {
+        setValue('kakao_place_id', parsed.kakao_place_id);
+        applied.push('카카오 Place ID');
+      }
+      if (parsed.naver_place_id) {
+        setValue('naver_place_id', parsed.naver_place_id);
+        applied.push('네이버 Place ID');
+      }
+      if (parsed.categoryHint) {
+        const mapped = mapKakaoCategoryByDomain(parsed.categoryHint, domain);
+        if (mapped.main) {
+          setValue('category_main', mapped.main);
+          applied.push('카테고리 대분류');
+        }
+        if (mapped.sub) {
+          setValue('category_sub', mapped.sub);
+          applied.push('카테고리 소분류');
+        }
+      }
+
+      if (applied.length === 0) {
+        toast.info('추출 가능한 값이 없습니다. 링크/텍스트 형식을 확인해주세요.');
+        return;
+      }
+
+      toast.success(`빠른 입력 적용 완료: ${applied.join(', ')}`);
+    } catch {
+      toast.error('링크 해석 중 오류가 발생했습니다. 링크를 다시 확인해주세요.');
+    } finally {
+      setIsResolvingMapLink(false);
+    }
   }
 
   // Helper: border color for fields with errors
@@ -342,8 +391,8 @@ export function LocationForm({
               placeholder="예) 장소명, 주소, 링크(https://map.kakao.com/... 또는 https://map.naver.com/...)"
             />
             <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="secondary" onClick={applyClipboardAssist}>
-                복붙 내용 반영
+              <Button type="button" variant="secondary" onClick={() => void applyClipboardAssist()} disabled={isResolvingMapLink}>
+                {isResolvingMapLink ? '링크 해석 중...' : '복붙 내용 반영'}
               </Button>
               <Button type="button" variant="ghost" onClick={() => setRawMapText('')}>
                 입력 지우기
