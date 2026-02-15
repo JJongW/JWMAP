@@ -334,6 +334,23 @@ export default function App() {
     timeSlot: TimeSlot,
     priorityFeature: PriorityFeature,
   ) => {
+    if (contentMode === 'space') {
+      if (region) {
+        const inferredProvince = inferProvinceFromRegion(region);
+        setFilters((prev) => ({
+          ...prev,
+          selectedProvince: inferredProvince ?? '전체',
+          selectedDistrict: inferredProvince ? region : '전체',
+          selectedCategoryMain: '전체',
+          selectedCategorySub: '전체',
+          selectedEventTag: null,
+        }));
+      }
+      setDecisionResult(null);
+      setUiMode('browse');
+      return;
+    }
+
     const result = decideLocations(locations, companion, timeSlot, priorityFeature, region);
     if (result) {
       setDecisionResult(result);
@@ -343,7 +360,7 @@ export default function App() {
       alert('조건에 맞는 장소가 아직 없어요. 직접 둘러볼까요?');
       setUiMode('browse');
     }
-  }, [locations]);
+  }, [contentMode, locations]);
 
   /**
    * "직접 둘러보기" 클릭 → browse-confirm 인터스티셜로 이동
@@ -394,12 +411,8 @@ export default function App() {
     fetchLocations();
     setFilters(DEFAULT_FILTER_STATE);
     setVisibleLocations(10);
-    if (contentMode === 'space') {
-      setUiMode('browse');
-      setDecisionResult(null);
-    } else {
-      setUiMode('decision');
-    }
+    setUiMode('decision');
+    setDecisionResult(null);
   }, [contentMode, fetchLocations]);
 
   // URL 쿼리 파라미터에서 locationId 확인
@@ -440,7 +453,7 @@ export default function App() {
             onClick={() => setContentMode('food')}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
               contentMode === 'food'
-                ? 'bg-gray-900 text-white'
+                ? 'bg-orange-500 text-white'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -450,7 +463,7 @@ export default function App() {
             onClick={() => setContentMode('space')}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
               contentMode === 'space'
-                ? 'bg-gray-900 text-white'
+                ? 'bg-violet-600 text-white'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
@@ -460,8 +473,9 @@ export default function App() {
       </div>
 
       {/* ── Decision Entry View (기본 진입 화면) ── */}
-      {uiMode === 'decision' && contentMode === 'food' && (
+      {uiMode === 'decision' && (
         <DecisionEntryView
+          contentMode={contentMode}
           availableProvincesWithDistricts={availableProvincesWithDistricts}
           onDecide={handleDecide}
           onBrowse={handleSwitchToBrowse}
@@ -482,6 +496,7 @@ export default function App() {
       {/* 의도적 마찰: browse 진입 전에 한 번 더 확인. Decision 복귀를 유도. */}
       {uiMode === 'browse-confirm' && (
         <BrowseConfirmView
+          contentMode={contentMode}
           onBackToDecision={handleBackToDecision}
           onProceedToBrowse={handleConfirmBrowse}
         />
@@ -490,6 +505,7 @@ export default function App() {
       {/* ── Browse View (의도적으로 열등한 탐색 UX) ── */}
       {uiMode === 'browse' && (
         <BrowseView
+          contentMode={contentMode}
           displayedLocations={displayedLocations}
           filterState={filters}
           filterControls={{

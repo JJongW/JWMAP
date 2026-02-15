@@ -15,11 +15,12 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import type { Province } from '../types/location';
+import type { ContentMode, Province } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
 
 interface DecisionEntryViewProps {
+  contentMode: ContentMode;
   /** 시/도별 세부지역. STEP1에서 시/도 먼저 보여주고, 클릭 시 세부지역 펼침 */
   availableProvincesWithDistricts: { province: Province; districts: string[] }[];
   /** 모든 선택 완료 후 CTA 클릭 시 호출 */
@@ -65,6 +66,7 @@ const REGION_ANY_VALUE = '';
 // ─────────────────────────────────────────────
 
 export function DecisionEntryView({
+  contentMode,
   availableProvincesWithDistricts,
   onDecide,
   onBrowse,
@@ -105,6 +107,24 @@ export function DecisionEntryView({
     return availableProvincesWithDistricts.find((p) => p.province === expandedProvince);
   }, [expandedProvince, availableProvincesWithDistricts]);
 
+  const modeText = useMemo(() => {
+    if (contentMode === 'space') {
+      return {
+        step1: '어디로 나들이 갈래?',
+        cta: '지금 바로 정해줘',
+        browse: '직접 둘러보기',
+        accent: 'violet',
+      };
+    }
+
+    return {
+      step1: '어디서 먹고 싶어?',
+      cta: '지금 바로 정해줘',
+      browse: '직접 둘러보기',
+      accent: 'orange',
+    };
+  }, [contentMode]);
+
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
       {/* ── 스크롤 가능한 메인 콘텐츠 영역 ── */}
@@ -114,7 +134,7 @@ export function DecisionEntryView({
           {/* ── Hero 텍스트 ── */}
           <div className="mb-12 md:mb-16">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
-              오늘 오디가?
+              {contentMode === 'space' ? '오늘 뭐 보지?' : '오늘 오디가?'}
             </h1>
             <p className="mt-3 text-base leading-relaxed text-gray-500 md:text-lg">
               지금 상황만 말해.<br />
@@ -125,7 +145,7 @@ export function DecisionEntryView({
           {/* ── STEP 1: 어디서 (시/도 → 세부지역 2단계) ── */}
           <StepSection
             step={1}
-            label="어디서 먹고 싶어?"
+            label={modeText.step1}
             isActive={true}
           >
             {expandedData ? (
@@ -136,6 +156,7 @@ export function DecisionEntryView({
                     { value: expandedData.province, label: `${expandedData.province} 전체` },
                     ...expandedData.districts.map((d) => ({ value: d, label: d })),
                   ]}
+                accent={modeText.accent}
                   selected={region}
                   onSelect={handleSelectRegion}
                 />
@@ -153,6 +174,7 @@ export function DecisionEntryView({
                   { value: REGION_ANY_VALUE, label: '상관없어요' },
                   ...provinceOptions,
                 ]}
+                accent={modeText.accent}
                 selected={
                   expandedProvince ??
                   (region === REGION_ANY_VALUE ? REGION_ANY_VALUE : (inferProvinceFromRegion(region) || region))
@@ -176,6 +198,7 @@ export function DecisionEntryView({
           >
             <PillGroup
               options={COMPANION_OPTIONS}
+              accent={modeText.accent}
               selected={companion}
               onSelect={setCompanion}
             />
@@ -189,6 +212,7 @@ export function DecisionEntryView({
           >
             <PillGroup
               options={TIMESLOT_OPTIONS}
+              accent={modeText.accent}
               selected={timeSlot}
               onSelect={setTimeSlot}
             />
@@ -202,6 +226,7 @@ export function DecisionEntryView({
           >
             <PillGroup
               options={PRIORITY_OPTIONS}
+              accent={modeText.accent}
               selected={priorityFeature}
               onSelect={setPriorityFeature}
             />
@@ -219,18 +244,20 @@ export function DecisionEntryView({
             className={`
               w-full rounded-2xl py-4 text-base font-semibold tracking-tight transition-all duration-200
               ${isComplete
-                ? 'bg-gray-900 text-white active:scale-[0.98]'
+                ? modeText.accent === 'violet'
+                  ? 'bg-violet-600 text-white active:scale-[0.98]'
+                  : 'bg-orange-500 text-white active:scale-[0.98]'
                 : 'cursor-not-allowed bg-gray-100 text-gray-300'
               }
             `}
           >
-            지금 바로 정해줘
+            {modeText.cta}
           </button>
           <button
             onClick={onBrowse}
             className="text-sm text-gray-400 transition-colors hover:text-gray-600"
           >
-            직접 둘러보기
+            {modeText.browse}
           </button>
         </div>
       </div>
@@ -275,11 +302,12 @@ function StepSection({ step, label, isActive, children }: StepSectionProps) {
 
 interface PillGroupProps<T extends string> {
   options: { value: T; label: string }[];
+  accent: 'orange' | 'violet';
   selected: T | null;
   onSelect: (value: T) => void;
 }
 
-function PillGroup<T extends string>({ options, selected, onSelect }: PillGroupProps<T>) {
+function PillGroup<T extends string>({ options, accent, selected, onSelect }: PillGroupProps<T>) {
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((option) => {
@@ -291,7 +319,9 @@ function PillGroup<T extends string>({ options, selected, onSelect }: PillGroupP
             className={`
               rounded-full border px-5 py-2.5 text-sm font-medium transition-all duration-150
               ${isSelected
-                ? 'border-gray-900 bg-gray-900 text-white'
+                ? accent === 'violet'
+                  ? 'border-violet-600 bg-violet-600 text-white'
+                  : 'border-orange-500 bg-orange-500 text-white'
                 : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400 hover:text-gray-800'
               }
             `}

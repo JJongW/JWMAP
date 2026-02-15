@@ -1,4 +1,4 @@
-import type { CategoryMain, CategorySub, Location, Province } from '../../types/location';
+import type { CategoryMain, CategorySub, ContentMode, Location, Province } from '../../types/location';
 import type { FilterState } from '../../types/filter';
 
 export interface BrowseFilterControls {
@@ -19,6 +19,7 @@ export interface BrowseFilterOptions {
 }
 
 export interface BrowseViewProps {
+  contentMode?: ContentMode;
   displayedLocations: Location[];
   filterState?: FilterState;
   filterControls?: BrowseFilterControls;

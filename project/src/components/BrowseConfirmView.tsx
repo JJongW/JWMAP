@@ -14,7 +14,10 @@
  * - Secondary CTA는 "직접 둘러보기" (Browse 진입) — 작고 muted
  */
 
+import type { ContentMode } from '../types/location';
+
 interface BrowseConfirmViewProps {
+  contentMode: ContentMode;
   /** Decision 화면으로 돌아가기 */
   onBackToDecision: () => void;
   /** Browse 화면으로 진입 */
@@ -22,9 +25,15 @@ interface BrowseConfirmViewProps {
 }
 
 export function BrowseConfirmView({
+  contentMode,
   onBackToDecision,
   onProceedToBrowse,
 }: BrowseConfirmViewProps) {
+  const primaryClass =
+    contentMode === 'space'
+      ? 'w-full rounded-2xl bg-violet-600 py-4 text-base font-semibold text-white transition-all duration-150 active:scale-[0.98]'
+      : 'w-full rounded-2xl bg-orange-500 py-4 text-base font-semibold text-white transition-all duration-150 active:scale-[0.98]';
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-white">
       <div className="mx-auto w-full max-w-sm px-6 text-center">
@@ -45,7 +54,7 @@ export function BrowseConfirmView({
           {/* Primary: Decision 복귀 (크고 강조) */}
           <button
             onClick={onBackToDecision}
-            className="w-full rounded-2xl bg-gray-900 py-4 text-base font-semibold text-white transition-all duration-150 active:scale-[0.98]"
+            className={primaryClass}
           >
             다시 정해줘
           </button>

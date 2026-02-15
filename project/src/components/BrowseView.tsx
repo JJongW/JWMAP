@@ -32,6 +32,7 @@ import type { BrowseViewProps } from './browse/types';
 // ─────────────────────────────────────────────
 
 export function BrowseView({
+  contentMode = 'food',
   displayedLocations,
   filterState,
   filterControls,
@@ -120,11 +121,11 @@ export function BrowseView({
 
         {/* ── Header: 차갑고 중립적 ── */}
         <header className="border-b border-gray-100 px-6 pb-4 pt-12 md:pt-16">
-          <h1 className="text-lg font-semibold text-gray-600">
+          <h1 className={`text-lg font-semibold ${contentMode === 'space' ? 'text-violet-700' : 'text-orange-600'}`}>
             직접 둘러보기
           </h1>
           <p className="mt-1 text-sm text-gray-400">
-            조건에 맞는 장소를 보여드릴게요
+            {contentMode === 'space' ? '조건에 맞는 볼거리 장소를 보여드릴게요' : '조건에 맞는 장소를 보여드릴게요'}
           </p>
         </header>
 
