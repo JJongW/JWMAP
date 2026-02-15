@@ -17,7 +17,7 @@ export function Header() {
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card px-6">
-      <div className="md:hidden text-lg font-bold">오늘 어딘가 Studio</div>
+      <div className="md:hidden text-lg font-bold">오늘오디가?</div>
       <div className="hidden md:block" />
       <Button variant="ghost" size="sm" onClick={handleLogout}>
         <LogOut className="mr-2 h-4 w-4" />

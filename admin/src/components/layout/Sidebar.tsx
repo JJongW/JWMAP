@@ -19,7 +19,7 @@ export function Sidebar() {
     <aside className="hidden md:flex w-60 flex-col border-r bg-card">
       <div className="flex h-14 items-center border-b px-5">
         <Link href="/dashboard" className="text-lg font-bold tracking-tight">
-          오늘 어딘가 Studio
+          오늘오디가?
         </Link>
       </div>
       <nav className="flex-1 space-y-1 p-3">

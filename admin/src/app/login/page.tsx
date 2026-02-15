@@ -37,7 +37,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-muted/40">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">오늘 어딘가 Studio</CardTitle>
+          <CardTitle className="text-2xl font-bold">오늘오디가?</CardTitle>
           <p className="text-sm text-muted-foreground">관리자 로그인</p>
         </CardHeader>
         <CardContent>

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: '오늘 어딘가 Studio',
+  title: '오늘오디가?',
   description: 'JWMAP Admin - 장소 관리 시스템',
 };
 
