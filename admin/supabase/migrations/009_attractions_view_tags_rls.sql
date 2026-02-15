@@ -1,6 +1,6 @@
--- project(frontend)에서 볼거리 모드가 참조하는 별도 테이블
--- 실행 위치: Supabase SQL Editor
+-- 009: attractions 검색 뷰 + 태그 조인 + RLS 정책
 
+-- 0) 선행 마이그레이션(008) 미적용 환경 가드
 CREATE TABLE IF NOT EXISTS attractions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
@@ -18,21 +18,22 @@ CREATE TABLE IF NOT EXISTS attractions (
   price_level smallint,
   features jsonb DEFAULT '{}'::jsonb,
   tags text[] DEFAULT '{}',
-  event_tags text[] DEFAULT '{}',
   "imageUrl" text DEFAULT '',
+  event_tags text[] DEFAULT '{}',
   naver_place_id text,
   kakao_place_id text,
   visit_date date,
   curator_visited boolean DEFAULT true,
   content_type text DEFAULT 'space',
-  created_at timestamptz DEFAULT now(),
-  last_verified_at timestamptz
+  created_at timestamptz DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_attractions_region ON attractions(region);
 CREATE INDEX IF NOT EXISTS idx_attractions_category_main ON attractions(category_main);
 CREATE INDEX IF NOT EXISTS idx_attractions_created_at ON attractions(created_at DESC);
 
+-- imageUrl 대소문자 정규화:
+-- 과거 스크립트가 imageUrl(미인용)로 생성된 경우 실제 컬럼명이 imageurl이 된다.
 DO $$
 BEGIN
   IF EXISTS (
@@ -53,8 +54,9 @@ BEGIN
 END
 $$;
 
--- 검색 뷰 (space 모드에서 우선 조회)
+-- 1) 검색 뷰 (project의 space 모드에서 우선 조회)
 DROP VIEW IF EXISTS attractions_search;
+
 CREATE VIEW attractions_search AS
 SELECT
   a.id,
@@ -85,7 +87,7 @@ SELECT
   NULL::double precision AS popularity_score
 FROM attractions a;
 
--- 관리자 태그 조인
+-- 2) 볼거리 태그 조인 테이블
 CREATE TABLE IF NOT EXISTS attraction_tags (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   location_id uuid NOT NULL REFERENCES attractions(id) ON DELETE CASCADE,
@@ -97,7 +99,7 @@ CREATE TABLE IF NOT EXISTS attraction_tags (
 CREATE INDEX IF NOT EXISTS idx_attraction_tags_location ON attraction_tags(location_id);
 CREATE INDEX IF NOT EXISTS idx_attraction_tags_tag ON attraction_tags(tag_id);
 
--- RLS (현재 정책: 익명/인증 모두 허용)
+-- 3) RLS (현재 서비스 정책: 익명/인증 모두 접근 허용)
 ALTER TABLE attractions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attraction_tags ENABLE ROW LEVEL SECURITY;
 

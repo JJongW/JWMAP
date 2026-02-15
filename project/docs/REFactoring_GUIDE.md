@@ -156,6 +156,10 @@
   - `space`: `attractions_search` → fallback `attractions`
 - 장소 추가 폼(`AddLocationModal`, `useAddLocationForm`)도 현재 모드의 카테고리 집합을 따르도록 변경했습니다.
 - DB 분리 적용용 SQL 예시는 `docs/sql/create_attractions.sql`에 추가했습니다.
+- 추가 DB 작업:
+  - `attractions_search` view 생성
+  - `attraction_tags` 조인 테이블 생성
+  - `attractions`, `attraction_tags` RLS 및 정책 추가
 
 ## 검증 기준
 

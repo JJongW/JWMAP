@@ -37,7 +37,7 @@ export default async function AttractionsPage({ searchParams }: Props) {
   try {
     const [tagsResult, tagsMapResult] = await Promise.all([
       getTags(supabase),
-      getLocationTagsForLocations(supabase, locationIds),
+      getLocationTagsForLocations(supabase, locationIds, 'attractions'),
     ]);
     allTags = tagsResult;
     locationTagsMap = tagsMapResult;

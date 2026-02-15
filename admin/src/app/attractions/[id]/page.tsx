@@ -36,7 +36,7 @@ export default async function AttractionDetailPage({ params }: Props) {
 
   const [location, locationTags] = await Promise.all([
     getLocationById(supabase, id, 'attractions'),
-    getLocationTags(supabase, id).catch(() => [] as Awaited<ReturnType<typeof getLocationTags>>),
+    getLocationTags(supabase, id, 'attractions').catch(() => [] as Awaited<ReturnType<typeof getLocationTags>>),
   ]);
 
   if (!location) {

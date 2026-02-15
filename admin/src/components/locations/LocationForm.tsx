@@ -174,13 +174,13 @@ export function LocationForm({
           domain
         );
         if (selectedTagIds.length > 0) {
-          await updateLocationTags(supabase, created.id, selectedTagIds);
+          await updateLocationTags(supabase, created.id, selectedTagIds, domain);
         }
         toast.success(`${domainLabel}이(가) 추가되었습니다`);
         router.push(`${listPath}/${created.id}`);
       } else if (location) {
         await updateLocation(supabase, location.id, values as Partial<Location>, domain);
-        await updateLocationTags(supabase, location.id, selectedTagIds);
+        await updateLocationTags(supabase, location.id, selectedTagIds, domain);
         toast.success('저장되었습니다');
         router.refresh();
       }

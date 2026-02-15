@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS attractions (
   price_level smallint,
   features jsonb DEFAULT '{}'::jsonb,
   tags text[] DEFAULT '{}',
-  imageUrl text DEFAULT '',
+  "imageUrl" text DEFAULT '',
   event_tags text[] DEFAULT '{}',
   naver_place_id text,
   kakao_place_id text,
