@@ -1,23 +1,28 @@
 /**
- * Batch import attractions from Kakao Place URLs.
+ * Batch import attractions from place URLs or place names.
  *
  * Usage:
- *   node scripts/batch-import-places.mjs [path-to-urls.txt]
+ *   node scripts/batch-import-places.mjs [path-to-list.txt]
  *   node scripts/batch-import-places.mjs   # reads from admin/scripts/place-urls.txt
  *
- * URL file format: one place URL per line (e.g. https://place.map.kakao.com/323413598)
+ * List format (한 줄에 하나):
+ *   - 카카오 place URL: https://place.map.kakao.com/323413598
+ *   - 네이버 place URL: https://map.naver.com/.../place/2042329763
+ *   - 장소명만: 블루캐비넷출판사 (카카오 검색으로 자동 조회)
+ *   - #으로 시작하는 줄: 주석(무시)
  *
- * Env: Loads .env.local for NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+ * Env: .env.local
+ *   - NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY (필수)
+ *   - KAKAO_REST_API_KEY 또는 NEXT_PUBLIC_KAKAO_REST_API_KEY (장소명 검색·카카오 좌표용)
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Load .env.local
 function loadEnv() {
   const paths = [
     join(__dirname, '../.env.local'),
@@ -37,31 +42,32 @@ function loadEnv() {
 function extractMeta(html, key) {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const re = new RegExp(
-    `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["']`,
+    `<meta[^>]*(?:property|name)=["']${escaped}["'][^>]*content=["']([^"']+)["']|content=["']([^"']+)["'][^>]*(?:property|name)=["']${escaped}["']`,
     'i'
   );
-  return html.match(re)?.[1]?.trim() ?? null;
+  const m = html.match(re);
+  return (m?.[1] ?? m?.[2])?.trim() ?? null;
 }
 
 function extractTitle(html) {
   const og = extractMeta(html, 'og:title');
-  if (og) return og.replace(/\s*[-|]\s*카카오맵.*$/i, '').trim();
+  if (og) return og.replace(/\s*[-|]\s*카카오맵.*$/i, '').replace(/\s*[-|]\s*네이버.*$/i, '').trim();
   const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  return m?.[1]?.replace(/\s*[-|]\s*카카오맵.*$/i, '').trim() ?? null;
+  return m?.[1]?.replace(/\s*[-|]\s*카카오맵.*$/i, '').replace(/\s*[-|]\s*네이버.*$/i, '').trim() ?? null;
 }
 
-function extractPlaceId(url) {
-  const m = String(url).match(/place\.map\.kakao\.com\/(\d{4,})/i);
-  return m?.[1] ?? null;
-}
+const KAKAO_PLACE_RE = /place\.map\.kakao\.com\/(\d{4,})/i;
+const NAVER_PLACE_RE = /\/place\/(\d{4,})/i;
 
-function extractAddress(html) {
-  const og = extractMeta(html, 'og:description');
-  if (og && /(?:서울|경기|인천|부산|대구|대전|광주|울산|세종|제주)[^\n]{10,}/.test(og)) {
-    const addr = og.match(/((?:서울|경기|인천|부산|대구|대전|광주|울산|세종|제주)[^\n]+)/)?.[1];
-    if (addr) return addr.replace(/\s+/g, ' ').trim();
+function parseLine(line) {
+  const l = line.trim();
+  if (!l || l.startsWith('#')) return null;
+  if (l.startsWith('http')) {
+    if (KAKAO_PLACE_RE.test(l)) return { type: 'kakao', url: l, id: l.match(KAKAO_PLACE_RE)?.[1] };
+    if (l.includes('naver') && NAVER_PLACE_RE.test(l)) return { type: 'naver', url: l, id: l.match(NAVER_PLACE_RE)?.[1] };
+    return null;
   }
-  return null;
+  return { type: 'name', query: l };
 }
 
 const DISTRICT_MAPS = {
@@ -83,76 +89,183 @@ const DISTRICT_MAPS = {
 };
 
 function extractRegion(address) {
+  if (!address) return { region: '서울', sub_region: null };
   let province = null;
   if (address.includes('서울')) province = '서울';
   else if (address.includes('경기')) province = '경기';
   else if (address.includes('인천')) province = '인천';
   else if (address.includes('부산')) province = '부산';
   if (!province) return { region: '서울', sub_region: null };
-
   const map = DISTRICT_MAPS[province];
   let region = '';
   if (map) {
     for (const [key, value] of Object.entries(map)) {
-      if (address.includes(key)) {
-        region = value;
-        break;
-      }
+      if (address.includes(key)) { region = value; break; }
     }
   }
   const dongMatch = address.match(/\s([가-힣]+[동읍면리])\s?/);
-  const sub_region = dongMatch?.[1] ?? null;
-  return { region: region || province, sub_region };
+  return { region: region || province, sub_region: dongMatch?.[1] ?? null };
 }
 
-function mapCategory(titleOrDesc) {
-  const t = titleOrDesc || '';
-  const l = t.toLowerCase();
-  // 공간대여, 공원디파트먼트(브랜드) 등 → 복합문화공간 (공원 매칭보다 우선)
-  if (l.includes('공간대여') || l.includes('공원디파트먼트') || l.includes('복합문화')) {
-    return { main: '전시/문화', sub: '복합문화공간' };
-  }
+function mapCategory(text) {
+  const l = (text || '').toLowerCase();
+  if (l.includes('공간대여') || l.includes('공원디파트먼트') || l.includes('복합문화')) return { main: '전시/문화', sub: '복합문화공간' };
   if (l.includes('미술관')) return { main: '전시/문화', sub: '미술관' };
   if (l.includes('박물관')) return { main: '전시/문화', sub: '박물관' };
   if (l.includes('전시') || l.includes('갤러리')) return { main: '전시/문화', sub: '전시관' };
   if (l.includes('소품') || l.includes('소품샵')) return { main: '쇼핑/소품', sub: '소품샵' };
   if (l.includes('편집샵')) return { main: '쇼핑/소품', sub: '편집샵' };
-  if (l.includes('서점')) return { main: '쇼핑/소품', sub: '독립서점' };
+  if (l.includes('서점') || l.includes('출판사')) return { main: '쇼핑/소품', sub: '독립서점' };
   if (l.includes('문화')) return { main: '전시/문화', sub: '복합문화공간' };
-  // 공원/정원: 브랜드명(공원디파트먼트) 제외, 실제 공원·정원만
-  if ((l.includes('공원') || l.includes('정원')) && !l.includes('디파트먼트')) {
-    return { main: '공간/휴식', sub: '공원/정원' };
-  }
+  if ((l.includes('공원') || l.includes('정원')) && !l.includes('디파트먼트')) return { main: '공간/휴식', sub: '공원/정원' };
   if (l.includes('팝업')) return { main: '팝업/이벤트', sub: '브랜드 팝업' };
   return { main: '전시/문화', sub: null };
 }
 
-async function fetchPlace(url) {
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'JWMAP-BatchImport/1.0' },
-    redirect: 'follow',
-  });
+function extractAddressFromOg(og) {
+  if (!og || !/(?:서울|경기|인천|부산|대구|대전|광주|울산|세종|제주)[^\n]{10,}/.test(og)) return null;
+  const m = og.match(/((?:서울|경기|인천|부산|대구|대전|광주|울산|세종|제주)[^\n#]+)/);
+  return m?.[1]?.replace(/\s+/g, ' ').trim() ?? null;
+}
+
+function extractCoordsFromHtml(html) {
+  const latM = html.match(/latitude%5E([\d.-]+)/i) ?? html.match(/latitude["']?\s*[=%^]\s*([\d.-]+)/i);
+  const lonM = html.match(/longitude%5E([\d.-]+)/i) ?? html.match(/longitude["']?\s*[=%^]\s*([\d.-]+)/i);
+  const lat = latM ? parseFloat(latM[1]) : undefined;
+  const lon = lonM ? parseFloat(lonM[1]) : undefined;
+  if (lat != null && lon != null && !Number.isNaN(lat) && !Number.isNaN(lon)) return { lat, lon };
+  return {};
+}
+
+async function fetchHtml(url, ua = 'JWMAP-BatchImport/1.0') {
+  const res = await fetch(url, { headers: { 'User-Agent': ua }, redirect: 'follow' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
+}
+
+async function kakaoKeywordSearch(query, apiKey) {
+  const res = await fetch(
+    `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=5`,
+    { headers: { Authorization: `KakaoAK ${apiKey}` } }
+  );
+  const data = await res.json();
+  const docs = data?.documents ?? [];
+  return docs[0] ?? null;
+}
+
+async function resolveKakaoPlace(item, apiKey) {
+  const html = await fetchHtml(item.url);
+  const name = extractTitle(html);
+  const ogDesc = extractMeta(html, 'og:description');
+  const address = extractAddressFromOg(ogDesc);
+  const { region, sub_region } = extractRegion(address);
+  const { main: category_main, sub: category_sub } = mapCategory(name || ogDesc);
+
+  let lat = 0, lon = 0;
+  if (apiKey) {
+    const doc = await kakaoKeywordSearch(name || item.id, apiKey);
+    if (doc && doc.id === item.id) {
+      lat = parseFloat(doc.y);
+      lon = parseFloat(doc.x);
+    } else if (doc) {
+      lat = parseFloat(doc.y);
+      lon = parseFloat(doc.x);
+    }
+  }
+
+  return {
+    name: name || `장소 ${item.id}`,
+    address: address || '주소 미확인',
+    region: region || '서울',
+    sub_region,
+    category_main: category_main || null,
+    category_sub: category_sub || null,
+    lat,
+    lon,
+    memo: `[배치 수집] ${item.url}`,
+    short_desc: ogDesc?.slice(0, 200) || null,
+    kakao_place_id: item.id,
+    naver_place_id: null,
+    imageUrl: extractMeta(html, 'og:image') || '',
+  };
+}
+
+async function resolveNaverPlace(item) {
+  const url = `https://m.place.naver.com/place/${item.id}`;
+  const ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15';
+  const html = await fetchHtml(url, ua);
+
+  const name = extractMeta(html, 'og:title') ?? extractTitle(html);
+  const ogDesc = extractMeta(html, 'og:description');
+  const address = extractAddressFromOg(ogDesc) ?? (html.match(/((?:서울|경기|인천|부산)[^<"']{8,80})/)?.[1]?.replace(/&amp;/g, '&').trim());
+  const coords = extractCoordsFromHtml(html);
+  const { region, sub_region } = extractRegion(address);
+  const { main: category_main, sub: category_sub } = mapCategory(name || ogDesc);
+
+  const phoneM = html.match(/tel:([0-9-]+)/) ?? html.match(/(\d{2,3}-\d{3,4}-\d{4})/);
+  const memoLines = [`[배치 수집] ${url}`];
+  if (phoneM?.[1]) memoLines.push(`전화: ${phoneM[1]}`);
+
+  return {
+    name: name || `장소 ${item.id}`,
+    address: address || '주소 미확인',
+    region: region || '서울',
+    sub_region,
+    category_main: category_main || null,
+    category_sub: category_sub || null,
+    lat: coords.lat ?? 0,
+    lon: coords.lon ?? 0,
+    memo: memoLines.join('\n'),
+    short_desc: ogDesc?.replace(/#[\w가-힣_-]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 200) || null,
+    kakao_place_id: null,
+    naver_place_id: item.id,
+    imageUrl: extractMeta(html, 'og:image') || '',
+  };
+}
+
+async function resolveByName(item, apiKey) {
+  if (!apiKey) throw new Error('장소명 검색에는 KAKAO_REST_API_KEY가 필요합니다.');
+  const doc = await kakaoKeywordSearch(item.query, apiKey);
+  if (!doc) throw new Error('검색 결과 없음');
+
+  const address = doc.road_address_name || doc.address_name;
+  const { region, sub_region } = extractRegion(address);
+  const { main: category_main, sub: category_sub } = mapCategory(doc.category_name || doc.category_group_name || '');
+
+  return {
+    name: doc.place_name,
+    address: address || '주소 미확인',
+    region: region || '서울',
+    sub_region,
+    category_main: category_main || null,
+    category_sub: category_sub || null,
+    lat: parseFloat(doc.y),
+    lon: parseFloat(doc.x),
+    memo: `[배치 수집] 카카오 검색: ${item.query}`,
+    short_desc: null,
+    kakao_place_id: doc.id,
+    naver_place_id: null,
+    imageUrl: '',
+  };
 }
 
 async function run() {
   loadEnv();
 
-  const urlPath = process.argv[2] || join(__dirname, 'place-urls.txt');
-  if (!existsSync(urlPath)) {
-    console.error(`파일을 찾을 수 없습니다: ${urlPath}`);
-    console.error('사용법: node scripts/batch-import-places.mjs [urls.txt]');
+  const listPath = process.argv[2] || join(__dirname, 'place-urls.txt');
+  if (!existsSync(listPath)) {
+    console.error(`파일을 찾을 수 없습니다: ${listPath}`);
+    console.error('사용법: node scripts/batch-import-places.mjs [목록파일.txt]');
+    console.error('목록 형식: 카카오/네이버 URL 또는 장소명 (한 줄에 하나)');
     process.exit(1);
   }
 
-  const urlList = readFileSync(urlPath, 'utf8')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l && l.startsWith('http') && l.includes('place.map.kakao.com'));
+  const lines = readFileSync(listPath, 'utf8').split('\n');
+  const items = lines.map(parseLine).filter(Boolean);
 
-  if (urlList.length === 0) {
-    console.error('place.map.kakao.com URL이 없습니다.');
+  if (items.length === 0) {
+    console.error('유효한 URL 또는 장소명이 없습니다.');
+    console.error('형식: https://place.map.kakao.com/123 또는 https://map.naver.com/.../place/123 또는 장소명');
     process.exit(1);
   }
 
@@ -163,60 +276,37 @@ async function run() {
     process.exit(1);
   }
 
+  const kakaoKey = process.env.KAKAO_REST_API_KEY ?? process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  let ok = 0;
-  let fail = 0;
+  let ok = 0, fail = 0;
 
-  for (let i = 0; i < urlList.length; i++) {
-    const url = urlList[i];
-    const placeId = extractPlaceId(url);
-    process.stdout.write(`[${i + 1}/${urlList.length}] ${placeId || url} ... `);
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const label = item.type === 'name' ? item.query : (item.id || item.url);
+    process.stdout.write(`[${i + 1}/${items.length}] ${label} ... `);
 
     try {
-      const html = await fetchPlace(url);
-      const name = extractTitle(html);
-      const address = extractAddress(html);
-      const { region, sub_region } = address ? extractRegion(address) : { region: '서울', sub_region: null };
-      const { main: category_main, sub: category_sub } = mapCategory(name || extractMeta(html, 'og:description'));
-
-      if (!name) {
-        console.log('이름 추출 실패, 건너뜀');
-        fail++;
-        continue;
-      }
+      let data;
+      if (item.type === 'kakao') data = await resolveKakaoPlace(item, kakaoKey);
+      else if (item.type === 'naver') data = await resolveNaverPlace(item);
+      else data = await resolveByName(item, kakaoKey);
 
       const payload = {
-        name,
-        address: address || '주소 미확인',
-        region: region || '서울',
-        sub_region,
-        category_main: category_main || null,
-        category_sub: category_sub || null,
-        lon: 0,
-        lat: 0,
-        memo: `[배치 수집] ${url}`,
-        short_desc: extractMeta(html, 'og:description')?.slice(0, 200) || null,
+        ...data,
         rating: 0,
         curation_level: 1,
         features: {},
         tags: [],
-        imageUrl: '',
         event_tags: [],
-        kakao_place_id: placeId,
-        naver_place_id: null,
         curator_visited: false,
       };
 
       const { error } = await supabase.from('attractions').insert(payload).select('id').single();
 
       if (error) {
-        if (error.code === '23505') {
-          console.log('이미 존재함 (중복)');
-        } else {
-          console.log('실패:', error.message);
-          fail++;
-        }
+        if (error.code === '23505') console.log('이미 존재함');
+        else { console.log('실패:', error.message); fail++; }
       } else {
         console.log('추가됨');
         ok++;
