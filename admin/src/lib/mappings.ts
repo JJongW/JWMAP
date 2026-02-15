@@ -74,6 +74,9 @@ export function mapKakaoCategoryByDomain(
   if (domain === 'attractions') {
     const l = kakaoCategory.toLowerCase();
 
+    if (l.includes('공간대여') || l.includes('공원디파트먼트') || l.includes('복합문화')) {
+      return { main: '전시/문화', sub: '복합문화공간' };
+    }
     if (l.includes('미술관')) return { main: '전시/문화', sub: '미술관' };
     if (l.includes('박물관')) return { main: '전시/문화', sub: '박물관' };
     if (l.includes('전시') || l.includes('갤러리')) return { main: '전시/문화', sub: '전시관' };
@@ -89,7 +92,9 @@ export function mapKakaoCategoryByDomain(
     if (l.includes('라이프')) return { main: '쇼핑/소품', sub: '라이프스타일숍' };
 
     if (l.includes('전망')) return { main: '공간/휴식', sub: '전망대' };
-    if (l.includes('공원') || l.includes('정원')) return { main: '공간/휴식', sub: '공원/정원' };
+    if ((l.includes('공원') || l.includes('정원')) && !l.includes('디파트먼트')) {
+      return { main: '공간/휴식', sub: '공원/정원' };
+    }
     if (l.includes('포토')) return { main: '공간/휴식', sub: '포토스팟' };
 
     return {};

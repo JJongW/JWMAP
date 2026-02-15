@@ -41,6 +41,7 @@ import {
 import type { LocationDomainTable } from '@/lib/queries/locations';
 
 const SHORT_MAP_HOSTS = new Set(['kko.to', 'naver.me']);
+const KAKAO_PLACE_URL_REGEX = /place\.map\.kakao\.com\/\d{4,}/i;
 
 function getHostname(url: string): string | null {
   try {
@@ -91,6 +92,22 @@ interface ResolvedShortMapUrl {
   title?: string | null;
   description?: string | null;
   kakaoPlaceId?: string | null;
+}
+
+interface PlaceDetailPayload {
+  name: string;
+  address: string;
+  lat: number;
+  lon: number;
+  region: string;
+  sub_region: string | null;
+  category_main: string | null;
+  category_sub: string | null;
+  kakao_place_id: string;
+  imageUrl: string;
+  tags: string[];
+  short_desc: string | null;
+  memo: string | null;
 }
 
 export function LocationForm({
@@ -288,6 +305,80 @@ export function LocationForm({
     try {
       const firstParsed = parseMapClipboard(rawMapText);
       const expandedUrls = await resolveShortMapUrls(firstParsed.sourceUrls);
+
+      // place.map.kakao.com URL 수집 (원본 + 단축 링크 확장 결과)
+      const placeUrls = [
+        ...firstParsed.sourceUrls.filter((u) => KAKAO_PLACE_URL_REGEX.test(u)),
+        ...expandedUrls.map((e) => e.finalUrl).filter((u) => KAKAO_PLACE_URL_REGEX.test(u)),
+      ];
+      const uniquePlaceUrls = Array.from(new Set(placeUrls));
+      const firstPlaceUrl = uniquePlaceUrls[0];
+
+      // place URL이 있으면 place-detail API로 전체 필드 자동 채우기
+      if (firstPlaceUrl) {
+        const res = await fetch(
+          `/api/map-link/place-detail?url=${encodeURIComponent(firstPlaceUrl)}&domain=${domain}`
+        );
+        if (res.ok) {
+          const payload = (await res.json()) as PlaceDetailPayload;
+          const applied: string[] = [];
+
+          setValue('name', payload.name, { shouldValidate: true });
+          applied.push('장소명');
+          setValue('address', payload.address, { shouldValidate: true });
+          applied.push('주소');
+          setValue('lat', payload.lat, { shouldValidate: true });
+          applied.push('위도');
+          setValue('lon', payload.lon, { shouldValidate: true });
+          applied.push('경도');
+          if (payload.region) {
+            setValue('region', payload.region, { shouldValidate: true });
+            applied.push('지역');
+          }
+          if (payload.sub_region) {
+            setValue('sub_region', payload.sub_region);
+            applied.push('세부 지역');
+          }
+          setValue('kakao_place_id', payload.kakao_place_id);
+          applied.push('카카오 Place ID');
+          if (payload.category_main) {
+            setValue('category_main', payload.category_main);
+            applied.push('카테고리 대분류');
+          }
+          if (payload.category_sub) {
+            setValue('category_sub', payload.category_sub);
+            applied.push('카테고리 소분류');
+          }
+          if (payload.imageUrl) {
+            setValue('imageUrl', payload.imageUrl);
+            applied.push('이미지');
+          }
+          if (payload.short_desc) {
+            setValue('short_desc', payload.short_desc, { shouldValidate: true });
+            applied.push('한줄 설명');
+          }
+          if (payload.memo) {
+            const mergedMemo = mergeMemo(watch('memo'), payload.memo.split('\n').filter(Boolean));
+            setValue('memo', mergedMemo, { shouldValidate: true });
+            applied.push('메모');
+          }
+          // 태그: 기존 태그와 이름 매칭 후 selectedTagIds에 추가
+          if (payload.tags.length > 0) {
+            const matchedIds = payload.tags
+              .map((name) => allTags.find((t) => t.name.toLowerCase() === name.toLowerCase())?.id)
+              .filter((id): id is string => !!id);
+            if (matchedIds.length > 0) {
+              setSelectedTagIds((prev) => Array.from(new Set([...prev, ...matchedIds])));
+              applied.push('태그');
+            }
+          }
+
+          toast.success(`빠른 입력 적용 완료: ${applied.join(', ')}`);
+          return;
+        }
+      }
+
+      // place URL 없거나 API 실패 시 기존 parseMapClipboard 플로우
       const expandedHints = expandedUrls
         .map((entry) =>
           [
@@ -447,7 +538,7 @@ export function LocationForm({
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              카카오맵/네이버지도에서 복사한 텍스트나 링크를 붙여넣으면 장소명, 주소, 좌표, Place ID를 자동으로 채웁니다.
+              place.map.kakao.com 링크만 붙여넣어도 장소명·주소·위도·경도·지역·카테고리·Place ID·이미지·태그·설명이 자동으로 채워집니다. kko.to 단축 링크도 지원합니다.
             </p>
             <Textarea
               value={rawMapText}

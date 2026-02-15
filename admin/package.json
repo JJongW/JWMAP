@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "echo \"No tests configured for admin\"",
-    "poc:attractions:fill": "node scripts/poc-fill-attractions-form.mjs"
+    "poc:attractions:fill": "node scripts/poc-fill-attractions-form.mjs",
+    "batch:places": "node scripts/batch-import-places.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
