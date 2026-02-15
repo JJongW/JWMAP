@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { checkRateLimit } from './lib/rateLimit';
+import { checkRateLimit } from '../lib/rateLimit';
 import {
   setCORS,
   handlePreflight,
@@ -9,12 +9,12 @@ import {
   validateMode,
   validateResponseType,
   safeError,
-} from './lib/security';
-import { parseIntent, applyServerDefaults } from './lib/intent';
-import { queryPlaces } from './lib/places';
-import { scorePlaces } from './lib/scoring';
-import { buildCourses } from './lib/courseBuilder';
-import { planMode } from './lib/modePlanner';
+} from '../lib/security';
+import { parseIntent, applyServerDefaults } from '../lib/intent';
+import { queryPlaces } from '../lib/places';
+import { scorePlaces } from '../lib/scoring';
+import { buildCourses } from '../lib/courseBuilder';
+import { planMode } from '../lib/modePlanner';
 
 const SINGLE_RESULT_COUNT = 5;
 

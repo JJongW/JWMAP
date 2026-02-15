@@ -1,13 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { checkRateLimit } from './lib/rateLimit';
+import { checkRateLimit } from '../lib/rateLimit';
 import {
   setCORS,
   handlePreflight,
   validateMethod,
   sanitizeQuery,
   safeError,
-} from './lib/security';
-import { getSupabase } from './lib/places';
+} from '../lib/security';
+import { getSupabase } from '../lib/places';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCORS(res);

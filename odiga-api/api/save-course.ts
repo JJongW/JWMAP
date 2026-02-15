@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createHash } from 'crypto';
-import { checkRateLimit } from './lib/rateLimit';
-import { setCORS, handlePreflight, validateMethod, safeError } from './lib/security';
-import { getSupabase } from './lib/places';
+import { checkRateLimit } from '../lib/rateLimit';
+import { setCORS, handlePreflight, validateMethod, safeError } from '../lib/security';
+import { getSupabase } from '../lib/places';
 
 function hashCourse(course: { steps: { place: { id: string } }[] }): string {
   const key = course.steps.map((s) => s.place.id).join('|');
