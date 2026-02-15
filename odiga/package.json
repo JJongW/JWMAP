@@ -1,6 +1,6 @@
 {
   "name": "odiga",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-powered Korean place & course recommendation CLI — 오늘 어디가?",
   "type": "module",
   "bin": {
