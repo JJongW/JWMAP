@@ -4,8 +4,7 @@
   "packageManager": "npm@10.9.2",
   "workspaces": [
     "admin",
-    "project",
-    "project/backend"
+    "project"
   ],
   "scripts": {
     "dev": "turbo run dev --parallel",

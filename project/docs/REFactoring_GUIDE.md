@@ -115,6 +115,13 @@
 - `src/hooks/useTagSuggestions.ts`: AI 태그 제안 요청 책임 분리
 - `src/components/add-location/*`: 장소추가 UI 섹션 컴포넌트 분리
 
+## backend 제거 결정 (2026-02)
+
+- `project/backend/*`는 MySQL + Express 레거시 서버였고, 현재 서비스 런타임 경로(`project/src`, `project/api`)에서 참조되지 않음을 확인했습니다.
+- 데이터 접근은 Supabase 기반(`src/utils/supabase.ts`, `api/search*`)으로 통일되어 있어 중복 백엔드 유지 이점이 없다고 판단했습니다.
+- 모노레포 루트 워크스페이스에서 `project/backend`를 제거해 `admin` + `project` 2개 패키지로 단순화했습니다.
+- `project` 패키지에서 백엔드 전용 의존성(`mysql2`, `sharp`)도 함께 제거해 의존성 표면을 축소했습니다.
+
 ## 검증 기준
 
 - `npm run build` 통과
