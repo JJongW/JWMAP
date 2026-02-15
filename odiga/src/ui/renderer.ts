@@ -13,9 +13,9 @@ function getDifficultyLabel(difficulty: Difficulty): string {
 
 export function renderHeader(): void {
   console.log();
-  console.log(c.title('  ┌─────────────────────────────────────┐'));
-  console.log(c.title('  │     ') + c.highlight('오디가 odiga') + c.title('  ') + c.subtitle('오늘 어디가?') + c.title('      │'));
-  console.log(c.title('  └─────────────────────────────────────┘'));
+  console.log(c.title('  ┌───────────────────────┐'));
+  console.log(c.title('  │     ') + c.highlight('오늘 오디가?') + c.title('      │'));
+  console.log(c.title('  └───────────────────────┘'));
   console.log();
 }
 
