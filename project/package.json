@@ -13,6 +13,8 @@
   "dependencies": {
     "@langchain/google-genai": "^2.1.7",
     "@supabase/supabase-js": "^2.90.1",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.2",
     "@vercel/node": "^5.5.16",
     "@vercel/speed-insights": "^1.1.0",
     "axios": "^1.7.9",

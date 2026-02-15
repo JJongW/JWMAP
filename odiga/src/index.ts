@@ -1,19 +1,6 @@
 #!/usr/bin/env node
-import { config } from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-config({ path: resolve(__dirname, '..', '.env') });
-
-import { parseIntent } from './flow/intent.js';
-import { applyDefaults } from './flow/questionFlow.js';
-import { queryPlaces } from './db/places.js';
-import { logSearch, getStats } from './db/logs.js';
-import { saveCourse } from './db/savedCourses.js';
-import { scorePlaces } from './engine/scoring.js';
-import { buildCourses } from './engine/courseBuilder.js';
-import { planMode } from './engine/modePlanner.js';
+import { api, ApiError } from './api/client.js';
+import type { ScoredPlace, Course, RecommendResponse } from './api/types.js';
 import {
   renderHeader,
   renderPlaceList,
@@ -30,12 +17,36 @@ import { c } from './ui/colors.js';
 
 const SINGLE_RESULT_COUNT = 5;
 
-async function runSingleMode(rawQuery: string, intent: Awaited<ReturnType<typeof applyDefaults>>, parseErrors: string[]): Promise<void> {
-  const places = await queryPlaces(intent);
-  if (places.length === 0) { renderNoResults(); return; }
+/** Detect region from query using simple regex */
+function detectRegion(query: string): string | undefined {
+  const regions = [
+    '강남', '홍대', '합정', '이태원', '한남', '을지로', '종로', '성수', '건대',
+    '잠실', '여의도', '신촌', '연남', '망원', '마포', '용산', '명동',
+    '서울', '경기', '인천', '부산',
+  ];
+  for (const region of regions) {
+    if (query.includes(region)) return region;
+  }
+  return undefined;
+}
 
-  let scored = scorePlaces(places, intent).slice(0, SINGLE_RESULT_COUNT);
+/** Detect people count from query using simple regex */
+function detectPeopleCount(query: string): number | undefined {
+  const match = query.match(/(\d+)\s*명/);
+  if (match) return parseInt(match[1], 10);
+  if (query.includes('혼자') || query.includes('혼밥') || query.includes('혼술')) return 1;
+  if (query.includes('데이트') || query.includes('둘이')) return 2;
+  return undefined;
+}
+
+async function runSingleMode(
+  rawQuery: string,
+  response: RecommendResponse,
+): Promise<void> {
+  let scored = response.places.slice(0, SINGLE_RESULT_COUNT);
   let regenerateCount = 0;
+
+  if (scored.length === 0) { renderNoResults(); return; }
 
   while (true) {
     renderPlaceList(scored);
@@ -44,8 +55,7 @@ async function runSingleMode(rawQuery: string, intent: Awaited<ReturnType<typeof
 
     if (choice === 'r') {
       regenerateCount++;
-      const allScored = scorePlaces(places, intent);
-      scored = [...allScored].sort(() => Math.random() - 0.5).slice(0, SINGLE_RESULT_COUNT);
+      scored = [...response.places].sort(() => Math.random() - 0.5).slice(0, SINGLE_RESULT_COUNT);
       continue;
     }
 
@@ -57,29 +67,27 @@ async function runSingleMode(rawQuery: string, intent: Awaited<ReturnType<typeof
 
     renderPlaceDetail(selected);
 
-    try {
-      await logSearch({
-        rawQuery, intent, mode: 'single', parseErrors,
-        selectedPlaceId: selected.id,
-        selectedPlaceName: selected.name,
-        regenerateCount,
-      });
-    } catch { /* silent */ }
+    logSilent({
+      rawQuery,
+      intent: response.intent,
+      mode: 'single',
+      parseErrors: response.parseErrors,
+      selectedPlaceId: selected.id,
+      selectedPlaceName: selected.name,
+      regenerateCount,
+    });
     break;
   }
 }
 
-async function runCourseMode(rawQuery: string, intent: Awaited<ReturnType<typeof applyDefaults>>, parseErrors: string[]): Promise<void> {
-  const modeConfig = planMode(intent.people_count!, intent.mode);
-
-  const places = await queryPlaces(intent);
-  if (places.length === 0) { renderNoResults(); return; }
-
-  const scored = scorePlaces(places, intent);
-  let courses = buildCourses(scored, modeConfig, intent.vibe);
+async function runCourseMode(
+  rawQuery: string,
+  response: RecommendResponse,
+): Promise<void> {
+  let courses = response.courses;
   if (courses.length === 0) { renderNoResults(); return; }
 
-  let selectedCourse = null;
+  let selectedCourse: Course | null = null;
   let regenerateCount = 0;
 
   while (true) {
@@ -89,13 +97,24 @@ async function runCourseMode(rawQuery: string, intent: Awaited<ReturnType<typeof
 
     if (choice === 'r') {
       regenerateCount++;
-      const shuffled = [...scored].sort(() => Math.random() - 0.5);
-      courses = buildCourses(shuffled, modeConfig, intent.vibe);
-      if (courses.length === 0) { renderNoResults(); return; }
+      // Re-fetch with same query for fresh results
+      try {
+        const newResponse = await api.recommend({
+          query: rawQuery,
+          region: response.intent.region || undefined,
+          people_count: response.intent.people_count || undefined,
+          response_type: 'course',
+        });
+        courses = newResponse.courses;
+        if (courses.length === 0) { renderNoResults(); return; }
+      } catch {
+        // On error, shuffle existing courses
+        courses = [...courses].sort(() => Math.random() - 0.5);
+      }
       continue;
     }
 
-    selectedCourse = courses.find((co) => co.id === choice);
+    selectedCourse = courses.find((co) => co.id === choice) || null;
     if (!selectedCourse) {
       console.log(c.warn('  잘못된 선택입니다.'));
       continue;
@@ -103,25 +122,53 @@ async function runCourseMode(rawQuery: string, intent: Awaited<ReturnType<typeof
     break;
   }
 
-  renderCourseDetail(selectedCourse);
+  renderCourseDetail(selectedCourse!);
 
   const wantSave = await confirmSave();
   if (wantSave) {
     try {
-      const hash = await saveCourse(selectedCourse);
-      renderSaved(hash);
+      const { course_hash } = await api.saveCourse({ course: selectedCourse! });
+      renderSaved(course_hash);
     } catch (err) {
       console.log(c.error(`  저장 실패: ${err instanceof Error ? err.message : err}`));
     }
   }
 
-  try {
-    await logSearch({
-      rawQuery, intent, mode: modeConfig.mode, parseErrors,
-      selectedCourse,
-      regenerateCount,
-    });
-  } catch { /* silent */ }
+  logSilent({
+    rawQuery,
+    intent: response.intent,
+    mode: selectedCourse!.mode,
+    parseErrors: response.parseErrors,
+    selectedCourse,
+    regenerateCount,
+  });
+}
+
+function logSilent(params: {
+  rawQuery: string;
+  intent: RecommendResponse['intent'];
+  mode: string;
+  parseErrors: string[];
+  selectedCourse?: Course | null;
+  selectedPlaceId?: string;
+  selectedPlaceName?: string;
+  regenerateCount?: number;
+}): void {
+  api.log({
+    raw_query: params.rawQuery,
+    region: params.intent.region,
+    vibe: params.intent.vibe,
+    people_count: params.intent.people_count,
+    mode: params.mode,
+    season: params.intent.season,
+    activity_type: params.intent.activity_type,
+    response_type: params.intent.response_type,
+    selected_course: params.selectedCourse || null,
+    selected_place_id: params.selectedPlaceId || null,
+    selected_place_name: params.selectedPlaceName || null,
+    regenerate_count: params.regenerateCount || 0,
+    parse_error_fields: params.parseErrors,
+  }).catch(() => { /* silent */ });
 }
 
 async function runSearch(rawQuery: string): Promise<void> {
@@ -129,17 +176,32 @@ async function runSearch(rawQuery: string): Promise<void> {
   console.log(c.dim(`  ${c.emoji.search}  "${query}" 분석 중...`));
   console.log();
 
-  const { intent: rawIntent, parseErrors } = await parseIntent(query);
-  const intent = await applyDefaults(rawIntent, parseErrors);
+  const region = detectRegion(query);
+  const people_count = detectPeopleCount(query);
 
-  const typeLabel = intent.response_type === 'course' ? '코스' : '장소';
-  console.log(c.dim(`  ${typeLabel} 추천 | 지역: ${intent.region} | 시즌: ${intent.season}`));
+  const response = await api.recommend({
+    query,
+    region,
+    people_count,
+  });
+
+  const typeLabel = response.type === 'course' ? '코스' : '장소';
+  console.log(c.dim(`  ${typeLabel} 추천 | 지역: ${response.intent.region} | 시즌: ${response.intent.season}`));
   console.log();
 
-  if (intent.response_type === 'course') {
-    await runCourseMode(query, intent, parseErrors);
+  if (response.type === 'course') {
+    await runCourseMode(query, response);
   } else {
-    await runSingleMode(query, intent, parseErrors);
+    await runSingleMode(query, response);
+  }
+}
+
+async function runStats(): Promise<void> {
+  try {
+    const stats = await api.stats();
+    renderStats(stats);
+  } catch (err) {
+    console.log(c.error(`  통계 조회 실패: ${err instanceof Error ? err.message : err}`));
   }
 }
 
@@ -167,16 +229,11 @@ async function main(): Promise<void> {
   await runSearch(query);
 }
 
-async function runStats(): Promise<void> {
-  try {
-    const stats = await getStats();
-    renderStats(stats);
-  } catch (err) {
-    console.log(c.error(`  통계 조회 실패: ${err instanceof Error ? err.message : err}`));
-  }
-}
-
 main().catch((err) => {
-  console.error(c.error(`\n  오류가 발생했어요: ${err.message}\n`));
+  if (err instanceof ApiError) {
+    console.error(c.error(`\n  ${err.message}\n`));
+  } else {
+    console.error(c.error(`\n  오류가 발생했어요: ${err.message}\n`));
+  }
   process.exit(1);
 });

@@ -1,5 +1,5 @@
-import { getSupabase } from './supabase.js';
-import type { ParsedIntent } from '../flow/intent.js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { ParsedIntent } from './intent';
 
 export interface Place {
   id: string;
@@ -23,15 +23,23 @@ export interface Place {
   kakao_place_id?: string;
 }
 
-// "맛집", "추천" 등 카테고리가 아닌 일반 키워드
-const GENERIC_ACTIVITY_TYPES = ['맛집', '추천', '밥', '식사', '먹을곳', '음식점', '산책', '놀곳'];
+let _supabase: SupabaseClient | null = null;
+function getSupabase(): SupabaseClient {
+  if (_supabase) return _supabase;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  if (!url || !key) {
+    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY');
+  }
+  _supabase = createClient(url, key);
+  return _supabase;
+}
 
-// DB category_main에 실제로 존재하는 값들
+const GENERIC_ACTIVITY_TYPES = ['맛집', '추천', '밥', '식사', '먹을곳', '음식점', '산책', '놀곳'];
 const VALID_CATEGORIES = ['밥', '면', '국물', '고기요리', '해산물', '간편식', '양식·퓨전', '디저트', '카페', '술안주'];
 
 function isSpecificCategory(activityType: string): boolean {
   if (GENERIC_ACTIVITY_TYPES.includes(activityType)) return false;
-  // 정확한 카테고리이거나, 카테고리에 포함되는 키워드인지 확인
   return VALID_CATEGORIES.some((cat) => cat.includes(activityType) || activityType.includes(cat));
 }
 
@@ -42,12 +50,10 @@ export async function queryPlaces(intent: ParsedIntent): Promise<Place[]> {
     query = query.or(`region.ilike.%${intent.region}%,province.ilike.%${intent.region}%,sub_region.ilike.%${intent.region}%`);
   }
 
-  // 구체적인 카테고리일 때만 필터링 (맛집, 추천 등 일반 키워드는 무시)
   if (intent.activity_type && isSpecificCategory(intent.activity_type)) {
     query = query.or(`category_main.ilike.%${intent.activity_type}%,category_sub.ilike.%${intent.activity_type}%`);
   }
 
-  // 카페 제외: 점심/저녁 식사 맥락에서 카페 제외
   const mealContexts = ['점심', '저녁', '식사', '밥'];
   const isMealContext = mealContexts.some((ctx) =>
     intent.special_context?.includes(ctx) || intent.vibe.some((v) => v.includes(ctx))
@@ -66,3 +72,5 @@ export async function queryPlaces(intent: ParsedIntent): Promise<Place[]> {
 
   return (data || []) as Place[];
 }
+
+export { getSupabase };

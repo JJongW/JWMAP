@@ -1,4 +1,4 @@
-import { SEASONAL_ADJUSTMENTS } from '../config/scoring.config.js';
+import { SEASONAL_ADJUSTMENTS } from './scoringConfig';
 
 export function getSeasonBoost(season: string | null, vibes: string[], activity: string | null): number {
   if (!season) return 0;
@@ -22,4 +22,12 @@ export function getSeasonBoost(season: string | null, vibes: string[], activity:
   }
 
   return Math.max(-0.3, Math.min(0.3, boost));
+}
+
+export function detectCurrentSeason(): string {
+  const month = new Date().getMonth() + 1;
+  if (month >= 3 && month <= 5) return '봄';
+  if (month >= 6 && month <= 8) return '여름';
+  if (month >= 9 && month <= 11) return '가을';
+  return '겨울';
 }

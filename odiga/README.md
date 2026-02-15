@@ -2,69 +2,22 @@
 
 AI 기반 맛집/장소 추천 & 코스 플래닝 CLI 도구.
 
-자연어로 검색하면 Gemini가 의도를 파악하고, Supabase DB에서 장소를 찾아 스코어링 기반으로 추천합니다.
+자연어로 검색하면 서버의 Gemini가 의도를 파악하고, 장소를 찾아 스코어링 기반으로 추천합니다.
+**.env 설정 불필요** — 설치 후 바로 사용 가능!
 
 ## 기능
 
 - **장소 추천** — "오늘 점심 뭐 먹을까?", "홍대 감성 카페"
 - **코스 추천** — "강남 데이트 코스 짜줘", "혼자 산책 코스"
-- **대화형 입력** — 지역, 인원 등 누락된 정보를 대화로 보완
 - **통계 대시보드** — 검색 패턴, 인기 지역, 시간대별 분석
 
 ## 설치
 
-> odiga는 npm에 퍼블리시되어 있지 않습니다. 소스에서 직접 설치합니다.
-
-### 요구 사항
-
-- Node.js >= 18
-- Supabase 프로젝트 (locations 테이블 필요)
-- Google API Key (Gemini)
-
-### 1. 클론 및 빌드
-
 ```bash
-git clone https://github.com/your-repo/JWMAP.git
-cd JWMAP/odiga
-npm install
-npm run build
+npm install -g odiga
 ```
 
-### 2. 환경 변수 설정
-
-```bash
-cp .env.example .env
-```
-
-`.env` 파일을 열어 값을 채워주세요:
-
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your-service-role-key
-GOOGLE_API_KEY=your-google-api-key
-DEFAULT_REGION=서울
-```
-
-### 3. DB 마이그레이션
-
-Supabase SQL Editor에서 아래 파일을 순서대로 실행:
-
-1. `supabase/migrations/20260215_create_odiga_tables.sql`
-2. `supabase/migrations/20260215_02_add_analytics_columns.sql`
-
-### 4. 글로벌 CLI 등록
-
-```bash
-npm link
-```
-
-이제 어디서든 `odiga` 명령어를 사용할 수 있습니다.
-
-등록 해제:
-
-```bash
-npm unlink -g odiga
-```
+요구 사항: Node.js >= 18
 
 ## 사용법
 
@@ -114,17 +67,30 @@ odiga stats
 ? 어떤 코스로 가볼까요?
 ```
 
+## 아키텍처
+
+```
+CLI (npm package)  →  HTTP  →  Vercel Serverless API  →  Supabase + Gemini
+```
+
+CLI는 공개 API 서버(`jwmap.vercel.app/api/odiga/`)와 통신합니다.
+API 키나 DB 설정 없이 `npm install -g odiga` 한 번이면 됩니다.
+
+### 환경 변수 (선택)
+
+```bash
+# API URL을 오버라이드하려면 (개발/셀프호스팅)
+ODIGA_API_URL=http://localhost:5173/api/odiga
+```
+
 ## 개발
 
 ```bash
-# 개발 모드 (tsx로 직접 실행)
-npm run dev -- "검색어"
-
-# 빌드
-npm run build
-
-# 빌드 후 실행
-npm start -- "검색어"
+cd odiga
+npm install
+npm run dev -- "검색어"    # tsx로 직접 실행
+npm run build              # 빌드
+npm start -- "검색어"      # 빌드 후 실행
 ```
 
 ## 프로젝트 구조
@@ -133,40 +99,32 @@ npm start -- "검색어"
 odiga/
 ├── src/
 │   ├── index.ts              # CLI 진입점
-│   ├── flow/
-│   │   ├── intent.ts         # Gemini 의도 파싱
-│   │   └── questionFlow.ts   # 대화형 질문
-│   ├── engine/
-│   │   ├── scoring.ts        # 장소 스코어링
-│   │   ├── courseBuilder.ts   # 코스 생성
-│   │   ├── modePlanner.ts    # 모드별 설정
-│   │   ├── distance.ts       # Haversine 거리 계산
-│   │   ├── difficulty.ts     # 난이도 판정
-│   │   └── season.ts         # 시즌 감지
-│   ├── db/
-│   │   ├── supabase.ts       # Supabase 클라이언트
-│   │   ├── places.ts         # 장소 쿼리
-│   │   ├── logs.ts           # 검색 로그 & 통계
-│   │   └── savedCourses.ts   # 코스 저장
+│   ├── api/
+│   │   ├── client.ts         # HTTP API 클라이언트
+│   │   └── types.ts          # 요청/응답 타입
 │   ├── ui/
 │   │   ├── renderer.ts       # CLI 출력
 │   │   ├── prompts.ts        # 사용자 입력
 │   │   └── colors.ts         # 색상 테마
-│   ├── utils/
-│   │   ├── mapLink.ts        # 네이버/카카오 딥링크
-│   │   └── validators.ts     # 입력 검증
-│   └── config/
-│       └── scoring.config.ts # 스코어링 가중치
-├── supabase/
-│   └── migrations/           # DB 마이그레이션 SQL
+│   └── utils/
+│       ├── mapLink.ts        # 네이버/카카오 딥링크
+│       └── validators.ts     # 입력 검증
 ├── .env.example
 ├── package.json
 └── tsconfig.json
 ```
 
+## API 엔드포인트
+
+| 엔드포인트 | Method | Rate Limit | 용도 |
+|---|---|---|---|
+| `/api/odiga/recommend` | POST | 5/min, 100/day | 메인 추천 파이프라인 |
+| `/api/odiga/log` | POST | 10/min | 검색 로그 기록 |
+| `/api/odiga/stats` | GET | 3/min | 통계 조회 |
+| `/api/odiga/save-course` | POST | 5/min | 코스 저장 |
+
 ## 기술 스택
 
-- **LLM**: Google Gemini (gemini-2.0-flash) via LangChain
-- **DB**: Supabase (PostgreSQL)
+- **API**: Vercel Serverless + Google Gemini + Supabase
 - **CLI**: Enquirer (대화형 프롬프트), Chalk (컬러 출력)
 - **Language**: TypeScript, Node.js ESM

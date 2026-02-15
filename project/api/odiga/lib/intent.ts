@@ -1,5 +1,7 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { HumanMessage } from '@langchain/core/messages';
+import { detectCurrentSeason } from './season';
+import { getModeFromPeopleCount } from './scoringConfig';
 
 export type ResponseType = 'single' | 'course';
 
@@ -23,14 +25,14 @@ The user might want:
 
 Return ONLY valid JSON with this exact schema:
 {
-  "response_type": "single" | "course",  // "single" = 장소 하나 추천, "course" = 여러 장소 코스
-  "region": string | null,               // 지역 (e.g. "홍대", "강남", "을지로")
-  "vibe": string[],                      // 분위기 키워드 (e.g. ["감성", "레트로", "조용한"])
-  "activity_type": string | null,        // 카테고리 (e.g. "카페", "맛집", "밥", "면", "술안주", "디저트", "산책")
-  "people_count": number | null,         // 인원수
-  "season": string | null,               // 계절 ("봄", "여름", "가을", "겨울") or null
-  "mode": string | null,                 // 모드 ("solo", "date", "group", "party") or null
-  "special_context": string | null       // 특수 맥락 (e.g. "생일", "기념일", "소개팅", "점심", "저녁")
+  "response_type": "single" | "course",
+  "region": string | null,
+  "vibe": string[],
+  "activity_type": string | null,
+  "people_count": number | null,
+  "season": string | null,
+  "mode": string | null,
+  "special_context": string | null
 }
 
 Rules:
@@ -49,7 +51,7 @@ Rules:
 function getLLM(): ChatGoogleGenerativeAI {
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
-    throw new Error('Missing GOOGLE_API_KEY in environment.');
+    throw new Error('Missing GOOGLE_API_KEY');
   }
   return new ChatGoogleGenerativeAI({
     model: 'gemini-2.0-flash',
@@ -83,7 +85,6 @@ export async function parseIntent(query: string): Promise<IntentResult> {
     let content = typeof response.content === 'string' ? response.content : '';
     content = content.trim();
 
-    // Strip ```json fences
     const fenceMatch = content.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
     if (fenceMatch) {
       content = fenceMatch[1].trim();
@@ -108,11 +109,7 @@ export async function parseIntent(query: string): Promise<IntentResult> {
     };
 
     const parseErrors: string[] = [];
-
-    if (!intent.region) {
-      parseErrors.push('region');
-    }
-    // people_count는 single 모드에서는 필수가 아님
+    if (!intent.region) parseErrors.push('region');
     if (!intent.people_count && intent.response_type === 'course') {
       parseErrors.push('people_count');
     }
@@ -122,11 +119,54 @@ export async function parseIntent(query: string): Promise<IntentResult> {
     const msg = error instanceof Error ? error.message : String(error);
     console.error('Intent parsing failed:', msg);
     return {
-      intent: {
-        ...defaultIntent,
-        region: process.env.DEFAULT_REGION || '서울',
-      },
+      intent: { ...defaultIntent, region: '서울' },
       parseErrors: ['llm_call_failed'],
     };
   }
+}
+
+/**
+ * Apply server-side defaults (no interactive prompts).
+ * Client can override region/people_count via request body.
+ */
+export function applyServerDefaults(
+  intent: ParsedIntent,
+  overrides: {
+    region?: string | null;
+    people_count?: number | null;
+    mode?: string | null;
+    response_type?: ResponseType | null;
+  },
+): ParsedIntent {
+  const result = { ...intent };
+
+  if (overrides.region) {
+    result.region = overrides.region;
+  } else if (!result.region) {
+    result.region = '서울';
+  }
+
+  if (overrides.response_type) {
+    result.response_type = overrides.response_type;
+  }
+
+  if (overrides.people_count) {
+    result.people_count = overrides.people_count;
+  }
+
+  if (result.response_type === 'course') {
+    if (!result.people_count) result.people_count = 2;
+    if (!result.mode) {
+      result.mode = overrides.mode || getModeFromPeopleCount(result.people_count);
+    }
+  } else {
+    if (!result.people_count) result.people_count = 1;
+    if (!result.mode) result.mode = overrides.mode || 'solo';
+  }
+
+  if (!result.season) {
+    result.season = detectCurrentSeason();
+  }
+
+  return result;
 }

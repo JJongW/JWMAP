@@ -1,23 +1,38 @@
 {
   "name": "odiga",
-  "version": "0.1.0",
-  "description": "AI-powered place & course recommendation CLI",
+  "version": "1.0.0",
+  "description": "AI-powered Korean place & course recommendation CLI — 오늘 어디가?",
   "type": "module",
   "bin": {
     "odiga": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "eslint src/"
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "korean",
+    "restaurant",
+    "recommendation",
+    "food",
+    "cli",
+    "course",
+    "seoul",
+    "맛집",
+    "추천"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ted-urssu/JWMAP"
   },
   "dependencies": {
-    "@langchain/core": "^0.3.0",
-    "@langchain/google-genai": "^0.1.0",
-    "@supabase/supabase-js": "^2.95.3",
     "chalk": "^5.4.1",
-    "dotenv": "^16.4.7",
     "enquirer": "^2.4.1"
   },
   "devDependencies": {

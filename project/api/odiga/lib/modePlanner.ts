@@ -1,4 +1,4 @@
-import { MODE_STEP_MAP, getModeFromPeopleCount } from '../config/scoring.config.js';
+import { MODE_STEP_MAP, getModeFromPeopleCount } from './scoringConfig';
 
 export interface ModeConfig {
   mode: string;

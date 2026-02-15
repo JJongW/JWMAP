@@ -1,12 +1,12 @@
-import type { ScoredPlace } from './scoring.js';
-import type { ModeConfig } from './modePlanner.js';
-import { walkingDistance } from './distance.js';
-import { getDifficulty, type Difficulty } from './difficulty.js';
+import type { ScoredPlace } from './scoring';
+import type { ModeConfig } from './modePlanner';
+import { walkingDistance } from './distance';
+import { getDifficulty, type Difficulty } from './difficulty';
 
 export interface CourseStep {
   label: string;
   place: ScoredPlace;
-  distanceFromPrev: number | null; // meters, null for first step
+  distanceFromPrev: number | null;
 }
 
 export interface Course {
@@ -19,11 +19,6 @@ export interface Course {
   totalScore: number;
 }
 
-/**
- * Build N course options from scored places.
- * Uses a greedy diverse-pick strategy: for each course,
- * pick top places that are spread apart to avoid clustering.
- */
 export function buildCourses(
   scoredPlaces: ScoredPlace[],
   modeConfig: ModeConfig,
@@ -81,7 +76,7 @@ function pickDiverseSteps(
       const candidate = candidates[i];
       const tooClose = picked.some((p) => {
         const dist = walkingDistance(p.lat, p.lon, candidate.lat, candidate.lon);
-        return dist < 100; // skip if < 100m (same building)
+        return dist < 100;
       });
 
       if (!tooClose) {

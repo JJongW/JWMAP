@@ -1,9 +1,15 @@
 import { c } from './colors.js';
-import type { Course } from '../engine/courseBuilder.js';
-import type { ScoredPlace } from '../engine/scoring.js';
-import type { StatsResult } from '../db/logs.js';
-import { getDifficultyLabel } from '../engine/difficulty.js';
+import type { Course, ScoredPlace, Difficulty } from '../api/types.js';
+import type { StatsResult } from '../api/types.js';
 import { naverMapLink, kakaoMapLink } from '../utils/mapLink.js';
+
+function getDifficultyLabel(difficulty: Difficulty): string {
+  switch (difficulty) {
+    case '★☆☆': return '쉬움';
+    case '★★☆': return '보통';
+    case '★★★': return '도전';
+  }
+}
 
 export function renderHeader(): void {
   console.log();
@@ -157,7 +163,6 @@ export function renderStats(stats: StatsResult): void {
   console.log(c.highlight(`  총 검색: ${stats.totalSearches}회`));
   console.log();
 
-  // 인기 지역
   if (stats.topRegions.length > 0) {
     console.log(c.subtitle('  인기 지역 TOP 5:'));
     for (const r of stats.topRegions) {
@@ -167,7 +172,6 @@ export function renderStats(stats: StatsResult): void {
     console.log();
   }
 
-  // 응답 타입 분포
   if (stats.responseTypeDistribution.length > 0) {
     console.log(c.subtitle('  응답 타입:'));
     for (const r of stats.responseTypeDistribution) {
@@ -177,7 +181,6 @@ export function renderStats(stats: StatsResult): void {
     console.log();
   }
 
-  // 모드 분포
   if (stats.modeDistribution.length > 0) {
     console.log(c.subtitle('  모드 분포:'));
     for (const m of stats.modeDistribution) {
@@ -186,7 +189,6 @@ export function renderStats(stats: StatsResult): void {
     console.log();
   }
 
-  // 인기 활동 타입
   if (stats.topActivityTypes.length > 0) {
     console.log(c.subtitle('  인기 활동 TOP 5:'));
     for (const a of stats.topActivityTypes) {
@@ -195,7 +197,6 @@ export function renderStats(stats: StatsResult): void {
     console.log();
   }
 
-  // 인기 분위기
   if (stats.topVibes.length > 0) {
     console.log(c.subtitle('  인기 분위기 TOP 10:'));
     for (const v of stats.topVibes) {
@@ -204,7 +205,6 @@ export function renderStats(stats: StatsResult): void {
     console.log();
   }
 
-  // 인기 선택 장소
   if (stats.topSelectedPlaces.length > 0) {
     console.log(c.subtitle('  가장 많이 선택된 장소:'));
     for (const p of stats.topSelectedPlaces) {
@@ -213,7 +213,6 @@ export function renderStats(stats: StatsResult): void {
     console.log();
   }
 
-  // 시즌 분포
   if (stats.seasonDistribution.length > 0) {
     console.log(c.subtitle('  시즌 분포:'));
     for (const s of stats.seasonDistribution) {
@@ -222,7 +221,6 @@ export function renderStats(stats: StatsResult): void {
     console.log();
   }
 
-  // 시간대 분포
   if (stats.hourDistribution.length > 0) {
     console.log(c.subtitle('  시간대별 검색:'));
     const maxCount = Math.max(...stats.hourDistribution.map((h) => h.count));
@@ -233,7 +231,6 @@ export function renderStats(stats: StatsResult): void {
     console.log();
   }
 
-  // 평일/주말
   const { weekday, weekend } = stats.weekdayVsWeekend;
   if (weekday + weekend > 0) {
     console.log(c.subtitle('  평일 vs 주말:'));
@@ -242,7 +239,6 @@ export function renderStats(stats: StatsResult): void {
     console.log();
   }
 
-  // 기타 지표
   console.log(c.subtitle('  기타 지표:'));
   console.log(`    파싱 오류율:     ${(stats.parseErrorRate * 100).toFixed(1)}%`);
   console.log(`    평균 재추천 횟수: ${stats.avgRegenerateCount.toFixed(1)}회`);

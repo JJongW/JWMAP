@@ -1,7 +1,7 @@
-import type { Place } from '../db/places.js';
-import type { ParsedIntent } from '../flow/intent.js';
-import { DEFAULT_WEIGHTS, type ScoringWeights } from '../config/scoring.config.js';
-import { getSeasonBoost } from './season.js';
+import type { Place } from './places';
+import type { ParsedIntent } from './intent';
+import { DEFAULT_WEIGHTS, type ScoringWeights } from './scoringConfig';
+import { getSeasonBoost } from './season';
 
 export interface ScoredPlace extends Place {
   score: number;
@@ -73,7 +73,7 @@ export function scorePlaces(
 
       const score =
         vibe * weights.vibeMatch +
-        0.5 * weights.distance + // distance scored later in courseBuilder
+        0.5 * weights.distance +
         jjeop * weights.jjeopLevel +
         popularity * weights.popularity +
         (0.5 + season) * weights.season +
