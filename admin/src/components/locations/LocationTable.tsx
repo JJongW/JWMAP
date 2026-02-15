@@ -11,12 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
 import { InlinePriceLevelCell } from './InlinePriceLevelCell';
 import { InlineCurationLevelCell } from './InlineCurationLevelCell';
 import { InlineTagsCell } from './InlineTagsCell';
+import { InlineCategoryCell } from './InlineCategoryCell';
 
 interface Props {
   locations: Location[];
@@ -27,6 +27,7 @@ interface Props {
   locationTagsByLocId: Record<string, LocationTag[]>;
   basePath?: string;
   tagDomain?: 'food' | 'space';
+  domain?: 'locations' | 'attractions';
 }
 
 export function LocationTable({
@@ -38,6 +39,7 @@ export function LocationTable({
   locationTagsByLocId,
   basePath = '/locations',
   tagDomain = 'food',
+  domain = basePath === '/attractions' ? 'attractions' : 'locations',
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -82,12 +84,7 @@ export function LocationTable({
                 </TableCell>
                 <TableCell className="text-muted-foreground">{loc.region}</TableCell>
                 <TableCell>
-                  {loc.category_main && (
-                    <Badge variant="secondary">{loc.category_main}</Badge>
-                  )}
-                  {loc.category_sub && (
-                    <Badge variant="outline" className="ml-1">{loc.category_sub}</Badge>
-                  )}
+                  <InlineCategoryCell location={loc} domain={domain} />
                 </TableCell>
                 <TableCell className="text-center">
                   <InlinePriceLevelCell location={loc} />

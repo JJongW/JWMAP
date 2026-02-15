@@ -62,12 +62,17 @@ const NAVER_PLACE_RE = /\/place\/(\d{4,})/i;
 function parseLine(line) {
   const l = line.trim();
   if (!l || l.startsWith('#')) return null;
-  if (l.startsWith('http')) {
-    if (KAKAO_PLACE_RE.test(l)) return { type: 'kakao', url: l, id: l.match(KAKAO_PLACE_RE)?.[1] };
-    if (l.includes('naver') && NAVER_PLACE_RE.test(l)) return { type: 'naver', url: l, id: l.match(NAVER_PLACE_RE)?.[1] };
-    return null;
+  // URL 추출 (줄에 URL이 있으면 우선 사용)
+  const urlMatch = l.match(/(https?:\/\/[^\s]+)/);
+  const url = urlMatch?.[1]?.replace(/[,)\]]+$/, '') ?? null;
+  if (url) {
+    if (KAKAO_PLACE_RE.test(url)) return { type: 'kakao', url, id: url.match(KAKAO_PLACE_RE)?.[1] };
+    if (url.includes('naver') && NAVER_PLACE_RE.test(url)) return { type: 'naver', url, id: url.match(NAVER_PLACE_RE)?.[1] };
   }
-  return { type: 'name', query: l };
+  // URL 없으면 장소명으로 검색 (공백 앞부분만 사용)
+  const nameOnly = l.replace(/\s+https?:\/\/.*$/, '').trim() || l.trim();
+  if (nameOnly) return { type: 'name', query: nameOnly };
+  return null;
 }
 
 const DISTRICT_MAPS = {
