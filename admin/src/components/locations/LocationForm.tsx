@@ -10,6 +10,7 @@ import { updateLocation, createLocation } from '@/lib/queries/locations';
 import { updateLocationTags } from '@/lib/queries/tags';
 import { locationFormSchema, type LocationFormValues } from '@/schemas/location';
 import { mapKakaoCategoryByDomain, extractRegionFromAddress } from '@/lib/mappings';
+import { parseMapClipboard } from '@/lib/mapClipboardParser';
 import type { Location } from '@/types';
 import { PlaceSearch, type PlaceResult } from './PlaceSearch';
 import { ImageUpload } from './ImageUpload';
@@ -77,9 +78,8 @@ export function LocationForm({
   const router = useRouter();
   const firstErrorRef = useRef<HTMLFormElement>(null);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<LocationFormValues>({
-    resolver: zodResolver(locationFormSchema) as any,
+    resolver: zodResolver(locationFormSchema),
     defaultValues: location
       ? {
           name: location.name,
@@ -138,6 +138,7 @@ export function LocationForm({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(() =>
     locationTags.map((lt) => lt.tag_id)
   );
+  const [rawMapText, setRawMapText] = useState('');
 
   // Scroll to first error on submit
   useEffect(() => {
@@ -214,6 +215,64 @@ export function LocationForm({
     });
   }
 
+  function applyClipboardAssist() {
+    const parsed = parseMapClipboard(rawMapText);
+    const applied: string[] = [];
+
+    if (parsed.name) {
+      setValue('name', parsed.name, { shouldValidate: true });
+      applied.push('장소명');
+    }
+    if (parsed.address) {
+      setValue('address', parsed.address, { shouldValidate: true });
+      applied.push('주소');
+
+      const regionResult = extractRegionFromAddress(parsed.address);
+      if (regionResult?.region) {
+        setValue('region', regionResult.region, { shouldValidate: true });
+        applied.push('지역');
+      }
+      if (regionResult?.sub_region) {
+        setValue('sub_region', regionResult.sub_region);
+        applied.push('세부 지역');
+      }
+    }
+    if (typeof parsed.lat === 'number') {
+      setValue('lat', parsed.lat, { shouldValidate: true });
+      applied.push('위도');
+    }
+    if (typeof parsed.lon === 'number') {
+      setValue('lon', parsed.lon, { shouldValidate: true });
+      applied.push('경도');
+    }
+    if (parsed.kakao_place_id) {
+      setValue('kakao_place_id', parsed.kakao_place_id);
+      applied.push('카카오 Place ID');
+    }
+    if (parsed.naver_place_id) {
+      setValue('naver_place_id', parsed.naver_place_id);
+      applied.push('네이버 Place ID');
+    }
+    if (parsed.categoryHint) {
+      const mapped = mapKakaoCategoryByDomain(parsed.categoryHint, domain);
+      if (mapped.main) {
+        setValue('category_main', mapped.main);
+        applied.push('카테고리 대분류');
+      }
+      if (mapped.sub) {
+        setValue('category_sub', mapped.sub);
+        applied.push('카테고리 소분류');
+      }
+    }
+
+    if (applied.length === 0) {
+      toast.info('추출 가능한 값이 없습니다. 링크/텍스트 형식을 확인해주세요.');
+      return;
+    }
+
+    toast.success(`빠른 입력 적용 완료: ${applied.join(', ')}`);
+  }
+
   // Helper: border color for fields with errors
   function fieldBorder(fieldName: keyof LocationFormValues) {
     return errors[fieldName] ? 'border-red-500 focus-visible:ring-red-500' : '';
@@ -264,6 +323,35 @@ export function LocationForm({
                 선택됨: {watch('name')} — {watch('address')}
               </p>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Clipboard assist */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">빠른 입력 보조 (지도 즐겨찾기 복붙)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              카카오맵/네이버지도에서 복사한 텍스트나 링크를 붙여넣으면 장소명, 주소, 좌표, Place ID를 자동으로 채웁니다.
+            </p>
+            <Textarea
+              value={rawMapText}
+              onChange={(e) => setRawMapText(e.target.value)}
+              className="min-h-[96px]"
+              placeholder="예) 장소명, 주소, 링크(https://map.kakao.com/... 또는 https://map.naver.com/...)"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="secondary" onClick={applyClipboardAssist}>
+                복붙 내용 반영
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setRawMapText('')}>
+                입력 지우기
+              </Button>
+            </div>
+            <p className="text-xs text-amber-700">
+              안내: 자동 추출은 보조 기능입니다. 저장 전 카테고리/좌표/주소를 반드시 확인해주세요.
+            </p>
           </CardContent>
         </Card>
 
