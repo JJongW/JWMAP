@@ -7,7 +7,7 @@ import type {
   SaveCourseResponse,
 } from './types.js';
 
-const API_BASE = process.env.ODIGA_API_URL || 'https://odiga-api.vercel.app/api';
+const API_BASE = process.env.ODIGA_API_URL || 'https://odiga.vercel.app/api';
 
 class ApiError extends Error {
   constructor(public status: number, message: string) {
