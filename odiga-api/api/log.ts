@@ -31,6 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     selected_place_name,
     regenerate_count,
     parse_error_fields,
+    user_feedbacks,
   } = req.body || {};
 
   const query = sanitizeQuery(raw_query);
@@ -53,6 +54,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       selected_place_name: typeof selected_place_name === 'string' ? selected_place_name : null,
       regenerate_count: typeof regenerate_count === 'number' ? regenerate_count : 0,
       parse_error_fields: Array.isArray(parse_error_fields) ? parse_error_fields : [],
+      user_feedbacks: Array.isArray(user_feedbacks)
+        ? user_feedbacks.filter((f: unknown) => typeof f === 'string')
+        : [],
       created_at: new Date().toISOString(),
     };
 

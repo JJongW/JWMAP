@@ -47,6 +47,16 @@ export async function confirmSave(): Promise<boolean> {
   return save;
 }
 
+export async function askFeedback(): Promise<string> {
+  const { feedback } = await (Enquirer as any).prompt({
+    type: 'input',
+    name: 'feedback',
+    message: '어떤 점이 마음에 안 들었나요? (Enter로 건너뛰기)',
+  });
+
+  return (feedback || '').trim();
+}
+
 export async function confirmStory(): Promise<boolean> {
   const { story } = await (Enquirer as any).prompt({
     type: 'confirm',

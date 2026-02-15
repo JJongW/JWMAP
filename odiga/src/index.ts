@@ -11,7 +11,7 @@ import {
   renderNoResults,
   renderSaved,
 } from './ui/renderer.js';
-import { selectPlace, selectCourse, confirmSave } from './ui/prompts.js';
+import { selectPlace, selectCourse, confirmSave, askFeedback } from './ui/prompts.js';
 import { sanitizeQuery } from './utils/validators.js';
 import { c } from './ui/colors.js';
 
@@ -45,6 +45,7 @@ async function runSingleMode(
 ): Promise<void> {
   let scored = response.places.slice(0, SINGLE_RESULT_COUNT);
   let regenerateCount = 0;
+  const feedbacks: string[] = [];
 
   if (scored.length === 0) { renderNoResults(); return; }
 
@@ -55,6 +56,8 @@ async function runSingleMode(
 
     if (choice === 'r') {
       regenerateCount++;
+      const fb = await askFeedback();
+      if (fb) feedbacks.push(fb);
       scored = [...response.places].sort(() => Math.random() - 0.5).slice(0, SINGLE_RESULT_COUNT);
       continue;
     }
@@ -75,6 +78,7 @@ async function runSingleMode(
       selectedPlaceId: selected.id,
       selectedPlaceName: selected.name,
       regenerateCount,
+      userFeedbacks: feedbacks,
     });
     break;
   }
@@ -89,6 +93,7 @@ async function runCourseMode(
 
   let selectedCourse: Course | null = null;
   let regenerateCount = 0;
+  const feedbacks: string[] = [];
 
   while (true) {
     renderCourseList(courses);
@@ -97,6 +102,8 @@ async function runCourseMode(
 
     if (choice === 'r') {
       regenerateCount++;
+      const fb = await askFeedback();
+      if (fb) feedbacks.push(fb);
       // Re-fetch with same query for fresh results
       try {
         const newResponse = await api.recommend({
@@ -104,6 +111,7 @@ async function runCourseMode(
           region: response.intent.region || undefined,
           people_count: response.intent.people_count || undefined,
           response_type: 'course',
+          feedback: fb || undefined,
         });
         courses = newResponse.courses;
         if (courses.length === 0) { renderNoResults(); return; }
@@ -141,6 +149,7 @@ async function runCourseMode(
     parseErrors: response.parseErrors,
     selectedCourse,
     regenerateCount,
+    userFeedbacks: feedbacks,
   });
 }
 
@@ -153,6 +162,7 @@ function logSilent(params: {
   selectedPlaceId?: string;
   selectedPlaceName?: string;
   regenerateCount?: number;
+  userFeedbacks?: string[];
 }): void {
   api.log({
     raw_query: params.rawQuery,
@@ -168,6 +178,7 @@ function logSilent(params: {
     selected_place_name: params.selectedPlaceName || null,
     regenerate_count: params.regenerateCount || 0,
     parse_error_fields: params.parseErrors,
+    user_feedbacks: params.userFeedbacks?.length ? params.userFeedbacks : undefined,
   }).catch(() => { /* silent */ });
 }
 

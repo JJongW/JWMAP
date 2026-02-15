@@ -17,6 +17,8 @@ export interface StatsResult {
   parseErrorRate: number;
   avgRegenerateCount: number;
   avgWalkingDistance: number;
+  feedbackRate: number;
+  topFeedbackKeywords: { keyword: string; count: number }[];
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -56,6 +58,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         parseErrorRate: 0,
         avgRegenerateCount: 0,
         avgWalkingDistance: 0,
+        feedbackRate: 0,
+        topFeedbackKeywords: [],
       });
     }
 
@@ -73,6 +77,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let totalRegenerate = 0;
     let totalDistance = 0;
     let distanceCount = 0;
+    let feedbackCount = 0;
+    const feedbackKeywordCounts = new Map<string, number>();
 
     for (const entry of entries) {
       const region = (entry.region as string) || '미지정';
@@ -130,6 +136,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         totalDistance += course.totalDistance;
         distanceCount++;
       }
+
+      const userFeedbacks = entry.user_feedbacks as string[] | null;
+      if (userFeedbacks && userFeedbacks.length > 0) {
+        feedbackCount++;
+        for (const fb of userFeedbacks) {
+          const words = fb.split(/\s+/).filter((w: string) => w.length >= 2);
+          for (const word of words) {
+            feedbackKeywordCounts.set(word, (feedbackKeywordCounts.get(word) || 0) + 1);
+          }
+        }
+      }
     }
 
     const toSorted = (map: Map<string, number>) =>
@@ -151,6 +168,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       parseErrorRate: parseErrorCount / totalSearches,
       avgRegenerateCount: totalRegenerate / totalSearches,
       avgWalkingDistance: distanceCount > 0 ? totalDistance / distanceCount : 0,
+      feedbackRate: feedbackCount / totalSearches,
+      topFeedbackKeywords: [...feedbackKeywordCounts.entries()]
+        .map(([keyword, count]) => ({ keyword, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10),
     };
 
     return res.status(200).json(stats);

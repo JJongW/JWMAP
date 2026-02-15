@@ -68,6 +68,7 @@ export interface RecommendRequest {
   people_count?: number;
   mode?: string;
   response_type?: ResponseType;
+  feedback?: string;
 }
 
 export interface RecommendResponse {
@@ -93,6 +94,7 @@ export interface LogRequest {
   selected_place_name?: string | null;
   regenerate_count?: number;
   parse_error_fields?: string[];
+  user_feedbacks?: string[];
 }
 
 export interface StatsResult {
@@ -109,6 +111,8 @@ export interface StatsResult {
   parseErrorRate: number;
   avgRegenerateCount: number;
   avgWalkingDistance: number;
+  feedbackRate: number;
+  topFeedbackKeywords: { keyword: string; count: number }[];
 }
 
 export interface SaveCourseRequest {
