@@ -117,6 +117,16 @@ export interface StatsResult {
 
 export interface SaveCourseRequest {
   course: Course;
+  meta?: {
+    raw_query?: string;
+    region?: string | null;
+    vibe?: string[];
+    activity_type?: string | null;
+    season?: string | null;
+    people_count?: number | null;
+    mode?: string | null;
+    response_type?: string;
+  };
 }
 
 export interface SaveCourseResponse {

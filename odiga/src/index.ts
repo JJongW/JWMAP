@@ -189,7 +189,19 @@ async function runCourseMode(
   const wantSave = await confirmSave();
   if (wantSave) {
     try {
-      const { course_hash } = await api.saveCourse({ course: selectedCourse! });
+      const { course_hash } = await api.saveCourse({
+        course: selectedCourse!,
+        meta: {
+          raw_query: rawQuery,
+          region: response.intent.region,
+          vibe: response.intent.vibe,
+          activity_type: response.intent.activity_type,
+          season: response.intent.season,
+          people_count: response.intent.people_count,
+          mode: response.intent.mode,
+          response_type: 'course',
+        },
+      });
       renderSaved(course_hash);
     } catch (err) {
       console.log(c.error(`  저장 실패: ${err instanceof Error ? err.message : err}`));

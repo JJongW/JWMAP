@@ -13,10 +13,32 @@ import {
 import { parseIntent, applyServerDefaults } from '../lib/intent';
 import { queryPlaces } from '../lib/places';
 import { scorePlaces } from '../lib/scoring';
-import { buildCourses } from '../lib/courseBuilder';
+import { buildCourses, type Course } from '../lib/courseBuilder';
 import { planMode } from '../lib/modePlanner';
+import { getReusableCourses, touchReusedCourses } from '../lib/savedCourses';
 
 const SINGLE_RESULT_COUNT = 5;
+const COURSE_RESULT_COUNT = 4;
+
+function mergeCourses(savedCourses: Course[], generatedCourses: Course[], limit: number): Course[] {
+  const seen = new Set<string>();
+  const merged: Course[] = [];
+
+  const keyOf = (course: Course) => course.steps.map((s) => s.place.id).join('|');
+
+  for (const course of [...savedCourses, ...generatedCourses]) {
+    const key = keyOf(course);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(course);
+    if (merged.length >= limit) break;
+  }
+
+  return merged.map((course, index) => ({
+    ...course,
+    id: index + 1,
+  }));
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCORS(res);
@@ -36,12 +58,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
   try {
-    // 1. Parse intent with LLM
     const llmStart = Date.now();
     const { intent: rawIntent, parseErrors } = await parseIntent(query);
     const llmMs = Date.now() - llmStart;
 
-    // 2. Apply server defaults + client overrides
     const intent = applyServerDefaults(rawIntent, {
       region: typeof region === 'string' ? region : null,
       people_count: toPositiveInt(people_count),
@@ -49,7 +69,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       response_type: validateResponseType(response_type),
     });
 
-    // 3. Query places from Supabase
     const dbStart = Date.now();
     const places = await queryPlaces(intent);
     const dbMs = Date.now() - dbStart;
@@ -65,16 +84,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // 4. Score places
     const scored = scorePlaces(places, intent);
 
-    // 5. Build response based on type
-    let responsePlaces = scored.slice(0, SINGLE_RESULT_COUNT);
-    let courses: ReturnType<typeof buildCourses> = [];
+    const responsePlaces = scored.slice(0, SINGLE_RESULT_COUNT);
+    let courses: Course[] = [];
 
     if (intent.response_type === 'course') {
       const modeConfig = planMode(intent.people_count!, intent.mode);
-      courses = buildCourses(scored, modeConfig, intent.vibe);
+      const generatedCourses = buildCourses(scored, modeConfig, intent.vibe, COURSE_RESULT_COUNT);
+
+      const reusable = await getReusableCourses(intent, COURSE_RESULT_COUNT);
+      const reusedCourses = reusable.map((item) => item.course);
+
+      courses = mergeCourses(reusedCourses, generatedCourses, COURSE_RESULT_COUNT);
+      void touchReusedCourses(reusable).catch(() => {
+        // Usage tracking failure should not affect recommendations.
+      });
     }
 
     const totalMs = Date.now() - startTime;
