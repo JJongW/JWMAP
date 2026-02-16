@@ -317,6 +317,7 @@ interface DetailPreviewProps {
 
 function DetailPreview({ location, onOpenDetail }: DetailPreviewProps) {
   const previewTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 6);
+  const summaryText = location.short_desc || location.memo;
 
   return (
     <div className="space-y-4">
@@ -327,11 +328,11 @@ function DetailPreview({ location, onOpenDetail }: DetailPreviewProps) {
       </div>
 
       {/* 메모 (짧게) */}
-      {location.memo && (
+      {summaryText && (
         <p className="text-sm leading-relaxed text-gray-600">
-          {location.memo.length > 150
-            ? `${location.memo.slice(0, 150)}...`
-            : location.memo}
+          {summaryText.length > 120
+            ? `${summaryText.slice(0, 120)}...`
+            : summaryText}
         </p>
       )}
 

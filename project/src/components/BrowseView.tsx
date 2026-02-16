@@ -478,6 +478,7 @@ function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
     const query = encodeURIComponent(location.name);
     window.open(`https://map.kakao.com/link/search/${query}`, '_blank');
   };
+  const previewText = location.short_desc || location.memo;
 
   return (
     <div className="fixed right-0 top-0 z-50 h-full w-96 border-l border-gray-100 bg-white shadow-lg">
@@ -535,11 +536,11 @@ function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
           {location.address}
         </p>
 
-        {location.memo && (
+        {previewText && (
           <p className="mt-3 text-sm leading-relaxed text-gray-600">
-            {location.memo.length > 200
-              ? `${location.memo.slice(0, 200)}...`
-              : location.memo}
+            {previewText.length > 140
+              ? `${previewText.slice(0, 140)}...`
+              : previewText}
           </p>
         )}
 

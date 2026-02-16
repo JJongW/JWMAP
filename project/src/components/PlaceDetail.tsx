@@ -169,15 +169,6 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               disclosure={location.disclosure}
             />
 
-            {/* 큐레이터 원라이너 (Verdict) */}
-            {location.short_desc && (
-              <div className="bg-[#FF8A3D] rounded-2xl p-4">
-                <p className="text-lg font-medium text-[#FFF7ED] leading-relaxed">
-                  "{location.short_desc}"
-                </p>
-              </div>
-            )}
-
             {/* 태그 */}
             {visibleTags.length > 0 && (
               <div className="flex flex-wrap gap-2">
@@ -192,8 +183,8 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               </div>
             )}
 
-            {/* 메모 (있는 경우) */}
-            {location.memo && location.memo !== location.short_desc && (
+            {/* 메모 (상세 화면 전용) */}
+            {location.memo && (
               <div className="bg-base rounded-xl p-4">
                 <p className="text-sm text-accent/80 leading-relaxed">{location.memo}</p>
               </div>
@@ -349,15 +340,6 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               disclosure={location.disclosure}
             />
 
-            {/* 큐레이터 원라이너 */}
-            {location.short_desc && (
-              <div className="bg-[#FF8A3D] rounded-2xl p-5">
-                <p className="text-xl font-medium text-[#FFF7ED] leading-relaxed">
-                  "{location.short_desc}"
-                </p>
-              </div>
-            )}
-
             {/* 태그 */}
             {visibleTags.length > 0 && (
               <div className="flex flex-wrap gap-2">
@@ -372,8 +354,8 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               </div>
             )}
 
-            {/* 메모 */}
-            {location.memo && location.memo !== location.short_desc && (
+            {/* 메모 (상세 화면 전용) */}
+            {location.memo && (
               <div className="bg-base rounded-xl p-4">
                 <p className="text-sm text-accent/80 leading-relaxed">{location.memo}</p>
               </div>

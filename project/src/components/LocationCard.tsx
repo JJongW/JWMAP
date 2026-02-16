@@ -46,6 +46,7 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
   }, [location, initialEditing]);
 
   const visibleTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])];
+  const summaryText = location.short_desc || location.memo || '한 줄 설명이 없습니다.';
   
   // 대분류에 따른 소분류 목록
   const availableCategorySubs = editedCategoryMain && editedCategoryMain !== '전체'
@@ -305,7 +306,7 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
           />
         ) : (
           <p className="text-accent/80 text-sm bg-base rounded-xl p-3">
-            {location.memo || '메모가 없습니다.'}
+            {summaryText.length > 120 ? `${summaryText.slice(0, 120)}...` : summaryText}
           </p>
         )}
 
