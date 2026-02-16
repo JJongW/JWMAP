@@ -122,11 +122,16 @@ function buildCourseHash(placeIds: string[]): string {
 function inferCategoryFromText(text: string): { category_main: string | null; category_sub: string | null } {
   const t = text.toLowerCase();
 
-  if (/전시|갤러리|미술관|박물관|팝업|공원|산책|전망|포토스팟/.test(t)) {
+  if (/전시|갤러리|미술관|박물관|도서관|library|팝업|공원|산책|전망|포토스팟/.test(t)) {
+    if (t.includes('도서관') || t.includes('library')) return { category_main: '전시/문화', category_sub: '도서관' };
     if (t.includes('공원') || t.includes('산책')) return { category_main: '공간/휴식', category_sub: '공원/정원' };
     if (t.includes('팝업')) return { category_main: '팝업/이벤트', category_sub: '브랜드 팝업' };
     if (t.includes('미술관')) return { category_main: '전시/문화', category_sub: '미술관' };
     return { category_main: '전시/문화', category_sub: '전시관' };
+  }
+
+  if (/문구|팬시|stationery/.test(t)) {
+    return { category_main: '쇼핑/소품', category_sub: '문구점' };
   }
 
   if (/카페|커피|라떼|디저트|베이커리|카공/.test(t)) {

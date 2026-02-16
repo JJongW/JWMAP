@@ -77,6 +77,7 @@ export function mapKakaoCategoryByDomain(
     if (l.includes('공간대여') || l.includes('공원디파트먼트') || l.includes('복합문화')) {
       return { main: '전시/문화', sub: '복합문화공간' };
     }
+    if (l.includes('도서관') || l.includes('library')) return { main: '전시/문화', sub: '도서관' };
     if (l.includes('미술관')) return { main: '전시/문화', sub: '미술관' };
     if (l.includes('박물관')) return { main: '전시/문화', sub: '박물관' };
     if (l.includes('전시') || l.includes('갤러리')) return { main: '전시/문화', sub: '전시관' };
@@ -88,6 +89,7 @@ export function mapKakaoCategoryByDomain(
 
     if (l.includes('소품')) return { main: '쇼핑/소품', sub: '소품샵' };
     if (l.includes('편집샵')) return { main: '쇼핑/소품', sub: '편집샵' };
+    if (l.includes('문구') || l.includes('팬시')) return { main: '쇼핑/소품', sub: '문구점' };
     if (l.includes('서점')) return { main: '쇼핑/소품', sub: '독립서점' };
     if (l.includes('라이프')) return { main: '쇼핑/소품', sub: '라이프스타일숍' };
 

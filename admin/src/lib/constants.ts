@@ -15,9 +15,9 @@ export const CATEGORY_HIERARCHY: Record<string, string[]> = {
 export const CATEGORY_MAINS = Object.keys(CATEGORY_HIERARCHY);
 
 export const ATTRACTION_CATEGORY_HIERARCHY: Record<string, string[]> = {
-  '전시/문화': ['미술관', '박물관', '전시관', '복합문화공간'],
+  '전시/문화': ['미술관', '박물관', '전시관', '복합문화공간', '도서관'],
   '팝업/이벤트': ['브랜드 팝업', '시즌 팝업', '체험형 팝업', '페어/마켓'],
-  '쇼핑/소품': ['소품샵', '편집샵', '독립서점', '라이프스타일숍'],
+  '쇼핑/소품': ['소품샵', '편집샵', '독립서점', '문구점', '라이프스타일숍'],
   '공간/휴식': ['전망대', '공원/정원', '포토스팟', '야외공간'],
 };
 
