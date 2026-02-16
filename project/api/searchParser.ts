@@ -1,6 +1,10 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { HumanMessage } from '@langchain/core/messages';
 import type { EnhancedLLMQuery, LLMQuery, SearchIntent, TimeOfDay, VisitContext } from './searchTypes';
+import {
+  inferConstraintFlagsFromKeywords,
+  sanitizeTagNames,
+} from './tagIntelligence';
 
 const llm = new ChatGoogleGenerativeAI({
   model: 'gemini-2.0-flash',
@@ -50,7 +54,7 @@ Do NOT map to canonical regions. Return empty array if no location mentioned.
   "time_context": "breakfast" | "lunch" | "dinner" | "late_night" | null,
   "category_main": "one of above or null",
   "category_sub": "e.g. 라멘, 국밥, 카공카페 or null",
-  "tags": ["other keywords: 맛집, 혼밥, etc - NOT location terms"],
+  "tags": ["search tags only. include themes like 벚꽃/데이트코스/야경 if relevant. NOT location terms"],
   "confidence": 0.0 to 1.0
 }
 
@@ -128,17 +132,33 @@ export async function parseEnhancedQuery(text: string): Promise<ParseResult> {
     const simple = parsed as Partial<SimpleLLMOutput>;
     const intent = INTENT_MAP[simple.intent as string] || 'CLARIFY_QUERY';
     const locationKeywords = Array.isArray(simple.location_keywords)
-      ? simple.location_keywords.filter((k): k is string => typeof k === 'string')
+      ? simple.location_keywords
+          .filter((k): k is string => typeof k === 'string')
+          .map((k) => k.trim())
+          .filter(Boolean)
+          .slice(0, 4)
       : [];
     const timeContext = simple.time_context as string;
     const timeOfDay = timeContext ? TIME_CONTEXT_MAP[timeContext] || null : null;
     const categoryMain = (simple.category_main as string) || null;
     const categorySub = (simple.category_sub as string) || null;
-    const tags = Array.isArray(simple.tags) ? simple.tags : [];
-    const placeName = intent === 'ASK_DETAILS' && tags.length > 0 ? tags[0] : null;
-    const hasHonbab = tags.some((t) => String(t).toLowerCase().includes('혼밥'));
+    const tags = sanitizeTagNames(Array.isArray(simple.tags) ? simple.tags : [], { max: 10 });
+    const textLower = text.toLowerCase();
+    const explicitCourseTags = [
+      textLower.includes('코스') ? '코스' : '',
+      textLower.includes('데이트') ? '데이트' : '',
+      textLower.includes('벚꽃') ? '벚꽃' : '',
+    ].filter(Boolean);
+    const mergedTags = sanitizeTagNames([...tags, ...explicitCourseTags], { max: 12 });
+    const placeName = intent === 'ASK_DETAILS' && mergedTags.length > 0 ? mergedTags[0] : null;
+    const inferred = inferConstraintFlagsFromKeywords(mergedTags);
+    const hasHonbab = inferred.solo_ok === true;
     const visitContext = hasHonbab ? ('혼밥' as VisitContext) : null;
     const excludeCategory = hasHonbab ? ['카페'] : null;
+    const inferredConstraints = [
+      inferred.quiet ? '조용한' : null,
+      inferred.no_wait ? '웨이팅_없음' : null,
+    ].filter((item): item is '조용한' | '웨이팅_없음' => Boolean(item));
 
     return {
       enhanced: {
@@ -153,8 +173,8 @@ export async function parseEnhancedQuery(text: string): Promise<ParseResult> {
           exclude_category_main: excludeCategory,
           time_of_day: timeOfDay as TimeOfDay | null,
           visit_context: visitContext,
-          constraints: [],
-          keywords: tags,
+          constraints: inferredConstraints,
+          keywords: mergedTags,
           count: null,
           open_now: null,
         },

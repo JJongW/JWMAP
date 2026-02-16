@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   user_display_name TEXT, -- 표시 이름 (nullable, 기본값 '익명')
   one_liner TEXT NOT NULL, -- 한 줄 리뷰 (필수)
   visit_type TEXT NOT NULL DEFAULT 'first' CHECK (visit_type IN ('first', 'revisit')), -- 첫방문/재방문
-  features JSONB DEFAULT '{}', -- 선택한 특징 태그 (예: {"solo_ok": true, "quiet": true})
+  tags TEXT[] DEFAULT '{}', -- 선택한 방문 태그 (예: {'혼밥', '조용한 분위기'})
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -41,4 +41,4 @@ COMMENT ON COLUMN reviews.user_id IS '사용자 ID (익명 리뷰 가능)';
 COMMENT ON COLUMN reviews.user_display_name IS '표시 이름 (기본값: 익명)';
 COMMENT ON COLUMN reviews.one_liner IS '한 줄 리뷰 (필수)';
 COMMENT ON COLUMN reviews.visit_type IS '방문 유형: first(첫방문) 또는 revisit(재방문)';
-COMMENT ON COLUMN reviews.features IS '선택한 특징 태그 (JSONB)';
+COMMENT ON COLUMN reviews.tags IS '선택한 방문 태그 배열';

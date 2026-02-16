@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { Location, Features, CategoryMain, CategorySub } from '../types/location';
-import { CATEGORY_HIERARCHY, CATEGORY_MAINS, getCategorySubsByMain } from '../types/location';
+import type { Location, CategoryMain, CategorySub } from '../types/location';
+import { CATEGORY_MAINS, getCategorySubsByMain } from '../types/location';
 import { MapPin, Edit2, Trash2, ExternalLink, X, Check, ImageIcon } from 'lucide-react';
 import { locationApi } from '../utils/supabase';
 import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, CURATION_LEVELS, isOwnerMode } from '../utils/curation';
@@ -15,17 +15,7 @@ interface LocationCardProps {
   initialEditing?: boolean; // 초기 편집 모드로 시작할지 여부
 }
 
-const featureOptions: { key: keyof Features; label: string }[] = [
-  { key: 'solo_ok', label: '혼밥 가능' },
-  { key: 'quiet', label: '조용한 분위기' },
-  { key: 'wait_short', label: '웨이팅 짧음' },
-  { key: 'date_ok', label: '데이트 추천' },
-  { key: 'group_ok', label: '단체석 있음' },
-  { key: 'parking', label: '주차 가능' },
-  { key: 'pet_friendly', label: '반려동물 동반' },
-  { key: 'reservation', label: '예약 가능' },
-  { key: 'late_night', label: '심야 영업' },
-];
+const QUICK_TAGS = ['벚꽃', '데이트', '혼밥', '조용한 분위기', '웨이팅 적음', '가성비', '브런치', '전시', '산책', '야경'];
 
 export function LocationCard({ location, onDelete, onUpdate, initialEditing = false }: LocationCardProps) {
   const [isEditing, setIsEditing] = useState(initialEditing);
@@ -37,7 +27,7 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
   const [editedCategoryMain, setEditedCategoryMain] = useState<CategoryMain | ''>(location.categoryMain || '');
   const [editedCategorySub, setEditedCategorySub] = useState<CategorySub | ''>(location.categorySub || '');
   const [editedMemo, setEditedMemo] = useState(location.memo);
-  const [editedFeatures, setEditedFeatures] = useState<Features>(location.features || {});
+  const [editedTags, setEditedTags] = useState<string[]>(location.tags || []);
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
@@ -51,28 +41,23 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
     setEditedCategoryMain(location.categoryMain || '');
     setEditedCategorySub(location.categorySub || '');
     setEditedMemo(location.memo);
-    setEditedFeatures(location.features || {});
+    setEditedTags(location.tags || []);
     setImageError(false);
   }, [location, initialEditing]);
+
+  const visibleTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])];
   
   // 대분류에 따른 소분류 목록
   const availableCategorySubs = editedCategoryMain && editedCategoryMain !== '전체'
     ? getCategorySubsByMain(editedCategoryMain)
     : [];
 
-  const handleFeatureToggle = (key: keyof Features) => {
-    setEditedFeatures((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+  const handleTagToggle = (tag: string) => {
+    setEditedTags((prev) => (prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]));
   };
 
   const handleSave = async () => {
     try {
-      // features에서 true인 것만 포함
-      const activeFeatures = Object.fromEntries(
-        Object.entries(editedFeatures).filter(([, value]) => value === true)
-      );
       const updatedData = await locationApi.update(location.id, {
         curation_level: editedCurationLevel,
         curator_visited: editedCuratorVisited,
@@ -80,7 +65,7 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
         categoryMain: editedCategoryMain || undefined,
         categorySub: editedCategorySub || undefined,
         memo: editedMemo,
-        features: Object.keys(activeFeatures).length > 0 ? activeFeatures : {},
+        tags: editedTags,
       });
 
       // 부모 컴포넌트에 업데이트 알림
@@ -90,10 +75,10 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
 
       alert('수정된 내용이 저장되었습니다.');
       setIsEditing(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error('데이터 저장 오류:', error);
-      console.error('오류 상세:', error?.message, error?.details, error?.hint);
-      alert(`데이터 저장 중 문제가 발생했습니다.\n${error?.message || error}`);
+      alert(`데이터 저장 중 문제가 발생했습니다.\n${message}`);
     }
   };
 
@@ -358,49 +343,33 @@ export function LocationCard({ location, onDelete, onUpdate, initialEditing = fa
           />
         )}
 
-        {/* 특징 (수정 모드) */}
+        {/* 태그 (수정 모드) */}
         {isEditing && (
           <div>
-            <label className="text-xs font-medium text-accent/70 mb-2 block">특징</label>
+            <label className="text-xs font-medium text-accent/70 mb-2 block">태그</label>
             <div className="flex flex-wrap gap-1.5">
-              {featureOptions.map((option) => (
+              {QUICK_TAGS.map((tag) => (
                 <button
-                  key={option.key}
+                  key={tag}
                   type="button"
-                  onClick={() => handleFeatureToggle(option.key)}
+                  onClick={() => handleTagToggle(tag)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                    editedFeatures[option.key]
+                    editedTags.includes(tag)
                       ? 'bg-point text-white'
                       : 'bg-base text-accent/80 hover:bg-opacity-80'
                   }`}
                 >
-                  {option.label}
+                  #{tag}
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* 특징 표시 (보기 모드) */}
-        {!isEditing && location.features && Object.keys(location.features).some(k => location.features?.[k as keyof Features]) && (
-          <div className="flex flex-wrap gap-1.5">
-            {featureOptions
-              .filter((option) => location.features?.[option.key])
-              .map((option) => (
-                <span
-                  key={option.key}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-point/20 text-point"
-                >
-                  {option.label}
-                </span>
-              ))}
-          </div>
-        )}
-
         {/* 태그 표시 (보기 모드) */}
-        {!isEditing && location.tags && location.tags.length > 0 && (
+        {!isEditing && visibleTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {location.tags.map((tag, idx) => (
+            {visibleTags.map((tag, idx) => (
               <span
                 key={idx}
                 className="px-2.5 py-1 rounded-lg text-xs font-medium bg-blue-50 text-blue-600"

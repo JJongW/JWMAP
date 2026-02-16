@@ -34,7 +34,6 @@ function mapRow(row: Record<string, unknown>): Location {
     rating: (row.rating ?? 0) as number,
     curation_level: (row.curation_level ?? null) as number | null,
     price_level: (row.price_level ?? null) as number | null,
-    features: (row.features ?? {}) as Location['features'],
     tags: tags as string[],
     imageUrl: (row.imageUrl ?? row.image_url ?? '') as string,
     event_tags: eventTags as string[],

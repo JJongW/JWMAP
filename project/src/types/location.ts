@@ -154,18 +154,6 @@ export function getCategorySubsByMain(main: CategoryMain, mode: ContentMode = 'f
 // 기존 Category 타입 (하위 호환성 유지)
 export type Category = string; // 기존 데이터 호환을 위해 string으로 유지
 
-export interface Features {
-  solo_ok?: boolean;       // 혼밥 가능
-  quiet?: boolean;         // 조용한 분위기
-  wait_short?: boolean;    // 웨이팅 짧음
-  date_ok?: boolean;       // 데이트 추천
-  group_ok?: boolean;      // 단체석 있음
-  parking?: boolean;       // 주차 가능
-  pet_friendly?: boolean;  // 반려동물 동반
-  reservation?: boolean;   // 예약 가능
-  late_night?: boolean;    // 심야 영업
-}
-
 // 방문 유형
 export type VisitType = 'first' | 'revisit';
 
@@ -189,9 +177,8 @@ export interface Location {
   curation_level?: number;
   imageUrl: string;
   eventTags?: string[];   // 이벤트 태그 (예: ['흑백요리사 시즌2'])
-  features?: Features;    // 장소 특징
   short_desc?: string;    // 한 줄 경험/설명 (큐레이터 원라이너)
-  tags?: string[];        // LLM 추천 태그 (예: ['혼밥', '조용한 분위기'])
+  tags?: string[];        // 자유 태그 (예: ['혼밥', '조용한 분위기'])
   // 장소 ID
   kakao_place_id?: string;  // 카카오 장소 ID
   naver_place_id?: string;  // 네이버 장소 ID
@@ -216,6 +203,6 @@ export interface Review {
   user_display_name?: string; // 표시 이름
   one_liner: string;          // 한 줄 리뷰 (필수)
   visit_type: VisitType;      // 첫방문/재방문
-  features?: Features;        // 선택한 특징 태그
+  tags?: string[];            // 선택한 방문 태그
   created_at: string;
 }

@@ -28,15 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Save, ArrowLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 import {
   CATEGORY_HIERARCHY,
-  FEATURE_OPTIONS,
   ATTRACTION_CATEGORY_HIERARCHY,
-  ATTRACTION_FEATURE_OPTIONS,
 } from '@/lib/constants';
 import type { LocationDomainTable } from '@/lib/queries/locations';
 
@@ -141,7 +138,6 @@ export function LocationForm({
           short_desc: location.short_desc,
           curation_level: location.curation_level,
           price_level: location.price_level,
-          features: location.features ?? {},
           imageUrl: location.imageUrl,
           naver_place_id: location.naver_place_id,
           kakao_place_id: location.kakao_place_id,
@@ -157,7 +153,6 @@ export function LocationForm({
           lat: 0,
           lon: 0,
           memo: '',
-          features: {},
           imageUrl: '',
           tags: [],
           event_tags: [],
@@ -175,12 +170,10 @@ export function LocationForm({
 
   const isAttractionDomain = domain === 'attractions';
   const categoryHierarchy = isAttractionDomain ? ATTRACTION_CATEGORY_HIERARCHY : CATEGORY_HIERARCHY;
-  const featureOptions = isAttractionDomain ? ATTRACTION_FEATURE_OPTIONS : FEATURE_OPTIONS;
   const curationLabel = isAttractionDomain ? '큐레이션 레벨' : '쩝쩝박사 레벨';
   const priceLabel = isAttractionDomain ? '입장료 레벨' : '가격대';
 
   const categoryMain = watch('category_main');
-  const features = watch('features');
   const subCategories = categoryMain ? categoryHierarchy[categoryMain] ?? [] : [];
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(() =>
     locationTags.map((lt) => lt.tag_id)
@@ -253,14 +246,6 @@ export function LocationForm({
 
   function onError() {
     toast.error('필수 항목을 모두 채워주세요');
-  }
-
-  function toggleFeature(key: string) {
-    const current = features ?? {};
-    setValue('features', {
-      ...current,
-      [key]: !current[key as keyof typeof current],
-    });
   }
 
   async function resolveShortMapUrls(urls: string[]): Promise<ResolvedShortMapUrl[]> {
@@ -782,30 +767,6 @@ export function LocationForm({
               onChange={setSelectedTagIds}
               domain={tagDomain}
             />
-          </CardContent>
-        </Card>
-
-        {/* Features */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">특징</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {featureOptions.map((f) => {
-                const active = features?.[f.key as keyof typeof features];
-                return (
-                  <Badge
-                    key={f.key}
-                    variant={active ? 'default' : 'outline'}
-                    className="cursor-pointer select-none"
-                    onClick={() => toggleFeature(f.key)}
-                  >
-                    {f.label}
-                  </Badge>
-                );
-              })}
-            </div>
           </CardContent>
         </Card>
 

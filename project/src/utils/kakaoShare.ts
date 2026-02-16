@@ -1,4 +1,4 @@
-import type { Location, Features } from '../types/location';
+import type { Location } from '../types/location';
 import { getDetailImageUrl } from './image';
 
 // Kakao SDK 타입 선언
@@ -38,19 +38,6 @@ interface KakaoShareOptions {
     };
   }>;
 }
-
-// Feature labels for description
-const featureLabels: Record<keyof Features, string> = {
-  solo_ok: '혼밥',
-  quiet: '조용함',
-  wait_short: '빠른입장',
-  date_ok: '데이트',
-  group_ok: '단체',
-  parking: '주차',
-  pet_friendly: '반려동물',
-  reservation: '예약',
-  late_night: '심야',
-};
 
 // SDK 초기화 상태
 let isInitialized = false;
@@ -94,17 +81,8 @@ function buildDescription(location: Location): string {
   // 주소
   parts.push(location.address);
 
-  // 태그 (features)
-  if (location.features) {
-    const tags = Object.entries(location.features)
-      .filter(([, value]) => value)
-      .map(([key]) => featureLabels[key as keyof Features])
-      .filter(Boolean)
-      .slice(0, 3);
-
-    if (tags.length > 0) {
-      parts.push(tags.join(' · '));
-    }
+  if (location.tags && location.tags.length > 0) {
+    parts.push(location.tags.slice(0, 4).map((tag) => `#${tag}`).join(' · '));
   }
 
   // 원라이너 (short_desc)

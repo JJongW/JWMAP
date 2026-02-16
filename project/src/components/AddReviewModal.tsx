@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, CheckCircle, RefreshCw } from 'lucide-react';
-import type { Review, VisitType, Features } from '../types/location';
+import type { Review, VisitType } from '../types/location';
 import { reviewApi } from '../utils/supabase';
 
 interface AddReviewModalProps {
@@ -10,17 +10,16 @@ interface AddReviewModalProps {
   onSuccess: (review: Review) => void;
 }
 
-// Features 라벨 매핑
-const featureOptions: { key: keyof Features; label: string }[] = [
-  { key: 'solo_ok', label: '혼밥 가능' },
-  { key: 'quiet', label: '조용함' },
-  { key: 'wait_short', label: '웨이팅 짧음' },
-  { key: 'date_ok', label: '데이트' },
-  { key: 'group_ok', label: '단체석' },
-  { key: 'parking', label: '주차' },
-  { key: 'pet_friendly', label: '반려동물' },
-  { key: 'reservation', label: '예약 가능' },
-  { key: 'late_night', label: '심야 영업' },
+const reviewTagOptions = [
+  '혼밥',
+  '데이트',
+  '모임',
+  '조용한 분위기',
+  '웨이팅 적음',
+  '주차 가능',
+  '예약 가능',
+  '심야 영업',
+  '반려동물 동반',
 ];
 
 export function AddReviewModal({
@@ -32,19 +31,18 @@ export function AddReviewModal({
   const [displayName, setDisplayName] = useState('');
   const [oneLiner, setOneLiner] = useState('');
   const [visitType, setVisitType] = useState<VisitType>('first');
-  const [selectedFeatures, setSelectedFeatures] = useState<Set<keyof Features>>(new Set());
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [confirmed, setConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Feature 토글
-  const toggleFeature = (key: keyof Features) => {
-    setSelectedFeatures((prev) => {
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
+      if (next.has(tag)) {
+        next.delete(tag);
       } else {
-        next.add(key);
+        next.add(tag);
       }
       return next;
     });
@@ -70,26 +68,22 @@ export function AddReviewModal({
     setIsSubmitting(true);
 
     try {
-      // Features 객체 생성
-      const features: Features = {};
-      selectedFeatures.forEach((key) => {
-        features[key] = true;
-      });
-
       const newReview = await reviewApi.create({
         location_id: locationId,
         user_display_name: displayName.trim() || '익명',
         one_liner: oneLiner.trim(),
         visit_type: visitType,
-        features,
+        tags: [...selectedTags],
       });
 
       onSuccess(newReview);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('리뷰 저장 오류:', err);
       // API에서 반환한 에러 메시지 표시
-      const errorMessage = err?.message || '리뷰 저장 중 문제가 발생했습니다. 다시 시도해주세요.';
+      const errorMessage = err instanceof Error
+        ? err.message
+        : '리뷰 저장 중 문제가 발생했습니다. 다시 시도해주세요.';
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -180,24 +174,24 @@ export function AddReviewModal({
             <p className="text-xs text-gray-400 mt-1 text-right">{oneLiner.length}/100</p>
           </div>
 
-          {/* 특징 태그 (선택) */}
+          {/* 방문 태그 (선택) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               이런 점이 좋았어요 <span className="text-gray-400 font-normal">(선택)</span>
             </label>
             <div className="flex flex-wrap gap-2">
-              {featureOptions.map(({ key, label }) => (
+              {reviewTagOptions.map((tag) => (
                 <button
-                  key={key}
+                  key={tag}
                   type="button"
-                  onClick={() => toggleFeature(key)}
+                  onClick={() => toggleTag(tag)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    selectedFeatures.has(key)
+                    selectedTags.has(tag)
                       ? 'bg-orange-100 text-orange-600 border border-orange-300'
                       : 'bg-gray-100 text-gray-600 border border-transparent hover:bg-gray-200'
                   }`}
                 >
-                  {label}
+                  #{tag}
                 </button>
               ))}
             </div>

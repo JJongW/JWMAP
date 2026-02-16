@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, MapPin, Copy, Check, ChevronDown, ChevronUp, Navigation, ExternalLink, Share2 } from 'lucide-react';
-import type { Location, Review, Features } from '../types/location';
+import { X, MapPin, Copy, Check, Navigation, ExternalLink, Share2 } from 'lucide-react';
+import type { Location, Review } from '../types/location';
 import { reviewApi, searchLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
@@ -16,19 +16,6 @@ interface PlaceDetailProps {
   isMobile?: boolean;
   searchId?: string | null;
 }
-
-// Features 라벨 매핑
-const featureLabels: Record<keyof Features, string> = {
-  solo_ok: '혼밥 가능',
-  quiet: '조용한 분위기',
-  wait_short: '웨이팅 짧음',
-  date_ok: '데이트 추천',
-  group_ok: '단체석 있음',
-  parking: '주차 가능',
-  pet_friendly: '반려동물 동반',
-  reservation: '예약 가능',
-  late_night: '심야 영업',
-};
 
 export function PlaceDetail({ location, onClose, isMobile = false, searchId }: PlaceDetailProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -94,13 +81,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
     }, 700);
   };
 
-  // 활성화된 Features 추출
-  const activeFeatures = location.features
-    ? Object.entries(location.features)
-        .filter(([, value]) => value)
-        .map(([key]) => ({ key: key as keyof Features, label: featureLabels[key as keyof Features] }))
-        .slice(0, 4)
-    : [];
+  const visibleTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 10);
 
   // 리뷰 추가 후 리프레시
   const handleReviewAdded = (newReview: Review) => {
@@ -197,15 +178,15 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               </div>
             )}
 
-            {/* Features 태그 */}
-            {activeFeatures.length > 0 && (
+            {/* 태그 */}
+            {visibleTags.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {activeFeatures.map(({ key, label }) => (
+                {visibleTags.map((tag) => (
                   <span
-                    key={key}
+                    key={tag}
                     className="px-3 py-1.5 bg-base text-accent text-sm font-medium rounded-xl"
                   >
-                    {label}
+                    #{tag}
                   </span>
                 ))}
               </div>
@@ -377,15 +358,15 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               </div>
             )}
 
-            {/* Features */}
-            {activeFeatures.length > 0 && (
+            {/* 태그 */}
+            {visibleTags.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {activeFeatures.map(({ key, label }) => (
+                {visibleTags.map((tag) => (
                   <span
-                    key={key}
+                    key={tag}
                     className="px-3 py-1.5 bg-base text-accent text-sm font-medium rounded-xl"
                   >
-                    {label}
+                    #{tag}
                   </span>
                 ))}
               </div>

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import type { Features, Province, CategoryMain, CategorySub, ContentMode } from '../types/location';
+import type { Province, CategoryMain, CategorySub, ContentMode } from '../types/location';
 import { REGION_HIERARCHY, getCategorySubsByMain } from '../types/location';
 import { extractRegionFromAddress } from '../utils/regionMapper';
 import { mapKakaoCategoryToOurs } from '../utils/categoryMapper';
-import { featureLabels } from '../schemas/llmSuggestions';
+import { validateTags } from '../utils/tagValidation';
 import { useGeocoding } from './useGeocoding';
 import { useTagSuggestions } from './useTagSuggestions';
 import type {
@@ -27,7 +27,6 @@ export interface AddLocationPayload {
   memo: string;
   short_desc?: string;
   kakao_place_id?: string;
-  features?: Features;
   tags?: string[];
   contentType?: ContentMode;
 }
@@ -58,24 +57,15 @@ export function useAddLocationForm({ existingLocations, onSave, onClose, content
     kakao_place_id: '',
     contentType: contentMode,
   });
-  const [features, setFeatures] = useState<Features>({});
   const [customTags, setCustomTags] = useState<string[]>([]);
   const [duplicateWarning, setDuplicateWarning] = useState<ExistingLocationSummary | null>(null);
-  const { isGeocoding, geocodeAddress, geocodeWithLoading } = useGeocoding();
+  const { isGeocoding, geocodeWithLoading } = useGeocoding();
   const { isGeneratingTags, suggestions, requestSuggestions } = useTagSuggestions();
 
   const availableDistricts = formData.province ? REGION_HIERARCHY[formData.province] || [] : [];
   const availableCategorySubs = formData.categoryMain && formData.categoryMain !== '전체'
     ? getCategorySubsByMain(formData.categoryMain, contentMode)
     : [];
-
-  const suggestedFeaturesText = suggestions?.features
-    ? Object.entries(suggestions.features)
-        .filter(([, v]) => v)
-        .map(([k]) => featureLabels[k as keyof typeof featureLabels])
-        .filter(Boolean)
-        .join(', ')
-    : '';
 
   const isFormValid = !!(
     formData.name &&
@@ -141,10 +131,6 @@ export function useAddLocationForm({ existingLocations, onSave, onClose, content
     }));
   };
 
-  const handleFeatureToggle = (key: keyof Features) => {
-    setFeatures((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
   const handleTagToggle = (tagName: string) => {
     setCustomTags((prev) => (prev.includes(tagName) ? prev.filter((t) => t !== tagName) : [...prev, tagName]));
   };
@@ -155,8 +141,10 @@ export function useAddLocationForm({ existingLocations, onSave, onClose, content
       category: formData.categorySub || formData.categoryMain || '',
       experience: formData.short_desc,
     });
-    if (result.mergedFeatures) {
-      setFeatures((prev) => ({ ...prev, ...result.mergedFeatures }));
+    if (result.suggestions?.tags?.length) {
+      const suggestedTagNames = result.suggestions.tags.map((tag) => tag.name);
+      const merged = validateTags([...customTags, ...suggestedTagNames], { max: 15 }).validTags;
+      setCustomTags(merged);
     }
   };
 
@@ -196,7 +184,17 @@ export function useAddLocationForm({ existingLocations, onSave, onClose, content
       return;
     }
 
-    const activeFeatures = Object.fromEntries(Object.entries(features).filter(([, value]) => value === true));
+    const mergedTags = [...customTags];
+    const { validTags, invalidTags } = validateTags(mergedTags, { max: 12 });
+
+    if (invalidTags.length > 0) {
+      alert(`다음 태그는 형식 검증에서 제외되었습니다: ${invalidTags.join(', ')}`);
+    }
+    if (validTags.length === 0) {
+      const confirmWithoutTags = window.confirm('저장 가능한 태그가 없습니다. 태그 없이 저장할까요?');
+      if (!confirmWithoutTags) return;
+    }
+
     onSave({
       ...formData,
       province: formData.province as Province,
@@ -206,8 +204,7 @@ export function useAddLocationForm({ existingLocations, onSave, onClose, content
       lat: finalLat,
       lon: finalLon,
       curation_level: formData.curation_level,
-      features: Object.keys(activeFeatures).length > 0 ? activeFeatures : {},
-      tags: customTags.length > 0 ? customTags : undefined,
+      tags: validTags.length > 0 ? validTags : undefined,
     });
     onClose();
   };
@@ -215,7 +212,6 @@ export function useAddLocationForm({ existingLocations, onSave, onClose, content
   return {
     formData,
     setFormData,
-    features,
     customTags,
     suggestions,
     duplicateWarning,
@@ -224,10 +220,8 @@ export function useAddLocationForm({ existingLocations, onSave, onClose, content
     availableDistricts,
     availableCategorySubs,
     isFormValid,
-    suggestedFeaturesText,
     handleAddressChange,
     handlePlaceSelect,
-    handleFeatureToggle,
     handleTagToggle,
     handleGetSuggestions,
     handleSubmit,

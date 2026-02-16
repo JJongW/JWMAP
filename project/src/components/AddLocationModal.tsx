@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { CustomSelect } from './CustomSelect';
 import { ImageUpload } from './ImageUpload';
-import type { Features, Province, CategoryMain, CategorySub, ContentMode } from '../types/location';
+import type { Province, CategoryMain, CategorySub, ContentMode } from '../types/location';
 import { PROVINCES, getCategoryMainsByMode } from '../types/location';
 import { CURATION_LEVELS, isOwnerMode } from '../utils/curation';
 import { useAddLocationForm, type AddLocationPayload } from '../hooks/useAddLocationForm';
@@ -24,7 +24,6 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
   const {
     formData,
     setFormData,
-    features,
     customTags,
     suggestions,
     duplicateWarning,
@@ -33,26 +32,16 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
     availableDistricts,
     availableCategorySubs,
     isFormValid,
-    suggestedFeaturesText,
     handleAddressChange,
     handlePlaceSelect,
-    handleFeatureToggle,
     handleTagToggle,
     handleGetSuggestions,
     handleSubmit,
   } = useAddLocationForm({ existingLocations, onSave, onClose, contentMode });
 
-  const featureOptions: { key: keyof Features; label: string }[] = [
-    { key: 'solo_ok', label: '혼밥 가능' },
-    { key: 'quiet', label: '조용한 분위기' },
-    { key: 'wait_short', label: '웨이팅 짧음' },
-    { key: 'date_ok', label: '데이트 추천' },
-    { key: 'group_ok', label: '단체석 있음' },
-    { key: 'parking', label: '주차 가능' },
-    { key: 'pet_friendly', label: '반려동물 동반' },
-    { key: 'reservation', label: '예약 가능' },
-    { key: 'late_night', label: '심야 영업' },
-  ];
+  const presetTags = contentMode === 'space'
+    ? ['벚꽃', '야경', '전시', '포토스팟', '데이트', '산책', '실내', '비오는날', '주말코스', '혼자']
+    : ['벚꽃', '데이트', '혼밥', '조용한 분위기', '웨이팅 적음', '가성비', '브런치', '야식', '예약 가능', '주차 가능'];
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -143,17 +132,14 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
             isGeneratingTags={isGeneratingTags}
             suggestions={suggestions}
             selectedTags={customTags}
-            suggestedFeaturesText={suggestedFeaturesText}
             onShortDescChange={(value) => setFormData((prev) => ({ ...prev, short_desc: value }))}
             onGenerate={handleGetSuggestions}
             onToggleTag={handleTagToggle}
           />
 
           <FeatureTagSection
-            features={features}
-            featureOptions={featureOptions}
+            presetTags={presetTags}
             selectedTags={customTags}
-            onToggleFeature={handleFeatureToggle}
             onToggleTag={handleTagToggle}
           />
 

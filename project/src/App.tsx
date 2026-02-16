@@ -4,7 +4,7 @@ import { DecisionEntryView } from './components/DecisionEntryView';
 import { DecisionResultView } from './components/DecisionResultView';
 import { BrowseConfirmView } from './components/BrowseConfirmView';
 import { BrowseView } from './components/BrowseView';
-import type { Location, Features, Province, CategoryMain, CategorySub, ContentMode } from './types/location';
+import type { Location, Province, CategoryMain, CategorySub, ContentMode } from './types/location';
 import {
   REGION_HIERARCHY,
   PROVINCES,
@@ -263,7 +263,6 @@ export default function App() {
     memo?: string;
     short_desc?: string;
     kakao_place_id?: string;
-    features?: Features;
     tags?: string[];
     contentType?: ContentMode;
   }) => {

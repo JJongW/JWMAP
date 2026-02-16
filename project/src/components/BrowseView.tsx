@@ -6,7 +6,7 @@
  *
  * 설계 원칙:
  * - 절대 "추천", "베스트", "인기", "Top" 등의 단어를 사용하지 않는다.
- * - 이미지, short_desc, features, tags는 리스트에서 표시하지 않는다.
+ * - 이미지, short_desc, tags는 리스트에서 표시하지 않는다.
  * - 지도는 기본 접힘 상태. 확인용이지 발견용이 아니다.
  * - 필터는 접혀 있고, 여러 단계를 거쳐야 작동한다 (높은 인지 부하).
  * - 화면 하단에 항상 "그냥 정해줄까?" Escape Hatch가 노출된다.
@@ -253,7 +253,7 @@ export function BrowseView({
  * 기존 LocationList의 "card" variant와 달리:
  * - 이미지 없음
  * - short_desc 없음
- * - features, tags, event tags 없음
+ * - tags, event tags 없음
  * - 큐레이터 톤 없음
  *
  * 이유: Browse 경로는 "나열"이지 "추천"이 아니다.

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { ContentMode, Location, Review, VisitType, Features } from '../types/location';
+import type { ContentMode, Location, Review, VisitType } from '../types/location';
 import {
   mapLocationCreateToRow,
   mapLocationUpdateToRow,
@@ -29,7 +29,7 @@ export const locationApi = {
       'id', 'name', 'region', 'sub_region', 'category_main', 'category_sub',
       'lat', 'lon', 'rating', 'curation_level', 'imageUrl', 'tags', 'curator_visited',
       'trust_score', 'popularity_score',
-      'address', 'memo', 'short_desc', 'price_level', 'event_tags', 'features', 'content_type',
+      'address', 'memo', 'short_desc', 'price_level', 'event_tags', 'content_type',
       'naver_place_id', 'kakao_place_id', 'visit_date', 'created_at', 'last_verified_at',
     ].join(', ');
     let result = await supabase
@@ -269,7 +269,7 @@ export const reviewApi = {
         user_display_name: (item.user_display_name || '익명') as string,
         one_liner: item.one_liner as string,
         visit_type: (item.visit_type || 'first') as VisitType,
-        features: (item.features || {}) as Features,
+        tags: (item.tags as string[] | undefined) || [],
         created_at: item.created_at as string,
       }));
     } catch {
@@ -284,7 +284,7 @@ export const reviewApi = {
     user_display_name?: string;
     one_liner: string;
     visit_type: VisitType;
-    features?: Features;
+    tags?: string[];
   }): Promise<Review> {
     try {
       const { data, error } = await supabase
@@ -294,7 +294,7 @@ export const reviewApi = {
           user_display_name: review.user_display_name || '익명',
           one_liner: review.one_liner,
           visit_type: review.visit_type,
-          features: review.features || {},
+          tags: review.tags || [],
         }])
         .select()
         .single();
@@ -314,7 +314,7 @@ export const reviewApi = {
         user_display_name: data.user_display_name || '익명',
         one_liner: data.one_liner,
         visit_type: data.visit_type || 'first',
-        features: data.features || {},
+        tags: data.tags || [],
         created_at: data.created_at,
       };
     } catch (err) {

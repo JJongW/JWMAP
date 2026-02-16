@@ -15,7 +15,7 @@
 
 import { useState } from 'react';
 import { MapPin, ChevronDown, Navigation } from 'lucide-react';
-import type { Location, Features } from '../types/location';
+import type { Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
 import { getDifferentiator } from '../utils/decisionEngine';
 import { getCardImageUrl } from '../utils/image';
@@ -31,19 +31,6 @@ interface DecisionResultViewProps {
   /** 장소 상세 보기 (기존 PlaceDetail 연동) */
   onOpenDetail: (location: Location) => void;
 }
-
-// Features 라벨 (기존 PlaceDetail과 동일)
-const featureLabels: Record<keyof Features, string> = {
-  solo_ok: '혼밥 가능',
-  quiet: '조용한',
-  wait_short: '웨이팅 짧음',
-  date_ok: '데이트 추천',
-  group_ok: '단체석',
-  parking: '주차 가능',
-  pet_friendly: '반려동물',
-  reservation: '예약 가능',
-  late_night: '심야 영업',
-};
 
 export function DecisionResultView({
   result,
@@ -164,14 +151,7 @@ interface PrimaryCardProps {
 function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
   const [imageError, setImageError] = useState(false);
 
-  // 활성 features 추출 (최대 3개)
-  const activeFeatures = location.features
-    ? Object.entries(location.features)
-        .filter(([, value]) => value)
-        .map(([key]) => featureLabels[key as keyof Features])
-        .filter(Boolean)
-        .slice(0, 3)
-    : [];
+  const activeTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 4);
 
   return (
     <div
@@ -227,15 +207,15 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
           {reason}
         </p>
 
-        {/* Feature 태그 */}
-        {activeFeatures.length > 0 && (
+        {/* 기본 태그 */}
+        {activeTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {activeFeatures.map((label) => (
+            {activeTags.map((label) => (
               <span
                 key={label}
                 className="rounded-full bg-gray-50 px-2.5 py-1 text-xs text-gray-500"
               >
-                {label}
+                #{label}
               </span>
             ))}
           </div>
@@ -336,6 +316,8 @@ interface DetailPreviewProps {
 }
 
 function DetailPreview({ location, onOpenDetail }: DetailPreviewProps) {
+  const previewTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 6);
+
   return (
     <div className="space-y-4">
       {/* 주소 */}
@@ -351,6 +333,19 @@ function DetailPreview({ location, onOpenDetail }: DetailPreviewProps) {
             ? `${location.memo.slice(0, 150)}...`
             : location.memo}
         </p>
+      )}
+
+      {previewTags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {previewTags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600"
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
       )}
 
       {/* 전체 상세 보기 버튼 */}

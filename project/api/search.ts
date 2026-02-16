@@ -15,6 +15,10 @@ import {
   applyKeywordFilter,
   applyLocationKeywordFilter,
 } from './searchRanker';
+import {
+  expandKeywordsForTagSearch,
+  inferConstraintFlagsFromKeywords,
+} from './tagIntelligence';
 import type {
   EnhancedLLMQuery,
   FallbackResult,
@@ -22,6 +26,15 @@ import type {
   Location,
   TimingMetrics,
 } from './searchTypes';
+type CourseRecommendation = {
+  title: string;
+  themeTags: string[];
+  stops: {
+    food?: Location;
+    cafe?: Location;
+    space?: Location;
+  };
+};
 
 // Lazy Supabase init (env vars may not be available at module load on some runtimes)
 let _supabase: ReturnType<typeof createClient> | null = null;
@@ -67,16 +80,54 @@ async function searchLocations(query: LLMQuery): Promise<Location[]> {
     results = results.filter((loc) => !loc.categoryMain || !query.excludeCategoryMain?.includes(loc.categoryMain));
   }
 
-  const tagMatchedIds = await fetchTagMatchedLocationIds(getSupabase, query.keywords || []);
-  results = applyConstraintFilter(results, query, tagMatchedIds);
+  const expandedKeywords = expandKeywordsForTagSearch(query.keywords || []);
+  const tagMatchedIds = await fetchTagMatchedLocationIds(getSupabase, expandedKeywords);
+  const inferredFlags = inferConstraintFlagsFromKeywords(expandedKeywords);
+  const normalizedQuery: LLMQuery = {
+    ...query,
+    constraints: {
+      ...query.constraints,
+      solo_ok: query.constraints?.solo_ok || inferredFlags.solo_ok || false,
+      quiet: query.constraints?.quiet || inferredFlags.quiet || false,
+      no_wait: query.constraints?.no_wait || inferredFlags.no_wait || false,
+    },
+  };
+  results = applyConstraintFilter(results, normalizedQuery, tagMatchedIds);
   const hasLocationFilter = hasLocationKeywords || !!(query.region && query.region.length > 0);
-  results = applyKeywordFilter(results, query, tagMatchedIds, hasLocationFilter);
+  results = applyKeywordFilter(results, normalizedQuery, tagMatchedIds, hasLocationFilter);
 
   if (query.sort === 'rating') {
     results.sort((a, b) => (b.rating || 0) - (a.rating || 0));
   }
 
   return results.slice(0, 50);
+}
+
+function isCafePlace(item: Location): boolean {
+  return item.categoryMain === '카페' || item.categorySub?.includes('카페') || item.tags?.some((tag) => tag.includes('카페')) === true;
+}
+
+function isSpacePlace(item: Location): boolean {
+  if (item.contentType === 'space') return true;
+  const category = `${item.categoryMain || ''} ${item.categorySub || ''}`;
+  return ['전시', '팝업', '문화', '공간', '포토'].some((word) => category.includes(word));
+}
+
+function buildCourseRecommendation(query: LLMQuery, places: Location[]): CourseRecommendation | null {
+  const keywords = query.keywords || [];
+  const needsCourse = keywords.some((kw) => ['코스', '루트', '데이트 코스', '투어'].some((key) => kw.includes(key)));
+  if (!needsCourse) return null;
+
+  const food = places.find((item) => !isCafePlace(item) && !isSpacePlace(item));
+  const cafe = places.find((item) => isCafePlace(item));
+  const space = places.find((item) => isSpacePlace(item));
+  if (!food && !cafe && !space) return null;
+
+  return {
+    title: `${keywords.slice(0, 2).join(' ')} 추천 코스`.trim(),
+    themeTags: keywords.slice(0, 5),
+    stops: { food, cafe, space },
+  };
 }
 
 // ============================================
@@ -174,6 +225,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 4. Convert to legacy query for response
     const legacyQuery = toLegacyQuery(enhanced, uiRegion);
+    const course = buildCourseRecommendation(legacyQuery, fallbackResult.places);
 
     // 5. Return enhanced response
     return res.status(200).json({
@@ -197,6 +249,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       traceId,
       timing,
       search_log_id: searchLogId,
+      course,
     });
   } catch (error) {
     const totalMs = Date.now() - startTime;

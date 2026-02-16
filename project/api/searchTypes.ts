@@ -100,7 +100,6 @@ export interface Location {
   address: string;
   memo: string;
   shortDesc?: string;
-  features?: Record<string, boolean>;
   rating: number;
   curationLevel?: number;
   priceLevel?: number;
@@ -109,6 +108,7 @@ export interface Location {
   imageUrl: string;
   eventTags?: string[];
   visitDate?: string;
+  contentType?: 'food' | 'space';
 }
 
 export interface FallbackResult {

@@ -13,7 +13,6 @@ export const locationFormSchema = z.object({
   short_desc: z.string().nullable().optional(),
   curation_level: z.number().min(1, '큐레이션 레벨을 선택하세요').max(5).nullable().optional(),
   price_level: z.number().min(1).max(4).nullable().optional(),
-  features: z.record(z.string(), z.boolean()).default({}),
   imageUrl: z.string().default(''),
   naver_place_id: z.string().nullable().optional(),
   kakao_place_id: z.string().nullable().optional(),

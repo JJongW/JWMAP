@@ -7,28 +7,28 @@
  * LLM은 사용하지 않으며, 모든 로직은 규칙 기반이다.
  * 
  * 매핑 로직:
- * - Companion → Features 필터 (solo_ok, date_ok, group_ok)
+ * - Companion → 태그 필터 (혼밥, 데이트, 모임)
  * - TimeSlot → 카테고리/시간대 가중치 (점심: 밥/면, 저녁: 고기/해산물, 늦은밤: 술안주/카페)
- * - PriorityFeature → 필수 Features 조건
+ * - PriorityFeature → 필수 태그 조건
  */
 
-import type { Location, Features, CategoryMain } from '../types/location';
+import type { Location, CategoryMain } from '../types/location';
 import { PROVINCES, inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
 
 // ─────────────────────────────────────────────
-// 1. Companion → Features 매핑
+// 1. Companion → 태그 매핑
 // ─────────────────────────────────────────────
 
-/** 동행 유형에 따라 필수로 충족해야 할 feature 키를 반환 */
-function getCompanionFeatureKeys(companion: Companion): (keyof Features)[] {
+/** 동행 유형에 따라 우선 매칭할 태그 키워드를 반환 */
+function getCompanionTagKeywords(companion: Companion): string[] {
   switch (companion) {
     case 'solo':
-      return ['solo_ok'];
+      return ['혼밥', '혼자'];
     case 'pair':
-      return ['date_ok'];
+      return ['데이트', '분위기'];
     case 'group':
-      return ['group_ok'];
+      return ['모임', '단체', '회식'];
   }
 }
 
@@ -77,26 +77,32 @@ const TIME_CATEGORY_WEIGHT: Record<TimeSlot, Partial<Record<CategoryMain, number
 };
 
 // ─────────────────────────────────────────────
-// 3. PriorityFeature → Features 키 매핑
+// 3. PriorityFeature → 태그 키워드 매핑
 // ─────────────────────────────────────────────
 
-/** 우선 조건 → 실제 Features 키 매핑 (fast_serve는 wait_short로 대체) */
-function getPriorityFeatureKey(priority: PriorityFeature): keyof Features | null {
+/** 우선 조건 → 실제 태그 키워드 매핑 */
+function getPriorityTagKeywords(priority: PriorityFeature): string[] {
   switch (priority) {
     case 'quiet':
-      return 'quiet';
+      return ['조용', '차분'];
     case 'wait_short':
-      return 'wait_short';
+      return ['웨이팅 적음', '대기 없음', '바로입장'];
     case 'fast_serve':
-      // "빨리 나오는 곳"은 wait_short와 유사하게 취급
-      return 'wait_short';
+      return ['빠른', '웨이팅 적음', '회전 빠름'];
     case 'date_ok':
-      return 'date_ok';
+      return ['데이트', '분위기'];
     case 'solo_ok':
-      return 'solo_ok';
+      return ['혼밥', '혼자'];
     default:
-      return null;
+      return [];
   }
+}
+
+function hasTagKeyword(location: Location, keywords: string[]): boolean {
+  const tags = location.tags || [];
+  if (tags.length === 0 || keywords.length === 0) return false;
+  const lowerTags = tags.map((tag) => tag.toLowerCase());
+  return keywords.some((keyword) => lowerTags.some((tag) => tag.includes(keyword.toLowerCase())));
 }
 
 // ─────────────────────────────────────────────
@@ -106,8 +112,7 @@ function getPriorityFeatureKey(priority: PriorityFeature): keyof Features | null
 interface ScoredLocation {
   location: Location;
   score: number;
-  /** 디버그/이유 텍스트 생성용: 어떤 조건에 매칭됐는지 */
-  matchedFeatures: string[];
+  matchedTags: string[];
 }
 
 function scoreLocation(
@@ -116,28 +121,23 @@ function scoreLocation(
   timeSlot: TimeSlot,
   priorityFeature: PriorityFeature,
 ): ScoredLocation | null {
-  const features = location.features || {};
-  const matchedFeatures: string[] = [];
+  const matchedTags: string[] = [];
   let score = 0;
 
-  // ── 필수 조건 1: PriorityFeature 매칭 (필수) ──
-  const priorityKey = getPriorityFeatureKey(priorityFeature);
-  if (priorityKey) {
-    if (!features[priorityKey]) {
-      // 우선 조건을 만족하지 않으면 제외
-      return null;
-    }
+  const priorityKeywords = getPriorityTagKeywords(priorityFeature);
+  if (priorityKeywords.length > 0 && !hasTagKeyword(location, priorityKeywords)) {
+    return null;
+  }
+  if (priorityKeywords.length > 0) {
     score += 100; // 필수 조건 충족 가산점
-    matchedFeatures.push(priorityKey);
+    matchedTags.push(priorityKeywords[0]);
   }
 
-  // ── 보너스: Companion Feature 매칭 ──
-  const companionKeys = getCompanionFeatureKeys(companion);
-  for (const key of companionKeys) {
-    if (features[key]) {
-      score += 30;
-      matchedFeatures.push(key);
-    }
+  // ── 보너스: Companion 태그 매칭 ──
+  const companionKeywords = getCompanionTagKeywords(companion);
+  if (hasTagKeyword(location, companionKeywords)) {
+    score += 30;
+    matchedTags.push(companionKeywords[0]);
   }
 
   // ── 보너스: TimeSlot 카테고리 가중치 ──
@@ -148,19 +148,26 @@ function scoreLocation(
   }
 
   // ── 보너스: late_night 시간대 매칭 ──
-  if (timeSlot === 'late' && features.late_night) {
+  if (timeSlot === 'late' && hasTagKeyword(location, ['심야', '야식', '늦게'])) {
     score += 20;
-    matchedFeatures.push('late_night');
+    matchedTags.push('심야');
   }
 
-  // ── 보너스: 추가 Features 호환성 ──
-  const allFeatureKeys: (keyof Features)[] = [
-    'solo_ok', 'quiet', 'wait_short', 'date_ok', 'group_ok',
-    'parking', 'pet_friendly', 'reservation', 'late_night',
+  // ── 보너스: 추가 태그 호환성 ──
+  const bonusKeywords = [
+    '벚꽃',
+    '산책',
+    '야경',
+    '포토스팟',
+    '조용',
+    '가성비',
+    '브런치',
+    '전시',
   ];
-  for (const key of allFeatureKeys) {
-    if (features[key] && !matchedFeatures.includes(key)) {
+  for (const keyword of bonusKeywords) {
+    if (hasTagKeyword(location, [keyword]) && !matchedTags.includes(keyword)) {
       score += 5;
+      matchedTags.push(keyword);
     }
   }
 
@@ -169,7 +176,7 @@ function scoreLocation(
   const rating = location.rating ?? 0;
   score += Math.round((rating / 5) * 20);
 
-  return { location, score, matchedFeatures };
+  return { location, score, matchedTags };
 }
 
 // ─────────────────────────────────────────────
@@ -243,17 +250,17 @@ export function decideLocations(
 // 6. 이유 텍스트 생성
 // ─────────────────────────────────────────────
 
-/** Features 키 → 사용자 친화적 텍스트 */
-const FEATURE_TEXT: Record<string, string> = {
-  solo_ok: '혼자 와도 편하고',
-  quiet: '조용한 분위기에서',
-  wait_short: '줄 거의 없이 바로 들어갈 수 있고',
-  date_ok: '분위기가 좋고',
-  group_ok: '여럿이 와도 넉넉하고',
-  parking: '주차도 편하고',
-  pet_friendly: '반려동물도 함께할 수 있고',
-  reservation: '예약도 가능하고',
-  late_night: '늦은 시간에도 열려 있어요',
+/** 태그 키워드 → 사용자 친화적 텍스트 */
+const TAG_TEXT: Record<string, string> = {
+  혼밥: '혼자 와도 편하고',
+  데이트: '데이트하기 좋고',
+  모임: '여럿이 오기 좋고',
+  조용: '조용한 분위기에서',
+  심야: '늦은 시간에도 열려 있고',
+  벚꽃: '계절감이 좋아서',
+  산책: '걷기 좋은 동선이 있고',
+  야경: '야경이 매력적이고',
+  포토스팟: '사진 찍기 좋고',
 };
 
 const TIME_TEXT: Record<TimeSlot, string> = {
@@ -274,10 +281,9 @@ function generateReason(
     return loc.short_desc;
   }
 
-  // 매칭된 features 중 상위 2개를 조합
-  const featureTexts = scored.matchedFeatures
-    .filter(key => FEATURE_TEXT[key])
-    .map(key => FEATURE_TEXT[key])
+  const featureTexts = scored.matchedTags
+    .filter(key => TAG_TEXT[key])
+    .map(key => TAG_TEXT[key])
     .slice(0, 2);
 
   if (featureTexts.length >= 2) {
@@ -303,27 +309,34 @@ export function getDifferentiator(
   secondary: Location,
   primary: Location,
 ): string {
-  const sf = secondary.features || {};
-  const pf = primary.features || {};
-
-  // 보조 장소에만 있는 특징 찾기
-  const allKeys: (keyof Features)[] = [
-    'quiet', 'wait_short', 'date_ok', 'solo_ok', 'group_ok',
-    'parking', 'reservation', 'late_night', 'pet_friendly',
+  const secondaryTags = secondary.tags || [];
+  const primaryTags = new Set(primary.tags || []);
+  const allKeys = [
+    '조용',
+    '웨이팅',
+    '데이트',
+    '혼밥',
+    '모임',
+    '주차',
+    '예약',
+    '심야',
+    '반려동물',
   ];
 
   for (const key of allKeys) {
-    if (sf[key] && !pf[key]) {
+    const hasSecondary = secondaryTags.some((tag) => tag.includes(key));
+    const hasPrimary = [...primaryTags].some((tag) => tag.includes(key));
+    if (hasSecondary && !hasPrimary) {
       const diffTexts: Record<string, string> = {
-        quiet: '여긴 조금 더 조용해요',
-        wait_short: '여긴 웨이팅이 더 짧아요',
-        date_ok: '여긴 분위기가 더 좋아요',
-        solo_ok: '여긴 혼밥하기 더 편해요',
-        group_ok: '여긴 단체석이 넉넉해요',
-        parking: '여긴 주차가 편해요',
-        reservation: '여긴 예약이 가능해요',
-        late_night: '여긴 더 늦게까지 해요',
-        pet_friendly: '여긴 반려동물도 환영해요',
+        조용: '여긴 조금 더 조용해요',
+        웨이팅: '여긴 웨이팅이 더 짧아요',
+        데이트: '여긴 분위기가 더 좋아요',
+        혼밥: '여긴 혼밥하기 더 편해요',
+        모임: '여긴 모임에 더 잘 맞아요',
+        주차: '여긴 주차가 편해요',
+        예약: '여긴 예약이 가능해요',
+        심야: '여긴 더 늦게까지 해요',
+        반려동물: '여긴 반려동물도 환영해요',
       };
       return diffTexts[key] || '';
     }

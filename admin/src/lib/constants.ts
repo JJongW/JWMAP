@@ -23,31 +23,6 @@ export const ATTRACTION_CATEGORY_HIERARCHY: Record<string, string[]> = {
 
 export const ATTRACTION_CATEGORY_MAINS = Object.keys(ATTRACTION_CATEGORY_HIERARCHY);
 
-// ---- Feature Options ----
-export const FEATURE_OPTIONS: { key: string; label: string }[] = [
-  { key: 'solo_ok', label: '혼밥 가능' },
-  { key: 'quiet', label: '조용한' },
-  { key: 'wait_short', label: '웨이팅 짧음' },
-  { key: 'date_ok', label: '데이트' },
-  { key: 'group_ok', label: '단체석' },
-  { key: 'parking', label: '주차 가능' },
-  { key: 'pet_friendly', label: '반려동물' },
-  { key: 'reservation', label: '예약 가능' },
-  { key: 'late_night', label: '심야 영업' },
-];
-
-export const ATTRACTION_FEATURE_OPTIONS: { key: string; label: string }[] = [
-  { key: 'indoor', label: '실내' },
-  { key: 'photo_spot', label: '포토스팟' },
-  { key: 'family_friendly', label: '가족 추천' },
-  { key: 'date_ok', label: '데이트 추천' },
-  { key: 'quiet', label: '조용한 분위기' },
-  { key: 'reservation', label: '예약 가능' },
-  { key: 'parking', label: '주차 가능' },
-  { key: 'kids_ok', label: '아이와 방문' },
-  { key: 'pet_friendly', label: '반려동물 동반' },
-];
-
 // ---- Price Options ----
 export const PRICE_OPTIONS = [
   { value: 1, label: '₩ 저렴' },

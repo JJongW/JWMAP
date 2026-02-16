@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import type { Features } from '../types/location';
 import type { LLMSuggestions } from '../schemas/llmSuggestions';
 
 interface UseTagSuggestionsParams {
@@ -14,9 +13,9 @@ export function useTagSuggestions() {
 
   const requestSuggestions = useCallback(async (
     params: UseTagSuggestionsParams
-  ): Promise<{ suggestions: LLMSuggestions | null; mergedFeatures: Features | null }> => {
+  ): Promise<{ suggestions: LLMSuggestions | null }> => {
     if (!params.experience.trim()) {
-      return { suggestions: null, mergedFeatures: null };
+      return { suggestions: null };
     }
 
     setIsGeneratingTags(true);
@@ -29,18 +28,15 @@ export function useTagSuggestions() {
       });
 
       if (!response.ok) {
-        return { suggestions: null, mergedFeatures: null };
+        return { suggestions: null };
       }
 
       const data = await response.json() as LLMSuggestions;
       setSuggestions(data);
-      return {
-        suggestions: data,
-        mergedFeatures: data.features || null,
-      };
+      return { suggestions: data };
     } catch (error) {
       console.error('Tag suggestion error:', error);
-      return { suggestions: null, mergedFeatures: null };
+      return { suggestions: null };
     } finally {
       setIsGeneratingTags(false);
     }

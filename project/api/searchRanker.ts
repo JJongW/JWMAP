@@ -29,13 +29,18 @@ export function applyConstraintFilter(
   if (!query.constraints) return results;
   return results.filter((loc) => {
     if (query.constraints?.solo_ok) {
-      const hasSoloOkFeature = loc.features?.solo_ok === true;
       const hasSoloTag = loc.tags?.some((tag) => ['혼밥', '혼자', '혼술'].some((keyword) => tag.toLowerCase().includes(keyword.toLowerCase())));
       const hasSoloKeyword = query.keywords?.some((kw) => ['혼밥', '혼자', '혼술'].some((keyword) => kw.toLowerCase().includes(keyword.toLowerCase()))) && tagMatchedIds.has(loc.id);
-      if (!hasSoloOkFeature && !hasSoloTag && !hasSoloKeyword) return false;
+      if (!hasSoloTag && !hasSoloKeyword) return false;
     }
-    if (query.constraints?.quiet && !loc.features?.quiet) return false;
-    if (query.constraints?.no_wait && !loc.features?.no_wait) return false;
+    if (query.constraints?.quiet) {
+      const hasQuietTag = loc.tags?.some((tag) => ['조용', '한적', '차분'].some((keyword) => tag.toLowerCase().includes(keyword)));
+      if (!hasQuietTag) return false;
+    }
+    if (query.constraints?.no_wait) {
+      const hasNoWaitTag = loc.tags?.some((tag) => ['웨이팅', '바로입장', '대기없'].some((keyword) => tag.toLowerCase().includes(keyword)));
+      if (!hasNoWaitTag) return false;
+    }
     return true;
   });
 }

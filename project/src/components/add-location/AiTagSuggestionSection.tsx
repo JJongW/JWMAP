@@ -7,7 +7,6 @@ interface AiTagSuggestionSectionProps {
   isGeneratingTags: boolean;
   suggestions: LLMSuggestions | null;
   selectedTags: string[];
-  suggestedFeaturesText: string;
   onShortDescChange: (value: string) => void;
   onGenerate: () => void;
   onToggleTag: (tagName: string) => void;
@@ -18,7 +17,6 @@ export function AiTagSuggestionSection({
   isGeneratingTags,
   suggestions,
   selectedTags,
-  suggestedFeaturesText,
   onShortDescChange,
   onGenerate,
   onToggleTag,
@@ -49,9 +47,6 @@ export function AiTagSuggestionSection({
 
       {suggestions && (
         <div className="mt-2">
-          {suggestedFeaturesText && (
-            <p className="text-xs text-orange-500">AI 추천 특징: {suggestedFeaturesText}</p>
-          )}
           {suggestions.tags && suggestions.tags.length > 0 && (
             <div className="mt-2">
               <p className="text-xs text-gray-500 mb-1.5">클릭하여 태그 추가:</p>

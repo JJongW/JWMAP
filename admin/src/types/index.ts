@@ -19,9 +19,6 @@ export interface LocationTag {
   tag?: Tag; // joined
 }
 
-// ---- Features ----
-export type Features = Record<string, boolean>;
-
 // ---- Location ----
 export interface Location {
   id: string;
@@ -38,7 +35,6 @@ export interface Location {
   rating: number;
   curation_level: number | null;
   price_level: number | null;
-  features: Features;
   tags: string[];
   imageUrl: string;
   event_tags: string[];

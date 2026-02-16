@@ -1,7 +1,6 @@
-import type { Features, Location } from '../types/location';
+import type { Location } from '../types/location';
 
 type Row = Record<string, unknown>;
-
 function parseArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string');
   if (typeof value === 'string') {
@@ -24,14 +23,14 @@ function trimOrUndefined(value: unknown): string | undefined {
 export function mapRowToLocation(item: Row): Location {
   const categoryMain = (item.category_main || item.categoryMain) as Location['categoryMain'];
   const categorySub = (item.category_sub || item.categorySub) as Location['categorySub'];
+  const mergedTags = parseArray(item.tags);
 
   return {
     ...(item as unknown as Location),
     category: (categorySub || categoryMain || (item.category as string) || '') as string,
     imageUrl: (item.imageUrl ?? item.image_url ?? '') as string,
     eventTags: parseArray(item.event_tags ?? item.eventTags),
-    tags: parseArray(item.tags),
-    features: (item.features || {}) as Features,
+    tags: mergedTags,
     sub_region: item.sub_region as string | undefined,
     naver_place_id: item.naver_place_id as string | undefined,
     price_level: item.price_level as number | undefined,
@@ -48,12 +47,10 @@ export function mapRowToLocation(item: Row): Location {
 }
 
 function stripClientOnlyFields(payload: Row): Row {
-  const {
-    category: _category,
-    disclosure: _disclosure,
-    curator_visit_slot: _curator_visit_slot,
-    ...rest
-  } = payload;
+  const rest: Row = { ...payload };
+  delete rest.category;
+  delete rest.disclosure;
+  delete rest.curator_visit_slot;
   return rest;
 }
 
@@ -65,7 +62,6 @@ export function mapLocationCreateToRow(location: Omit<Location, 'id'>): Row {
     tags: location.tags || [],
     category_main: location.categoryMain,
     category_sub: location.categorySub,
-    features: location.features || {},
     curation_level: location.curation_level ?? undefined,
     content_type: location.contentType ?? 'food',
   };

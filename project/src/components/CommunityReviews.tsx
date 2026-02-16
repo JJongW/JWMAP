@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Users, RefreshCw } from 'lucide-react';
-import type { Review, Features } from '../types/location';
+import type { Review } from '../types/location';
 
 interface CommunityReviewsProps {
   reviews: Review[];
@@ -7,19 +7,6 @@ interface CommunityReviewsProps {
   isExpanded: boolean;
   onToggle: () => void;
 }
-
-// Features 라벨 매핑
-const featureLabels: Record<keyof Features, string> = {
-  solo_ok: '혼밥',
-  quiet: '조용함',
-  wait_short: '웨이팅 짧음',
-  date_ok: '데이트',
-  group_ok: '단체석',
-  parking: '주차',
-  pet_friendly: '반려동물',
-  reservation: '예약',
-  late_night: '심야',
-};
 
 // 날짜 포맷팅
 const formatDate = (dateStr: string): string => {
@@ -100,16 +87,7 @@ export function CommunityReviews({
 
 // 개별 리뷰 아이템
 function ReviewItem({ review }: { review: Review }) {
-  // 활성화된 Features 추출
-  const activeFeatures = review.features
-    ? Object.entries(review.features)
-        .filter(([, value]) => value)
-        .map(([key]) => ({
-          key: key as keyof Features,
-          label: featureLabels[key as keyof Features],
-        }))
-        .slice(0, 3)
-    : [];
+  const activeTags = (review.tags || []).slice(0, 4);
 
   return (
     <div className="px-4 py-3.5">
@@ -134,15 +112,15 @@ function ReviewItem({ review }: { review: Review }) {
         "{review.one_liner}"
       </p>
 
-      {/* Features 태그 */}
-      {activeFeatures.length > 0 && (
+      {/* 기본 태그 */}
+      {activeTags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {activeFeatures.map(({ key, label }) => (
+          {activeTags.map((tag) => (
             <span
-              key={key}
+              key={tag}
               className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-md"
             >
-              {label}
+              #{tag}
             </span>
           ))}
         </div>
