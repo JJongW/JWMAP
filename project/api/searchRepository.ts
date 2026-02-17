@@ -1,4 +1,4 @@
-import type { LLMQuery, Location } from './searchTypes';
+import type { LLMQuery, Location } from './searchTypes.js';
 
 type SupabaseLike = {
   from: (table: string) => {
@@ -121,7 +121,7 @@ export async function fetchTopRatedLocations(getSupabase: GetSupabase): Promise<
   const { data } = await getSupabase()
     .from('locations')
     .select('*')
-    .order('rating', { ascending: false })
+    .order('rating', { ascending: false, nullsFirst: false })
     .limit(20);
   return (data || []).map((item: Record<string, unknown>) => mapDbRowToLocation(item));
 }

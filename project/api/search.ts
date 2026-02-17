@@ -1,31 +1,31 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
-import { runFallbackSearch } from './searchFallback';
-import { generateSearchActions, generateUIHints } from './searchPresentation';
-import { parseEnhancedQuery, toLegacyQuery } from './searchParser';
-import { updateSearchLogParsed, updateSearchLogResult } from './searchLogging';
+import { runFallbackSearch } from './searchFallback.js';
+import { generateSearchActions, generateUIHints } from './searchPresentation.js';
+import { parseEnhancedQuery, toLegacyQuery } from './searchParser.js';
+import { updateSearchLogParsed, updateSearchLogResult } from './searchLogging.js';
 import {
   fetchLocationsSearchRows,
   fetchTagMatchedLocationIds,
   fetchTopRatedLocations as fetchTopRatedFromRepo,
-} from './searchRepository';
+} from './searchRepository.js';
 import {
   applyConstraintFilter,
   applyKeywordFilter,
   applyLocationKeywordFilter,
-} from './searchRanker';
+} from './searchRanker.js';
 import {
   expandKeywordsForTagSearch,
   inferConstraintFlagsFromKeywords,
-} from './tagIntelligence';
+} from './tagIntelligence.js';
 import type {
   EnhancedLLMQuery,
   FallbackResult,
   LLMQuery,
   Location,
   TimingMetrics,
-} from './searchTypes';
+} from './searchTypes.js';
 type CourseRecommendation = {
   title: string;
   themeTags: string[];

@@ -1,4 +1,4 @@
-import type { EnhancedLLMQuery, FallbackResult, SearchActions, UIHints } from './searchTypes';
+import type { EnhancedLLMQuery, FallbackResult, SearchActions, UIHints } from './searchTypes.js';
 
 export function generateUIHints(
   enhanced: EnhancedLLMQuery,

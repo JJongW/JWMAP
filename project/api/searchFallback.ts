@@ -1,4 +1,4 @@
-import type { EnhancedLLMQuery, FallbackResult, LLMQuery, Location, SearchConstraint } from './searchTypes';
+import type { EnhancedLLMQuery, FallbackResult, LLMQuery, Location, SearchConstraint } from './searchTypes.js';
 
 type LegacyQueryBuilder = (enhanced: EnhancedLLMQuery, uiRegion?: string) => LLMQuery;
 type SearchExecutor = (query: LLMQuery) => Promise<Location[]>;
