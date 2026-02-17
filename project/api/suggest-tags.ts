@@ -4,7 +4,7 @@ import { z } from 'zod';
 import {
   sanitizeTagNames,
   sanitizeTagSuggestions,
-} from './tagIntelligence';
+} from './tagIntelligence.js';
 
 // Zod 스키마 정의 (API 서버용)
 const TagSuggestionSchema = z.object({

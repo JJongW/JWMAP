@@ -1,4 +1,4 @@
-import type { EnhancedLLMQuery } from './searchTypes';
+import type { EnhancedLLMQuery } from './searchTypes.js';
 
 type SearchLogsUpdater = {
   from: (table: string) => {

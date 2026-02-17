@@ -1,10 +1,10 @@
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { HumanMessage } from '@langchain/core/messages';
-import type { EnhancedLLMQuery, LLMQuery, SearchIntent, TimeOfDay, VisitContext } from './searchTypes';
+import type { EnhancedLLMQuery, LLMQuery, SearchIntent, TimeOfDay, VisitContext } from './searchTypes.js';
 import {
   inferConstraintFlagsFromKeywords,
   sanitizeTagNames,
-} from './tagIntelligence';
+} from './tagIntelligence.js';
 
 const llm = new ChatGoogleGenerativeAI({
   model: 'gemini-2.0-flash',

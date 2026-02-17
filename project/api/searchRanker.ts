@@ -1,5 +1,5 @@
-import type { LLMQuery, Location } from './searchTypes';
-import type { SearchCandidate } from './searchRepository';
+import type { LLMQuery, Location } from './searchTypes.js';
+import type { SearchCandidate } from './searchRepository.js';
 
 function locationMatchesKeyword(
   loc: { subRegion?: string; region?: string; province?: string; tags?: string[] },
