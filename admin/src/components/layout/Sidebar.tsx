@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MapPin, AlertTriangle, Sparkles, Route } from 'lucide-react';
+import { LayoutDashboard, MapPin, AlertTriangle, Sparkles, Route, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { href: '/attractions', label: '볼거리 관리', icon: Sparkles },
   { href: '/courses', label: '코스 관리', icon: Route },
   { href: '/locations/incomplete', label: '데이터 품질', icon: AlertTriangle },
+  { href: '/content-engine', label: '콘텐츠 엔진', icon: Bot },
 ];
 
 export function Sidebar() {
