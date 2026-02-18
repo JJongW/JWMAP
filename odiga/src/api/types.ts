@@ -69,6 +69,7 @@ export interface RecommendRequest {
   mode?: string;
   response_type?: ResponseType;
   feedback?: string;
+  exclude_place_ids?: string[];
 }
 
 export interface RecommendResponse {

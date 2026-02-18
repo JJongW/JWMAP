@@ -16,6 +16,30 @@ export interface ParsedIntent {
   special_context: string | null;
 }
 
+const CAFE_KEYWORDS = [
+  '카페', '커피', '라떼', '아메리카노', '에스프레소', '카공', '브런치카페', '디카페인',
+];
+const FOOD_KEYWORDS = [
+  '맛집', '밥', '식사', '먹', '점심', '저녁', '아침', '야식', '국밥', '라멘', '파스타',
+  '고기', '회', '해장', '술안주', '브런치',
+];
+const ATTRACTION_KEYWORDS = [
+  '볼거리', '구경', '전시', '미술관', '박물관', '산책', '공원', '야경', '명소', '갈만한곳',
+  '가볼만한곳', '놀거리', '데이트코스',
+];
+
+function hasAnyKeyword(text: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function normalizeActivityType(query: string, activityType: unknown): string {
+  const merged = `${query} ${typeof activityType === 'string' ? activityType : ''}`.toLowerCase();
+  if (hasAnyKeyword(merged, CAFE_KEYWORDS)) return '카페';
+  if (hasAnyKeyword(merged, FOOD_KEYWORDS)) return '맛집';
+  if (hasAnyKeyword(merged, ATTRACTION_KEYWORDS)) return '볼거리';
+  return '볼거리';
+}
+
 const SYSTEM_PROMPT = `You are a Korean place recommendation intent parser.
 
 Given a user query in Korean, extract structured intent.
@@ -71,6 +95,7 @@ If you cannot map a place name to any region, set region to null.
 Rules:
 - "오늘 점심 뭐 먹을까?" → response_type: "single", activity_type: "맛집"
 - "커피 마시고 싶다" → response_type: "single", activity_type: "카페"
+- "어디 가볼만한 곳 있어?" → response_type: "single", activity_type: "볼거리"
 - "강남 데이트 코스 짜줘" → response_type: "course"
 - "라멘 맛집" → response_type: "single", activity_type: "면"
 - "홍대 카페 투어" → response_type: "course", activity_type: "카페"
@@ -78,6 +103,7 @@ Rules:
 - "압구정 카페" → region: "강남"
 - "을지로 술집" → region: "종로/중구"
 - If unclear, default to "single"
+- activity_type must be normalized into one of: "맛집", "카페", "볼거리"
 - Extract season from context (e.g. "벚꽃" → "봄", "눈" → "겨울")
 - Infer mode from people_count if not explicit
 - vibe should capture mood/atmosphere keywords
@@ -138,7 +164,7 @@ export async function parseIntent(query: string): Promise<IntentResult> {
       response_type: responseType,
       region: typeof parsed.region === 'string' ? parsed.region : null,
       vibe: Array.isArray(parsed.vibe) ? parsed.vibe.filter((v: unknown) => typeof v === 'string') : [],
-      activity_type: typeof parsed.activity_type === 'string' ? parsed.activity_type : null,
+      activity_type: normalizeActivityType(query, parsed.activity_type),
       people_count: typeof parsed.people_count === 'number' ? parsed.people_count : null,
       season: typeof parsed.season === 'string' ? parsed.season : null,
       mode: typeof parsed.mode === 'string' ? parsed.mode : null,
