@@ -1,4 +1,4 @@
-import type { Place } from './places';
+import { getPlaceActivityBucket, type Place } from './places';
 import type { ParsedIntent } from './intent';
 import { DEFAULT_WEIGHTS, type ScoringWeights } from './scoringConfig';
 import { getSeasonBoost } from './season';
@@ -35,6 +35,9 @@ function vibeMatchScore(place: Place, vibes: string[]): number {
 
 function activityMatchScore(place: Place, activityType: string | null): number {
   if (!activityType) return 0.5;
+
+  const bucket = getPlaceActivityBucket(place);
+  if (bucket === activityType) return 1.0;
 
   const category = `${place.category_main || ''} ${place.category_sub || ''}`.toLowerCase();
   const tags = (place.tags || []).join(' ').toLowerCase();

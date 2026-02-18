@@ -2,6 +2,7 @@ import type { ScoredPlace } from './scoring';
 import type { ModeConfig } from './modePlanner';
 import { walkingDistance } from './distance';
 import { getDifficulty, type Difficulty } from './difficulty';
+import { getPlaceActivityBucket, type PlaceActivityBucket } from './places';
 
 export interface CourseStep {
   label: string;
@@ -23,6 +24,7 @@ export function buildCourses(
   scoredPlaces: ScoredPlace[],
   modeConfig: ModeConfig,
   vibes: string[],
+  primaryActivityType: string | null = null,
   count: number = 3,
 ): Course[] {
   if (scoredPlaces.length < modeConfig.steps) {
@@ -33,7 +35,7 @@ export function buildCourses(
   const usedSets = new Set<string>();
 
   for (let i = 0; i < count; i++) {
-    const steps = pickDiverseSteps(scoredPlaces, modeConfig, usedSets);
+    const steps = pickDiverseSteps(scoredPlaces, modeConfig, usedSets, primaryActivityType);
     if (steps.length === 0) break;
 
     const courseSteps = buildCourseSteps(steps, modeConfig.labels);
@@ -61,9 +63,12 @@ function pickDiverseSteps(
   places: ScoredPlace[],
   modeConfig: ModeConfig,
   usedSets: Set<string>,
+  primaryActivityType: string | null,
 ): ScoredPlace[] {
   const needed = modeConfig.steps;
   const candidates = [...places];
+  const desiredBuckets = getDesiredBuckets(needed, primaryActivityType);
+  const hasAttractionCandidate = candidates.some((place) => getPlaceActivityBucket(place) === '볼거리');
 
   for (let attempt = 0; attempt < 20; attempt++) {
     const picked: ScoredPlace[] = [];
@@ -84,7 +89,7 @@ function pickDiverseSteps(
       }
     }
 
-    if (picked.length === needed) {
+    if (picked.length === needed && satisfiesBuckets(picked, desiredBuckets, false, hasAttractionCandidate)) {
       const key = picked.map((s) => s.id).join('|');
       if (!usedSets.has(key)) {
         return picked;
@@ -92,7 +97,53 @@ function pickDiverseSteps(
     }
   }
 
+  const fallback = candidates.slice(0, needed);
+  if (fallback.length === needed && satisfiesBuckets(fallback, desiredBuckets, true, hasAttractionCandidate)) {
+    return fallback;
+  }
+
   return [];
+}
+
+function normalizeBucket(activityType: string | null): PlaceActivityBucket {
+  if (activityType === '카페') return '카페';
+  if (activityType === '볼거리') return '볼거리';
+  return '맛집';
+}
+
+function getDesiredBuckets(stepCount: number, primaryActivityType: string | null): PlaceActivityBucket[] {
+  const primary = normalizeBucket(primaryActivityType);
+
+  if (stepCount <= 1) return [primary];
+  if (stepCount === 2) {
+    return primary === '볼거리' ? ['볼거리', '카페'] : [primary, '볼거리'];
+  }
+  if (primary === '카페') return ['카페', '볼거리'];
+  if (primary === '볼거리') return ['볼거리', '카페'];
+  return ['맛집', '볼거리'];
+}
+
+function satisfiesBuckets(
+  picked: ScoredPlace[],
+  desiredBuckets: PlaceActivityBucket[],
+  allowPartial: boolean = false,
+  requireAttraction: boolean = true,
+): boolean {
+  const counts = new Map<PlaceActivityBucket, number>();
+  for (const place of picked) {
+    const bucket = getPlaceActivityBucket(place);
+    counts.set(bucket, (counts.get(bucket) || 0) + 1);
+  }
+
+  for (const bucket of new Set(desiredBuckets)) {
+    const need = desiredBuckets.filter((b) => b === bucket).length;
+    const has = counts.get(bucket) || 0;
+    if (!requireAttraction && bucket === '볼거리') continue;
+    if (has >= need) continue;
+    if (allowPartial && bucket === '볼거리' && has > 0) continue;
+    return false;
+  }
+  return true;
 }
 
 function buildCourseSteps(places: ScoredPlace[], labels: string[]): CourseStep[] {

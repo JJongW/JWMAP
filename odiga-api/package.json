@@ -2,7 +2,9 @@
   "name": "odiga-api",
   "private": true,
   "scripts": {
-    "build": "echo 'no build needed'"
+    "build": "echo 'no build needed'",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@langchain/core": "^0.3.0",

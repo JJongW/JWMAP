@@ -11,11 +11,15 @@ import {
   renderNoResults,
   renderSaved,
 } from './ui/renderer.js';
-import { selectPlace, selectCourse, confirmSave, askFeedback } from './ui/prompts.js';
+import { selectPlace, selectCourse, confirmSave, askFeedback, askNewSearchQuery } from './ui/prompts.js';
 import { sanitizeQuery } from './utils/validators.js';
 import { c } from './ui/colors.js';
 
 const SINGLE_RESULT_COUNT = 5;
+type FlowAction =
+  | { type: 'done' }
+  | { type: 'new-search'; query: string }
+  | { type: 'exit' };
 
 /** Detect region from query using station/landmark → region mapping */
 function detectRegion(query: string): string | undefined {
@@ -96,12 +100,13 @@ function detectPeopleCount(query: string): number | undefined {
 async function runSingleMode(
   rawQuery: string,
   response: RecommendResponse,
-): Promise<void> {
+): Promise<FlowAction> {
   let scored = response.places.slice(0, SINGLE_RESULT_COUNT);
   let regenerateCount = 0;
   const feedbacks: string[] = [];
+  const excludedPlaceIds = new Set<string>();
 
-  if (scored.length === 0) { renderNoResults(); return; }
+  if (scored.length === 0) { renderNoResults(); return { type: 'done' }; }
 
   while (true) {
     renderPlaceList(scored);
@@ -112,8 +117,41 @@ async function runSingleMode(
       regenerateCount++;
       const fb = await askFeedback();
       if (fb) feedbacks.push(fb);
-      scored = [...response.places].sort(() => Math.random() - 0.5).slice(0, SINGLE_RESULT_COUNT);
+
+      scored.forEach((place) => excludedPlaceIds.add(place.id));
+
+      try {
+        const regenerated = await api.recommend({
+          query: rawQuery,
+          region: response.intent.region || undefined,
+          people_count: response.intent.people_count || undefined,
+          response_type: 'single',
+          feedback: fb || undefined,
+          exclude_place_ids: [...excludedPlaceIds],
+        });
+        scored = regenerated.places.slice(0, SINGLE_RESULT_COUNT);
+        if (scored.length === 0) {
+          renderNoResults();
+          return { type: 'done' };
+        }
+      } catch {
+        scored = [...scored].sort(() => Math.random() - 0.5).slice(0, SINGLE_RESULT_COUNT);
+      }
       continue;
+    }
+
+    if (choice === 'n') {
+      const nextQuery = sanitizeQuery(await askNewSearchQuery());
+      if (!nextQuery) {
+        console.log(c.warn('  검색어가 비어 있어요.'));
+        continue;
+      }
+      return { type: 'new-search', query: nextQuery };
+    }
+
+    if (choice === 'q') {
+      console.log(c.dim('  추천을 종료합니다.'));
+      return { type: 'exit' };
     }
 
     const selected = scored[choice - 1];
@@ -134,20 +172,21 @@ async function runSingleMode(
       regenerateCount,
       userFeedbacks: feedbacks,
     });
-    break;
+    return { type: 'done' };
   }
 }
 
 async function runCourseMode(
   rawQuery: string,
   response: RecommendResponse,
-): Promise<void> {
+): Promise<FlowAction> {
   let courses = response.courses;
-  if (courses.length === 0) { renderNoResults(); return; }
+  if (courses.length === 0) { renderNoResults(); return { type: 'done' }; }
 
   let selectedCourse: Course | null = null;
   let regenerateCount = 0;
   const feedbacks: string[] = [];
+  const excludedPlaceIds = new Set<string>();
 
   while (true) {
     renderCourseList(courses);
@@ -158,6 +197,11 @@ async function runCourseMode(
       regenerateCount++;
       const fb = await askFeedback();
       if (fb) feedbacks.push(fb);
+
+      courses.forEach((course) => {
+        course.steps.forEach((step) => excludedPlaceIds.add(step.place.id));
+      });
+
       // Re-fetch with same query for fresh results
       try {
         const newResponse = await api.recommend({
@@ -166,14 +210,29 @@ async function runCourseMode(
           people_count: response.intent.people_count || undefined,
           response_type: 'course',
           feedback: fb || undefined,
+          exclude_place_ids: [...excludedPlaceIds],
         });
         courses = newResponse.courses;
-        if (courses.length === 0) { renderNoResults(); return; }
+        if (courses.length === 0) { renderNoResults(); return { type: 'done' }; }
       } catch {
         // On error, shuffle existing courses
         courses = [...courses].sort(() => Math.random() - 0.5);
       }
       continue;
+    }
+
+    if (choice === 'n') {
+      const nextQuery = sanitizeQuery(await askNewSearchQuery());
+      if (!nextQuery) {
+        console.log(c.warn('  검색어가 비어 있어요.'));
+        continue;
+      }
+      return { type: 'new-search', query: nextQuery };
+    }
+
+    if (choice === 'q') {
+      console.log(c.dim('  추천을 종료합니다.'));
+      return { type: 'exit' };
     }
 
     selectedCourse = courses.find((co) => co.id === choice) || null;
@@ -217,6 +276,7 @@ async function runCourseMode(
     regenerateCount,
     userFeedbacks: feedbacks,
   });
+  return { type: 'done' };
 }
 
 function logSilent(params: {
@@ -248,8 +308,12 @@ function logSilent(params: {
   }).catch(() => { /* silent */ });
 }
 
-async function runSearch(rawQuery: string): Promise<void> {
+async function runSearch(rawQuery: string): Promise<FlowAction> {
   const query = sanitizeQuery(rawQuery);
+  if (!query) {
+    console.log(c.warn('  유효한 검색어를 입력해주세요.'));
+    return { type: 'done' };
+  }
   console.log(c.dim(`  ${c.emoji.search}  "${query}" 분석 중...`));
   console.log();
 
@@ -267,10 +331,9 @@ async function runSearch(rawQuery: string): Promise<void> {
   console.log();
 
   if (response.type === 'course') {
-    await runCourseMode(query, response);
-  } else {
-    await runSingleMode(query, response);
+    return runCourseMode(query, response);
   }
+  return runSingleMode(query, response);
 }
 
 async function runStats(): Promise<void> {
@@ -303,7 +366,15 @@ async function main(): Promise<void> {
   }
 
   const query = args.join(' ');
-  await runSearch(query);
+  let nextQuery: string | null = query;
+  while (nextQuery) {
+    const action = await runSearch(nextQuery);
+    if (action.type === 'new-search') {
+      nextQuery = action.query;
+      continue;
+    }
+    break;
+  }
 }
 
 main().catch((err) => {

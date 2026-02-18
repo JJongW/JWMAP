@@ -1,11 +1,15 @@
 import Enquirer from 'enquirer';
 
-export async function selectPlace(placeCount: number): Promise<'r' | number> {
+export type ListChoice = 'r' | 'n' | 'q' | number;
+
+export async function selectPlace(placeCount: number): Promise<ListChoice> {
   const choices = [];
   for (let i = 1; i <= placeCount; i++) {
     choices.push({ name: String(i), message: `${i}번 장소 상세보기` });
   }
   choices.push({ name: 'r', message: '다시 추천받기' });
+  choices.push({ name: 'n', message: '다른 검색어로 다시 찾기' });
+  choices.push({ name: 'q', message: '취소하고 종료' });
 
   const { choice } = await (Enquirer as any).prompt({
     type: 'select',
@@ -15,15 +19,19 @@ export async function selectPlace(placeCount: number): Promise<'r' | number> {
   });
 
   if (choice === 'r') return 'r';
+  if (choice === 'n') return 'n';
+  if (choice === 'q') return 'q';
   return parseInt(choice, 10);
 }
 
-export async function selectCourse(courseCount: number): Promise<'r' | number> {
+export async function selectCourse(courseCount: number): Promise<ListChoice> {
   const choices = [];
   for (let i = 1; i <= courseCount; i++) {
     choices.push({ name: String(i), message: `코스 ${i} 선택` });
   }
   choices.push({ name: 'r', message: '다시 추천받기' });
+  choices.push({ name: 'n', message: '다른 검색어로 다시 찾기' });
+  choices.push({ name: 'q', message: '취소하고 종료' });
 
   const { choice } = await (Enquirer as any).prompt({
     type: 'select',
@@ -33,6 +41,8 @@ export async function selectCourse(courseCount: number): Promise<'r' | number> {
   });
 
   if (choice === 'r') return 'r';
+  if (choice === 'n') return 'n';
+  if (choice === 'q') return 'q';
   return parseInt(choice, 10);
 }
 
@@ -55,6 +65,16 @@ export async function askFeedback(): Promise<string> {
   });
 
   return (feedback || '').trim();
+}
+
+export async function askNewSearchQuery(): Promise<string> {
+  const { query } = await (Enquirer as any).prompt({
+    type: 'input',
+    name: 'query',
+    message: '새로 찾을 검색어를 입력해주세요 (Enter로 취소)',
+  });
+
+  return (query || '').trim();
 }
 
 export async function confirmStory(): Promise<boolean> {
