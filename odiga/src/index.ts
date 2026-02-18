@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawn } from 'node:child_process';
 import { api, ApiError } from './api/client.js';
 import type { ScoredPlace, Course, RecommendResponse } from './api/types.js';
 import {
@@ -14,12 +15,95 @@ import {
 import { selectPlace, selectCourse, confirmSave, askFeedback, askNewSearchQuery } from './ui/prompts.js';
 import { sanitizeQuery } from './utils/validators.js';
 import { c } from './ui/colors.js';
+import pkg from '../package.json' with { type: 'json' };
 
 const SINGLE_RESULT_COUNT = 5;
+const PACKAGE_NAME = pkg.name;
+const CURRENT_VERSION = pkg.version;
+const UPDATE_CHECK_TIMEOUT_MS = 2000;
 type FlowAction =
   | { type: 'done' }
   | { type: 'new-search'; query: string }
   | { type: 'exit' };
+
+function compareVersions(a: string, b: string): number {
+  const splitParts = (value: string): number[] => value
+    .split('-')[0]
+    .split('.')
+    .map((part) => Number.parseInt(part, 10) || 0);
+
+  const aParts = splitParts(a);
+  const bParts = splitParts(b);
+  const maxLen = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < maxLen; i += 1) {
+    const aValue = aParts[i] ?? 0;
+    const bValue = bParts[i] ?? 0;
+    if (aValue > bValue) return 1;
+    if (aValue < bValue) return -1;
+  }
+  return 0;
+}
+
+function isVersionGreater(nextVersion: string, currentVersion: string): boolean {
+  return compareVersions(nextVersion, currentVersion) > 0;
+}
+
+async function checkForCliUpdate(): Promise<void> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), UPDATE_CHECK_TIMEOUT_MS);
+    const response = await fetch(`https://registry.npmjs.org/${PACKAGE_NAME}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) return;
+
+    const payload = (await response.json()) as { ['dist-tags']?: { latest?: string } };
+    const latestVersion = payload['dist-tags']?.latest;
+    if (!latestVersion || !isVersionGreater(latestVersion, CURRENT_VERSION)) return;
+
+    console.log();
+    console.log(c.warn('  새로운 업데이트가 있습니다.'));
+    console.log(c.dim(`  현재: ${CURRENT_VERSION} / 최신: ${latestVersion}`));
+    console.log(c.dim(`  업데이트: npm install -g ${PACKAGE_NAME}@latest`));
+    console.log();
+  } catch {
+    // Update check should never block normal flow.
+  }
+}
+
+function printUsage(): void {
+  console.log(c.subtitle('  사용법:'));
+  console.log(c.dim('    odiga "오늘 점심 뭐 먹을까?"'));
+  console.log(c.dim('    odiga "홍대 감성 카페"'));
+  console.log(c.dim('    odiga "강남 데이트 코스 짜줘"'));
+  console.log(c.dim('    odiga stats'));
+  console.log(c.dim('    odiga update'));
+  console.log(c.dim('    odiga --help'));
+  console.log();
+}
+
+async function runUpdateCommand(): Promise<void> {
+  console.log(c.dim(`  ${PACKAGE_NAME} 최신 버전으로 업데이트 중...`));
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('npm', ['install', '-g', `${PACKAGE_NAME}@latest`], {
+      stdio: 'inherit',
+    });
+    child.on('error', reject);
+    child.on('close', (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(signal
+        ? `프로세스가 ${signal} 시그널로 종료되었습니다.`
+        : `종료 코드: ${code}`
+      ));
+    });
+  });
+  console.log(c.success('  업데이트 완료.'));
+}
 
 /** Detect region from query using station/landmark → region mapping */
 function detectRegion(query: string): string | undefined {
@@ -349,18 +433,28 @@ async function main(): Promise<void> {
   renderHeader();
 
   const args = process.argv.slice(2);
+  const shouldShowHelp = args.includes('--help') || args.includes('-h');
+  const isUpdateCommand = args[0] === 'update';
+  const isStatsCommand = args[0] === 'stats';
 
   if (args.length === 0) {
-    console.log(c.subtitle('  사용법:'));
-    console.log(c.dim('    odiga "오늘 점심 뭐 먹을까?"'));
-    console.log(c.dim('    odiga "홍대 감성 카페"'));
-    console.log(c.dim('    odiga "강남 데이트 코스 짜줘"'));
-    console.log(c.dim('    odiga stats'));
-    console.log();
+    printUsage();
     process.exit(0);
   }
 
-  if (args[0] === 'stats') {
+  if (shouldShowHelp || args[0] === 'help') {
+    printUsage();
+    process.exit(0);
+  }
+
+  if (isUpdateCommand) {
+    await runUpdateCommand();
+    return;
+  }
+
+  await checkForCliUpdate();
+
+  if (isStatsCommand) {
     await runStats();
     process.exit(0);
   }
