@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHash } from 'crypto';
 import { createServiceSupabase } from '@/lib/supabase/service';
 import { extractRegionFromAddress, mapKakaoCategoryByDomain } from '@/lib/mappings';
-import { ATTRACTION_CATEGORY_MAINS } from '@/lib/constants';
+import {
+  cleanText,
+  clampInt,
+  uniqueTags,
+  inferTagType,
+  isLikelyChain,
+  enforceCurationRules,
+  pickDomain,
+  walkingDistanceMeters,
+  buildCourseHash,
+  inferCategoryFromText,
+  parseJsonChunk,
+} from './helpers';
 
 type DomainTable = 'locations' | 'attractions';
 type TagDomain = 'food' | 'space';
-type TagType = 'mood' | 'feature' | 'situation' | 'season';
 
 interface InputPlace {
   name: string;
@@ -45,112 +55,11 @@ interface PlaceLike {
   kakao_place_id: string | null;
 }
 
-const CHAIN_KEYWORDS = ['스타벅스', '투썸', '메가커피', '이디야', '빽다방', '맘스터치', '버거킹', '맥도날드'];
 const SITUATION_TAGS = ['데이트', '카공', '혼밥', '혼술', '가족모임', '친구모임', '산책', '드라이브'];
 const MOOD_KEYWORDS = ['감성', '조용', '아늑', '빈티지', '모던', '힙', '고즈넉', '뷰맛집', '로컬', '활기'];
 
-function cleanText(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function clampInt(value: unknown, min: number, max: number): number | null {
-  if (typeof value !== 'number' || Number.isNaN(value)) return null;
-  const int = Math.round(value);
-  return Math.max(min, Math.min(max, int));
-}
-
-function uniqueTags(tags: string[]): string[] {
-  const normalized = tags
-    .map((t) => t.trim().replace(/^#/, ''))
-    .filter((t) => t.length > 1 && t.length <= 20);
-  return [...new Set(normalized)].slice(0, 20);
-}
-
-function inferTagType(tag: string): TagType {
-  if (SITUATION_TAGS.includes(tag)) return 'situation';
-  if (['봄', '여름', '가을', '겨울', '벚꽃', '단풍', '크리스마스'].includes(tag)) return 'season';
-  if (MOOD_KEYWORDS.some((k) => tag.includes(k))) return 'mood';
-  return 'feature';
-}
-
-function isLikelyChain(name: string, note: string): boolean {
-  const text = `${name} ${note}`.toLowerCase();
-  return CHAIN_KEYWORDS.some((k) => text.includes(k.toLowerCase())) || text.includes('체인');
-}
-
-function enforceCurationRules(enriched: AiEnrichment, name: string, note: string): number {
-  let level = enriched.curation_level ?? 3;
-  const chain = enriched.is_chain || isLikelyChain(name, note);
-  const wait = enriched.waiting_hotspot || /웨이팅|줄\s?김|오픈런|대기/.test(note);
-  const localPopular = /로컬|현지인|핫플|인기|성지/.test(note);
-
-  if (chain) level = Math.min(level, 3);
-  if (wait && localPopular) level = Math.max(level, 4);
-
-  return Math.max(1, Math.min(5, level));
-}
-
-function pickDomain(categoryMain: string | null): DomainTable {
-  if (categoryMain && ATTRACTION_CATEGORY_MAINS.includes(categoryMain)) return 'attractions';
-  return 'locations';
-}
-
 function toTagDomain(domain: DomainTable): TagDomain {
   return domain === 'attractions' ? 'space' : 'food';
-}
-
-function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const R = 6371000;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2
-    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-function walkingDistanceMeters(a: PlaceLike, b: PlaceLike): number {
-  const raw = haversineMeters(a.lat, a.lon, b.lat, b.lon);
-  return Math.round(raw * 1.35);
-}
-
-function buildCourseHash(placeIds: string[]): string {
-  return createHash('sha256').update(placeIds.join('|')).digest('hex').slice(0, 16);
-}
-
-function inferCategoryFromText(text: string): { category_main: string | null; category_sub: string | null } {
-  const t = text.toLowerCase();
-
-  if (/전시|갤러리|미술관|박물관|도서관|library|팝업|공원|산책|전망|포토스팟/.test(t)) {
-    if (t.includes('도서관') || t.includes('library')) return { category_main: '전시/문화', category_sub: '도서관' };
-    if (t.includes('공원') || t.includes('산책')) return { category_main: '공간/휴식', category_sub: '공원/정원' };
-    if (t.includes('팝업')) return { category_main: '팝업/이벤트', category_sub: '브랜드 팝업' };
-    if (t.includes('미술관')) return { category_main: '전시/문화', category_sub: '미술관' };
-    return { category_main: '전시/문화', category_sub: '전시관' };
-  }
-
-  if (/문구|팬시|stationery/.test(t)) {
-    return { category_main: '쇼핑/소품', category_sub: '문구점' };
-  }
-
-  if (/카페|커피|라떼|디저트|베이커리|카공/.test(t)) {
-    if (t.includes('카공')) return { category_main: '카페', category_sub: '카공카페' };
-    if (t.includes('디저트') || t.includes('베이커리')) return { category_main: '디저트', category_sub: '베이커리' };
-    return { category_main: '카페', category_sub: '커피' };
-  }
-
-  return { category_main: null, category_sub: null };
-}
-
-function parseJsonChunk(text: string): Record<string, unknown> | null {
-  const chunk = text.match(/\{[\s\S]*\}/)?.[0];
-  if (!chunk) return null;
-  try {
-    return JSON.parse(chunk) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
 }
 
 async function enrichWithAi(place: InputPlace): Promise<AiEnrichment> {
@@ -424,7 +333,8 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
 
   const curationLevel = enforceCurationRules(enriched, input.name, input.note);
   const existing = await findExistingLocation(domain, input.name, kakao.address, kakao.kakao_place_id);
-  const payload = {
+
+  const basePayload = {
     name: input.name,
     region: mappedRegion?.region || '',
     sub_region: mappedRegion?.sub_region || null,
@@ -440,18 +350,23 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
     price_level: enriched.price_level,
     imageUrl: '',
     tags,
-    event_tags: [],
-    naver_place_id: null,
+    event_tags: [] as string[],
+    naver_place_id: null as string | null,
     kakao_place_id: kakao.kakao_place_id,
     curator_visited: true,
   };
+
+  // locations 테이블에는 province 컬럼이 있으므로 추가
+  const payload = domain === 'locations'
+    ? { ...basePayload, province: mappedRegion?.province || '' }
+    : basePayload;
 
   let row: Record<string, unknown>;
   let created = false;
 
   if (existing) {
     row = existing;
-    const mergedTags = uniqueTags([...(existing.tags as string[] | undefined ?? []), ...tags]);
+    const mergedTags = uniqueTags([...((existing.tags as string[] | undefined) ?? []), ...tags]);
     const { data: updated, error } = await supabase
       .from(domain)
       .update({
@@ -461,7 +376,9 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
       .eq('id', existing.id as string)
       .select('*')
       .single();
-    if (error) throw error;
+    if (error) {
+      throw new Error(`[${domain}] update failed for "${input.name}": ${error.message} (code: ${error.code})`);
+    }
     row = updated as Record<string, unknown>;
   } else {
     const { data, error } = await supabase
@@ -469,7 +386,9 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
       .insert(payload)
       .select('*')
       .single();
-    if (error) throw error;
+    if (error) {
+      throw new Error(`[${domain}] insert failed for "${input.name}": ${error.message} (code: ${error.code})`);
+    }
     row = data as Record<string, unknown>;
     created = true;
   }
@@ -552,8 +471,10 @@ export async function GET() {
 
     return NextResponse.json({ items: data ?? [] });
   } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[courses/build] GET error:', msg);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'unknown error' },
+      { error: msg },
       { status: 500 },
     );
   }
@@ -579,7 +500,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const resolved = await Promise.all(placesInput.map((p) => ensureLocationForPlace(p)));
+    const results = await Promise.allSettled(placesInput.map((p) => ensureLocationForPlace(p)));
+    const errors: string[] = [];
+    const resolved: { domain: DomainTable; place: PlaceLike; created: boolean }[] = [];
+
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === 'fulfilled') {
+        resolved.push(r.value);
+      } else {
+        errors.push(`${placesInput[i].name}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+      }
+    }
+
+    if (resolved.length < 2) {
+      return NextResponse.json(
+        { error: `장소 처리 실패로 코스를 구성할 수 없습니다 (성공: ${resolved.length}개). 오류: ${errors.join('; ')}` },
+        { status: 500 },
+      );
+    }
+
     const places = resolved.map((r) => r.place);
     const domains = resolved.map((r) => r.domain);
 
@@ -626,6 +566,7 @@ export async function POST(req: NextRequest) {
       created_locations: resolved.filter((r) => r.created).length,
       reused_locations: resolved.filter((r) => !r.created).length,
       domains,
+      errors: errors.length > 0 ? errors : undefined,
       places: places.map((p) => ({
         id: p.id,
         name: p.name,
@@ -634,8 +575,10 @@ export async function POST(req: NextRequest) {
       })),
     });
   } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[courses/build] POST error:', msg);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'unknown error' },
+      { error: msg },
       { status: 500 },
     );
   }
