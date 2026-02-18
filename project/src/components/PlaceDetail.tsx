@@ -186,7 +186,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
             {/* 메모 (상세 화면 전용) */}
             {location.memo && (
               <div className="bg-base rounded-xl p-4">
-                <p className="text-sm text-accent/80 leading-relaxed">{location.memo}</p>
+                <p className="text-sm text-accent/80 leading-relaxed whitespace-pre-line">{location.memo}</p>
               </div>
             )}
 
@@ -357,7 +357,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
             {/* 메모 (상세 화면 전용) */}
             {location.memo && (
               <div className="bg-base rounded-xl p-4">
-                <p className="text-sm text-accent/80 leading-relaxed">{location.memo}</p>
+                <p className="text-sm text-accent/80 leading-relaxed whitespace-pre-line">{location.memo}</p>
               </div>
             )}
 
