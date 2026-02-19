@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
 interface DraftPlace {
+  id: string;
   name: string;
   note: string;
 }
@@ -30,9 +31,9 @@ export function CourseBuilder({ initialCourses }: { initialCourses: SavedCourseR
   const [courseTitle, setCourseTitle] = useState('');
   const [regionHint, setRegionHint] = useState('');
   const [places, setPlaces] = useState<DraftPlace[]>([
-    { name: '', note: '' },
-    { name: '', note: '' },
-    { name: '', note: '' },
+    { id: crypto.randomUUID(), name: '', note: '' },
+    { id: crypto.randomUUID(), name: '', note: '' },
+    { id: crypto.randomUUID(), name: '', note: '' },
   ]);
   const [isSaving, setIsSaving] = useState(false);
   const [savedCourses, setSavedCourses] = useState<SavedCourseRow[]>(initialCourses);
@@ -42,7 +43,7 @@ export function CourseBuilder({ initialCourses }: { initialCourses: SavedCourseR
   }
 
   function addPlace() {
-    setPlaces((prev) => [...prev, { name: '', note: '' }]);
+    setPlaces((prev) => [...prev, { id: crypto.randomUUID(), name: '', note: '' }]);
   }
 
   function removePlace(index: number) {
@@ -123,7 +124,7 @@ export function CourseBuilder({ initialCourses }: { initialCourses: SavedCourseR
 
           <div className="space-y-3">
             {places.map((place, index) => (
-              <div key={`${index}-${place.name}`} className="rounded-lg border p-3 space-y-2">
+              <div key={place.id} className="rounded-lg border p-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <Input
                     placeholder={`장소명 ${index + 1}`}
