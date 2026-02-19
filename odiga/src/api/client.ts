@@ -1,6 +1,6 @@
 import type {
   RecommendRequest,
-  RecommendResponse,
+  BrandedRecommendResponse,
   LogRequest,
   StatsResult,
   SaveCourseRequest,
@@ -39,8 +39,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  recommend(params: RecommendRequest): Promise<RecommendResponse> {
-    return request<RecommendResponse>('/recommend', {
+  recommend(params: RecommendRequest): Promise<BrandedRecommendResponse> {
+    return request<BrandedRecommendResponse>('/recommend', {
       method: 'POST',
       body: JSON.stringify(params),
     });

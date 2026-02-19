@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
 import { api, ApiError } from './api/client.js';
-import type { ScoredPlace, Course, RecommendResponse } from './api/types.js';
+import type {
+  BrandedPlace,
+  Course,
+  BrandedRecommendResponse,
+} from './api/types.js';
 import {
   renderHeader,
   renderPlaceList,
@@ -12,12 +16,18 @@ import {
   renderNoResults,
   renderSaved,
 } from './ui/renderer.js';
-import { selectPlace, selectCourse, confirmSave, askFeedback, askNewSearchQuery } from './ui/prompts.js';
+import {
+  selectPlace,
+  selectCourse,
+  confirmSave,
+  askFeedback,
+  askNewSearchQuery,
+  askRegion,
+} from './ui/prompts.js';
 import { sanitizeQuery } from './utils/validators.js';
 import { c } from './ui/colors.js';
 import pkg from '../package.json' with { type: 'json' };
 
-const SINGLE_RESULT_COUNT = 5;
 const PACKAGE_NAME = pkg.name;
 const CURRENT_VERSION = pkg.version;
 const UPDATE_CHECK_TIMEOUT_MS = 2000;
@@ -107,62 +117,46 @@ async function runUpdateCommand(): Promise<void> {
 
 /** Detect region from query using station/landmark → region mapping */
 function detectRegion(query: string): string | undefined {
-  // Station/landmark → valid DB region mapping (most specific first)
   const stationToRegion: [string, string][] = [
-    // 구로/관악/동작
     ['서울대입구', '구로/관악/동작'], ['신림', '구로/관악/동작'], ['봉천', '구로/관악/동작'],
     ['낙성대', '구로/관악/동작'], ['사당', '구로/관악/동작'], ['이수', '구로/관악/동작'],
     ['노량진', '구로/관악/동작'], ['관악', '구로/관악/동작'], ['동작', '구로/관악/동작'],
-    // 강남
     ['압구정', '강남'], ['선릉', '강남'], ['역삼', '강남'], ['삼성', '강남'],
     ['논현', '강남'], ['학동', '강남'], ['청담', '강남'], ['도산', '강남'],
     ['가로수길', '강남'], ['코엑스', '강남'], ['봉은사', '강남'], ['강남', '강남'],
-    // 서초
     ['교대', '서초'], ['방배', '서초'], ['서래마을', '서초'], ['양재', '서초'],
     ['반포', '서초'], ['고속터미널', '서초'], ['내방', '서초'], ['서초', '서초'],
-    // 종로/중구
     ['을지로', '종로/중구'], ['명동', '종로/중구'], ['광화문', '종로/중구'],
     ['경복궁', '종로/중구'], ['북촌', '종로/중구'], ['서촌', '종로/중구'],
     ['익선동', '종로/중구'], ['동대문', '종로/중구'], ['안국', '종로/중구'],
     ['인사동', '종로/중구'], ['충무로', '종로/중구'], ['시청', '종로/중구'],
     ['종로', '종로/중구'],
-    // 건대/성수/왕십리
     ['뚝섬', '건대/성수/왕십리'], ['왕십리', '건대/성수/왕십리'], ['성수', '건대/성수/왕십리'],
     ['건대', '건대/성수/왕십리'], ['서울숲', '건대/성수/왕십리'],
-    // 영등포/여의도/강서
     ['여의나루', '영등포/여의도/강서'], ['여의도', '영등포/여의도/강서'],
     ['영등포', '영등포/여의도/강서'], ['당산', '영등포/여의도/강서'],
-    // 홍대/합정/마포/연남
     ['홍대', '홍대/합정/마포/연남'], ['합정', '홍대/합정/마포/연남'],
     ['상수', '홍대/합정/마포/연남'], ['망원', '홍대/합정/마포/연남'],
     ['연남', '홍대/합정/마포/연남'], ['마포', '홍대/합정/마포/연남'],
     ['공덕', '홍대/합정/마포/연남'],
-    // 용산/이태원/한남
     ['이태원', '용산/이태원/한남'], ['한남', '용산/이태원/한남'],
     ['해방촌', '용산/이태원/한남'], ['경리단길', '용산/이태원/한남'],
     ['녹사평', '용산/이태원/한남'], ['용산', '용산/이태원/한남'],
-    // 잠실/송파/강동
     ['잠실', '잠실/송파/강동'], ['송파', '잠실/송파/강동'],
     ['천호', '잠실/송파/강동'], ['올림픽공원', '잠실/송파/강동'],
     ['석촌', '잠실/송파/강동'], ['문정', '잠실/송파/강동'],
-    // 신촌/연희
     ['신촌', '신촌/연희'], ['이대', '신촌/연희'], ['연희', '신촌/연희'],
-    // 성북/노원/중랑
     ['혜화', '성북/노원/중랑'], ['대학로', '성북/노원/중랑'],
     ['성북', '성북/노원/중랑'], ['노원', '성북/노원/중랑'],
-    // 금천/가산
     ['가산디지털단지', '금천/가산'], ['구로디지털단지', '금천/가산'],
     ['가산', '금천/가산'], ['금천', '금천/가산'], ['구로', '구로/관악/동작'],
-    // 회기/청량리
     ['회기', '회기/청량리'], ['청량리', '회기/청량리'],
-    // 기타 서울
     ['창동', '창동/도봉산'], ['도봉산', '창동/도봉산'],
     ['연신내', '연신내/구파발'], ['불광', '연신내/구파발'],
     ['미아', '미아/수유/북한산'], ['수유', '미아/수유/북한산'],
     ['목동', '목동/양천'],
     ['마곡', '마곡/김포'], ['발산', '마곡/김포'], ['김포공항', '마곡/김포'],
     ['강동', '강동/고덕'], ['고덕', '강동/고덕'],
-    // Province-level (broad)
     ['서울', '서울'], ['경기', '경기'], ['인천', '인천'], ['부산', '부산'],
   ];
 
@@ -181,28 +175,35 @@ function detectPeopleCount(query: string): number | undefined {
   return undefined;
 }
 
+function rankFromId(index: number): 1 | 2 | 3 | 4 | 5 {
+  return Math.min(5, Math.max(1, index + 1)) as 1 | 2 | 3 | 4 | 5;
+}
+
 async function runSingleMode(
   rawQuery: string,
-  response: RecommendResponse,
+  response: BrandedRecommendResponse,
 ): Promise<FlowAction> {
-  let scored = response.places.slice(0, SINGLE_RESULT_COUNT);
+  let places: BrandedPlace[] = response.places.map((entry, index) => ({
+    ...entry,
+    rank: rankFromId(index),
+  }));
   let regenerateCount = 0;
   const feedbacks: string[] = [];
   const excludedPlaceIds = new Set<string>();
 
-  if (scored.length === 0) { renderNoResults(); return { type: 'done' }; }
+  if (places.length === 0) { renderNoResults(); return { type: 'done' }; }
 
   while (true) {
-    renderPlaceList(scored);
+    renderPlaceList(places);
 
-    const choice = await selectPlace(scored.length);
+    const choice = await selectPlace(places.length);
 
     if (choice === 'r') {
       regenerateCount++;
       const fb = await askFeedback();
       if (fb) feedbacks.push(fb);
 
-      scored.forEach((place) => excludedPlaceIds.add(place.id));
+      places.forEach((place) => excludedPlaceIds.add(place.place.id));
 
       try {
         const regenerated = await api.recommend({
@@ -213,13 +214,16 @@ async function runSingleMode(
           feedback: fb || undefined,
           exclude_place_ids: [...excludedPlaceIds],
         });
-        scored = regenerated.places.slice(0, SINGLE_RESULT_COUNT);
-        if (scored.length === 0) {
+        places = regenerated.places.map((entry, index) => ({
+          ...entry,
+          rank: rankFromId(index),
+        }));
+        if (places.length === 0) {
           renderNoResults();
           return { type: 'done' };
         }
       } catch {
-        scored = [...scored].sort(() => Math.random() - 0.5).slice(0, SINGLE_RESULT_COUNT);
+        places = [...places].sort(() => Math.random() - 0.5);
       }
       continue;
     }
@@ -238,7 +242,7 @@ async function runSingleMode(
       return { type: 'exit' };
     }
 
-    const selected = scored[choice - 1];
+    const selected = places[choice - 1];
     if (!selected) {
       console.log(c.warn('  잘못된 선택입니다.'));
       continue;
@@ -251,8 +255,8 @@ async function runSingleMode(
       intent: response.intent,
       mode: 'single',
       parseErrors: response.parseErrors,
-      selectedPlaceId: selected.id,
-      selectedPlaceName: selected.name,
+      selectedPlaceId: selected.place.id,
+      selectedPlaceName: selected.place.name,
       regenerateCount,
       userFeedbacks: feedbacks,
     });
@@ -262,9 +266,9 @@ async function runSingleMode(
 
 async function runCourseMode(
   rawQuery: string,
-  response: RecommendResponse,
+  response: BrandedRecommendResponse,
 ): Promise<FlowAction> {
-  let courses = response.courses;
+  let courses: Course[] = response.courses;
   if (courses.length === 0) { renderNoResults(); return { type: 'done' }; }
 
   let selectedCourse: Course | null = null;
@@ -283,10 +287,9 @@ async function runCourseMode(
       if (fb) feedbacks.push(fb);
 
       courses.forEach((course) => {
-        course.steps.forEach((step) => excludedPlaceIds.add(step.place.id));
+        course.places.forEach((step) => excludedPlaceIds.add(step.place_id));
       });
 
-      // Re-fetch with same query for fresh results
       try {
         const newResponse = await api.recommend({
           query: rawQuery,
@@ -299,7 +302,6 @@ async function runCourseMode(
         courses = newResponse.courses;
         if (courses.length === 0) { renderNoResults(); return { type: 'done' }; }
       } catch {
-        // On error, shuffle existing courses
         courses = [...courses].sort(() => Math.random() - 0.5);
       }
       continue;
@@ -365,7 +367,7 @@ async function runCourseMode(
 
 function logSilent(params: {
   rawQuery: string;
-  intent: RecommendResponse['intent'];
+  intent: BrandedRecommendResponse['intent'];
   mode: string;
   parseErrors: string[];
   selectedCourse?: Course | null;
@@ -392,6 +394,32 @@ function logSilent(params: {
   }).catch(() => { /* silent */ });
 }
 
+async function requestRecommendation(query: string, region?: string, peopleCount?: number): Promise<BrandedRecommendResponse> {
+  return api.recommend({
+    query,
+    region,
+    people_count: peopleCount,
+  });
+}
+
+async function resolveRegionFromResponse(query: string, response: BrandedRecommendResponse): Promise<string | null> {
+  if (response.intent.region) {
+    return response.intent.region;
+  }
+
+  const responseDidNotPickRegion = response.parseErrors.includes('region');
+  if (!responseDidNotPickRegion) {
+    return null;
+  }
+
+  const regionInput = sanitizeQuery(await askRegion());
+  if (!regionInput) {
+    return null;
+  }
+
+  return regionInput;
+}
+
 async function runSearch(rawQuery: string): Promise<FlowAction> {
   const query = sanitizeQuery(rawQuery);
   if (!query) {
@@ -401,17 +429,31 @@ async function runSearch(rawQuery: string): Promise<FlowAction> {
   console.log(c.dim(`  ${c.emoji.search}  "${query}" 분석 중...`));
   console.log();
 
-  const region = detectRegion(query);
-  const people_count = detectPeopleCount(query);
-
-  const response = await api.recommend({
+  let response = await requestRecommendation(
     query,
-    region,
-    people_count,
-  });
+    detectRegion(query),
+    detectPeopleCount(query),
+  );
 
-  const typeLabel = response.type === 'course' ? '코스' : '장소';
-  console.log(c.dim(`  ${typeLabel} 추천 | 지역: ${response.intent.region} | 시즌: ${response.intent.season}`));
+  if (!response.intent.region) {
+    const regionInput = await resolveRegionFromResponse(query, response);
+    if (regionInput) {
+      response = await requestRecommendation(
+        query,
+        regionInput,
+        response.intent.people_count || undefined,
+      );
+    }
+  }
+
+  if (!response.intent.region) {
+    console.log(c.warn('  지역 정보를 확인할 수 없어요. 지역을 더 구체적으로 입력해주세요.'));
+    return { type: 'done' };
+  }
+
+  console.log(c.dim(`  ${response.type === 'course' ? '코스' : '장소'} 추천 | 지역: ${response.intent.region} | 시즌: ${response.intent.season}`));
+  console.log(c.dim(`  오늘오디가의 요약: ${response.curated_summary}`));
+  console.log(c.dim(`  신뢰도: ${response.confidence}`));
   console.log();
 
   if (response.type === 'course') {

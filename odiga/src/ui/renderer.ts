@@ -1,9 +1,8 @@
 import { c } from './colors.js';
-import type { Course, ScoredPlace, Difficulty } from '../api/types.js';
-import type { StatsResult } from '../api/types.js';
+import type { Course, BrandedPlace } from '../api/types.js';
 import { naverMapLink, kakaoMapLink } from '../utils/mapLink.js';
 
-function getDifficultyLabel(difficulty: Difficulty): string {
+function getDifficultyLabel(difficulty: Course['difficulty']): string {
   switch (difficulty) {
     case '★☆☆': return '쉬움';
     case '★★☆': return '보통';
@@ -21,66 +20,65 @@ export function renderHeader(): void {
 
 export function renderGuide(): void {
   console.log(c.dim('  코스 난이도: ★☆☆ ~800m  ★★☆ ~1.8km  ★★★ 1.8km+'));
-  console.log(c.dim('  매칭 점수: 분위기·거리·인기·시즌 종합 (10점 만점)'));
   console.log();
 }
 
 // ── Single place recommendation ──
 
-export function renderPlaceList(places: ScoredPlace[]): void {
-  console.log(c.title(`  ${c.emoji.fire}  ${places.length}개 추천!\n`));
+export function renderPlaceList(places: BrandedPlace[]): void {
+  console.log(c.title(`  ${c.emoji.fire}  오늘오디가의 추천 3분 컷으로 확인`));
+  console.log();
 
-  for (let i = 0; i < places.length; i++) {
-    renderPlaceSummary(places[i], i + 1);
+  for (const place of places) {
+    renderPlaceSummary(place);
   }
 }
 
-function renderPlaceSummary(place: ScoredPlace, rank: number): void {
-  const scoreStr = (place.score * 10).toFixed(1);
-  const category = [place.category_main, place.category_sub].filter(Boolean).join(' > ');
+function renderPlaceSummary(place: BrandedPlace): void {
+  const placeName = place.place.name;
+  const category = [place.place.category_main, place.place.category_sub].filter(Boolean).join(' > ');
+  const rankLabel = `오늘오디가의 ${place.rank}순위`;
 
-  console.log(c.highlight(`  ${rank}. ${place.name}`) + (category ? c.dim(`  ${category}`) : ''));
-
-  if (place.short_desc) {
-    console.log(c.dim(`     ${place.short_desc}`));
+  console.log(c.highlight(`  ${rankLabel}: ${placeName}`) + (category ? c.dim(`  ${category}`) : ''));
+  console.log(c.dim(`     ${place.recommendation_reason}`));
+  console.log(`     ${c.emoji.pin} ${c.dim(place.place.address || place.place.region)}`);
+  if (place.place.rating) {
+    console.log(`     ${c.score(`${c.emoji.star} ${place.place.rating.toFixed(1)}`)}`);
   }
-
-  console.log(
-    `     ${c.emoji.pin} ${c.dim(place.address || place.region)}` +
-    (place.rating ? `  ${c.score(`${c.emoji.star} ${place.rating.toFixed(1)}`)}` : '') +
-    `  ${c.dim(`매칭 ${scoreStr}점`)}`
-  );
   console.log();
 }
 
-export function renderPlaceDetail(place: ScoredPlace): void {
+export function renderPlaceDetail(place: BrandedPlace): void {
   console.log();
-  console.log(c.title(`  ═══ ${place.name} ═══`));
+  console.log(c.title(`  ═══ ${place.place.name} ═══`));
   console.log();
 
-  if (place.short_desc) {
-    console.log(`  ${place.short_desc}`);
+  if (place.place.short_desc) {
+    console.log(`  ${place.place.short_desc}`);
     console.log();
   }
 
-  const category = [place.category_main, place.category_sub].filter(Boolean).join(' > ');
+  const category = [place.place.category_main, place.place.category_sub].filter(Boolean).join(' > ');
   if (category) console.log(c.dim(`  ${category}`));
-  console.log(c.dim(`  ${c.emoji.pin} ${place.address || place.region}`));
-  if (place.rating) console.log(c.score(`  ${c.emoji.star} ${place.rating.toFixed(1)}`));
+  console.log(c.dim(`  ${c.emoji.pin} ${place.place.address || place.place.region}`));
+  if (place.place.rating) console.log(c.score(`  ${c.emoji.star} ${place.place.rating.toFixed(1)}`));
 
-  if (place.memo) {
+  console.log();
+  console.log(c.warn(`  큐레이션 이유: ${place.recommendation_reason}`));
+
+  if (place.place.memo) {
     console.log();
-    console.log(c.dim(`  📝 ${place.memo}`));
+    console.log(c.dim(`  📝 ${place.place.memo}`));
   }
 
-  if (place.tags && place.tags.length > 0) {
+  if (place.place.tags && place.place.tags.length > 0) {
     console.log();
-    console.log(c.dim(`  🏷️  ${place.tags.join(', ')}`));
+    console.log(c.dim(`  🏷️  ${place.place.tags.join(', ')}`));
   }
 
   console.log();
-  console.log(c.link(`  ${c.emoji.map} 네이버: ${naverMapLink(place.name)}`));
-  console.log(c.link(`  ${c.emoji.map} 카카오: ${kakaoMapLink(place.name)}`));
+  console.log(c.link(`  ${c.emoji.map} 네이버: ${naverMapLink(place.place.name)}`));
+  console.log(c.link(`  ${c.emoji.map} 카카오: ${kakaoMapLink(place.place.name)}`));
   console.log();
 }
 
@@ -88,7 +86,8 @@ export function renderPlaceDetail(place: ScoredPlace): void {
 
 export function renderCourseList(courses: Course[]): void {
   renderGuide();
-  console.log(c.title(`  ${c.emoji.course}  ${courses.length}개 코스를 찾았어요!\n`));
+  console.log(c.title(`  ${c.emoji.course}  오디가가 만든 코스`));
+  console.log();
 
   for (const course of courses) {
     renderCourseSummary(course);
@@ -97,17 +96,11 @@ export function renderCourseList(courses: Course[]): void {
 
 export function renderCourseSummary(course: Course): void {
   const distKm = (course.totalDistance / 1000).toFixed(1);
-  const diffLabel = getDifficultyLabel(course.difficulty);
 
-  console.log(c.highlight(`  ── 코스 ${course.id} ──`));
-  console.log(
-    `  ${c.distance(`${c.emoji.walk} ${distKm}km`)}  ` +
-    `${course.difficulty} ${c.dim(diffLabel)}  ` +
-    `${c.score(`${c.emoji.star} ${(course.totalScore * 10).toFixed(1)}점`)}`
-  );
-
-  const route = course.steps.map((s) => s.place.name).join(' → ');
-  console.log(c.dim(`  ${route}`));
+  console.log(c.highlight(`  ── 코스 ${course.id} 스토리 ──`));
+  console.log(`  ${c.distance(`${c.emoji.walk} ${distKm}km`)} ${course.difficulty} ${c.dim(getDifficultyLabel(course.difficulty))}`);
+  console.log(c.dim(`  ${course.course_story}`));
+  console.log(`  ${c.dim('이동 감각: ' + (course.mood_flow || []).join(' → '))}`);
   console.log();
 }
 
@@ -116,47 +109,40 @@ export function renderCourseDetail(course: Course): void {
   console.log(c.title(`  ═══ 코스 ${course.id} 상세 ═══`));
   console.log();
 
-  for (let i = 0; i < course.steps.length; i++) {
-    const step = course.steps[i];
-    const place = step.place;
+  console.log(c.highlight(`  감성 스토리`));
+  console.log(c.dim(`  ${course.course_story}`));
+  console.log();
 
-    console.log(c.step(`  [${step.label}]`) + ' ' + c.highlight(place.name));
-
-    if (place.short_desc) {
-      console.log(c.dim(`    ${place.short_desc}`));
-    }
-
-    console.log(c.dim(`    ${c.emoji.pin} ${place.address || place.region}`));
-
-    if (place.category_main) {
-      console.log(c.dim(`    ${place.category_main}${place.category_sub ? ' > ' + place.category_sub : ''}`));
-    }
-
-    if (place.rating) {
-      console.log(c.score(`    ${c.emoji.star} ${place.rating.toFixed(1)}`));
-    }
-
-    if (step.distanceFromPrev) {
-      const distM = step.distanceFromPrev;
-      const distStr = distM >= 1000 ? `${(distM / 1000).toFixed(1)}km` : `${distM}m`;
-      const walkMin = Math.round(distM / 67);
-      console.log(c.distance(`    ${c.emoji.walk} 이전에서 ${distStr} (도보 약 ${walkMin}분)`));
-    }
-
-    console.log(c.link(`    ${c.emoji.map} 네이버: ${naverMapLink(place.name)}`));
-    console.log(c.link(`    ${c.emoji.map} 카카오: ${kakaoMapLink(place.name)}`));
+  if (course.mood_flow.length > 0) {
+    console.log(c.highlight(`  무드 플로우`));
+    console.log(c.dim(`  ${course.mood_flow.join(' → ')}`));
     console.log();
   }
 
-  const totalKm = (course.totalDistance / 1000).toFixed(1);
-  const totalMin = Math.round(course.totalDistance / 67);
-  console.log(c.highlight(`  총 거리: ${totalKm}km (도보 약 ${totalMin}분) | 난이도: ${course.difficulty}`));
+  console.log(c.highlight(`  추천 이유`));
+  console.log(c.dim(`  ${course.recommendation_reason}`));
   console.log();
+
+  console.log(c.highlight(`  루트`));
+  console.log(c.dim(`  ${course.route_summary}`));
+
+  console.log(c.dim(`  ${c.emoji.map} 최적 시간: ${course.ideal_time}`));
+  console.log();
+
+  for (const step of course.places) {
+    console.log(c.step(`  [${step.vibe_hint}]`) + ' ' + c.highlight(step.name));
+    console.log(c.dim(`    ${c.emoji.pin} ${step.region}`));
+    console.log();
+
+    console.log(c.link(`    ${c.emoji.map} 네이버: ${naverMapLink(step.name)}`));
+    console.log(c.link(`    ${c.emoji.map} 카카오: ${kakaoMapLink(step.name)}`));
+    console.log();
+  }
 }
 
 // ── Common ──
 
-export function renderStats(stats: StatsResult): void {
+export function renderStats(stats: import('../api/types.js').StatsResult): void {
   console.log();
   console.log(c.title(`  ${c.emoji.stats}  odiga 통계`));
   console.log();

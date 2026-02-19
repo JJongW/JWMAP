@@ -77,6 +77,16 @@ export async function askNewSearchQuery(): Promise<string> {
   return (query || '').trim();
 }
 
+export async function askRegion(): Promise<string> {
+  const { region } = await (Enquirer as any).prompt({
+    type: 'input',
+    name: 'region',
+    message: '먼저 지역을 정해주세요 (예: 강남, 홍대/합정/마포/연남, 서울)',
+  });
+
+  return (region || '').trim();
+}
+
 export async function confirmStory(): Promise<boolean> {
   const { story } = await (Enquirer as any).prompt({
     type: 'confirm',

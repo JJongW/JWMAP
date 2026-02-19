@@ -16,6 +16,7 @@ import { scorePlaces } from '../lib/scoring';
 import { buildCourses, type Course } from '../lib/courseBuilder';
 import { planMode } from '../lib/modePlanner';
 import { getReusableCourses, touchReusedCourses } from '../lib/savedCourses';
+import { curateWithLLM } from '../lib/curation';
 
 const SINGLE_RESULT_COUNT = 5;
 const COURSE_RESULT_COUNT = 4;
@@ -121,9 +122,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const startTime = Date.now();
 
   try {
-    const llmStart = Date.now();
+    const parseStart = Date.now();
     const { intent: rawIntent, parseErrors } = await parseIntent(query);
-    const llmMs = Date.now() - llmStart;
+    const parseMs = Date.now() - parseStart;
 
     const intent = applyServerDefaults(rawIntent, {
       region: typeof region === 'string' ? region : null,
@@ -141,9 +142,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         type: intent.response_type,
         places: [],
         courses: [],
+        curated_summary: `${intent.region || '요청'}의 데이터가 아직 적어 추천 가능한 후보가 충분하지 않아요.`,
+        confidence: 'low',
         intent,
         parseErrors,
-        timing: { llmMs, dbMs, totalMs: Date.now() - startTime },
+        timing: { llmMs: parseMs, dbMs, totalMs: Date.now() - startTime },
       });
     }
 
@@ -196,15 +199,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    const curationStart = Date.now();
+    const curated = await curateWithLLM(responsePlaces, courses, intent);
+    const curationMs = Date.now() - curationStart;
     const totalMs = Date.now() - startTime;
 
     return res.status(200).json({
       type: intent.response_type,
-      places: responsePlaces,
-      courses,
+      places: curated.places,
+      courses: curated.courses,
+      curated_summary: curated.curated_summary,
+      confidence: curated.confidence,
       intent,
       parseErrors,
-      timing: { llmMs, dbMs, totalMs },
+      timing: { llmMs: parseMs + curationMs, dbMs, totalMs },
     });
   } catch (error) {
     console.error('[odiga/recommend] Error:', error instanceof Error ? error.message : error);
