@@ -114,13 +114,13 @@ const DISTRICT_MAPS = {
 };
 
 function extractRegion(address) {
-  if (!address) return { region: '서울', sub_region: null };
+  if (!address) return { province: '서울', region: '서울', sub_region: null };
   let province = null;
   if (address.includes('서울')) province = '서울';
   else if (address.includes('경기')) province = '경기';
   else if (address.includes('인천')) province = '인천';
   else if (address.includes('부산')) province = '부산';
-  if (!province) return { region: '서울', sub_region: null };
+  if (!province) return { province: '서울', region: '서울', sub_region: null };
   const map = DISTRICT_MAPS[province];
   let region = '';
   if (map) {
@@ -129,7 +129,18 @@ function extractRegion(address) {
     }
   }
   const dongMatch = address.match(/\s([가-힣]+[동읍면리])\s?/);
-  return { region: region || province, sub_region: dongMatch?.[1] ?? null };
+  return { province, region: region || province, sub_region: dongMatch?.[1] ?? null };
+}
+
+// attractions 테이블에 저장하는 카테고리 집합
+const ATTRACTIONS_MAINS = new Set([
+  '전시/문화', '팝업/이벤트', '쇼핑/소품', '공간/휴식',
+  '역사/유적', '자연/공원', '체험/레저', '관광명소',
+]);
+
+function pickDomain(categoryMain) {
+  if (categoryMain && ATTRACTIONS_MAINS.has(categoryMain)) return 'attractions';
+  return 'locations'; // 카페, 밥, 면, 고기요리 등 → locations
 }
 
 /**
@@ -140,7 +151,35 @@ function mapCategory(categoryName, placeName) {
   const c = (categoryName || '').toLowerCase();
   const n = (placeName || '').toLowerCase();
 
-  // 카카오 category_name 기반 (> 구분)
+  // ── 음식/카페 (→ locations 테이블) ──────────────────────────────
+  if (c.includes('카페') || c.includes('커피')) {
+    if (c.includes('카공')) return { main: '카페', sub: '카공카페' };
+    return { main: '카페', sub: '커피' };
+  }
+  if (c.includes('브런치')) return { main: '양식·퓨전', sub: '브런치' };
+  if (c.includes('베이커리') || c.includes('빵')) return { main: '디저트', sub: '베이커리' };
+  if (c.includes('케이크') || c.includes('디저트')) return { main: '디저트', sub: '케이크' };
+  if (c.includes('파스타') || c.includes('이탈리')) return { main: '양식·퓨전', sub: '파스타' };
+  if (c.includes('피자')) return { main: '양식·퓨전', sub: '피자' };
+  if (c.includes('양식') || c.includes('레스토랑')) return { main: '양식·퓨전', sub: '양식' };
+  if (c.includes('라멘')) return { main: '면', sub: '라멘' };
+  if (c.includes('냉면')) return { main: '면', sub: '냉면' };
+  if (c.includes('국수') || c.includes('우동') || c.includes('쌀국수')) return { main: '면', sub: '국수' };
+  if (c.includes('스테이크')) return { main: '고기요리', sub: '스테이크' };
+  if (c.includes('구이') || c.includes('고기') || c.includes('갈비') || c.includes('삼겹')) return { main: '고기요리', sub: '구이' };
+  if (c.includes('회') || c.includes('초밥') || c.includes('해산물') || c.includes('해물')) return { main: '해산물', sub: '회' };
+  if (c.includes('국밥') || c.includes('찌개') || c.includes('탕')) return { main: '국물', sub: '국밥' };
+  if (c.includes('한식') || c.includes('백반') || c.includes('정식')) return { main: '밥', sub: '한식' };
+  if (c.includes('중식') || c.includes('중국')) return { main: '양식·퓨전', sub: '중식' };
+  if (c.includes('분식') || c.includes('김밥')) return { main: '간편식', sub: '분식' };
+  if (c.includes('햄버거') || c.includes('버거')) return { main: '간편식', sub: '햄버거' };
+  if (c.includes('샌드위치')) return { main: '간편식', sub: '샌드위치' };
+  if (c.includes('이자카야')) return { main: '술안주', sub: '이자카야' };
+  if (c.includes('와인바') || (c.includes('바') && c.includes('술'))) return { main: '카페', sub: '와인바/바' };
+  if (c.includes('호프') || c.includes('포차') || c.includes('안주')) return { main: '술안주', sub: '안주 전문' };
+  if (c.includes('음식점') || c.includes('식당')) return { main: '밥', sub: '한식' };
+
+  // ── 볼거리/명소 (→ attractions 테이블) ─────────────────────────
   if (c.includes('궁') || c.includes('왕릉')) return { main: '역사/유적', sub: '궁궐/왕릉' };
   if (c.includes('사찰') || c.includes('사원')) return { main: '역사/유적', sub: '사찰' };
   if (c.includes('유적') || c.includes('문화재') || c.includes('역사')) return { main: '역사/유적', sub: '유적지' };
@@ -164,6 +203,7 @@ function mapCategory(categoryName, placeName) {
   if (c.includes('관광') || c.includes('명소')) return { main: '관광명소', sub: '명소' };
 
   // 장소명 기반 fallback
+  if (n.includes('카페') || n.includes('커피')) return { main: '카페', sub: '커피' };
   if (n.includes('궁') || n.includes('왕릉')) return { main: '역사/유적', sub: '궁궐/왕릉' };
   if (n.includes('미술관')) return { main: '전시/문화', sub: '미술관' };
   if (n.includes('박물관')) return { main: '전시/문화', sub: '박물관' };
@@ -172,7 +212,7 @@ function mapCategory(categoryName, placeName) {
   if (n.includes('전시') || n.includes('갤러리')) return { main: '전시/문화', sub: '전시관' };
   if (n.includes('서점') || n.includes('출판사')) return { main: '쇼핑/소품', sub: '독립서점' };
 
-  return { main: '전시/문화', sub: null };
+  return { main: '전시/문화', sub: null }; // 분류 불명 → attractions로
 }
 
 function extractAddressFromOg(og) {
@@ -331,20 +371,21 @@ function inferTagType(name) {
   return 'feature';
 }
 
-async function linkTags(supabase, attractionId, tagNames) {
+async function linkTags(supabase, placeId, tagNames, domain) {
+  const joinTable = domain === 'attractions' ? 'attraction_tags' : 'location_tags';
+  const tagDomain = domain === 'attractions' ? 'space' : 'food';
+
   for (const name of tagNames) {
-    // 1. tags 테이블에 upsert (name unique constraint 활용)
     const { data: tag, error: tagErr } = await supabase
       .from('tags')
-      .upsert({ name, type: inferTagType(name), domain: 'space' }, { onConflict: 'name' })
+      .upsert({ name, type: inferTagType(name), domain: tagDomain }, { onConflict: 'name' })
       .select('id')
       .single();
     if (tagErr || !tag) continue;
 
-    // 2. attraction_tags join 연결
     await supabase
-      .from('attraction_tags')
-      .upsert({ location_id: attractionId, tag_id: tag.id }, { onConflict: 'location_id,tag_id' });
+      .from(joinTable)
+      .upsert({ location_id: placeId, tag_id: tag.id }, { onConflict: 'location_id,tag_id' });
   }
 }
 
@@ -355,7 +396,7 @@ async function resolveKakaoPlace(item, kakaoKey, geminiKey) {
   const name = item.nameHint || extractTitle(html);
   const ogDesc = extractMeta(html, 'og:description');
   const address = extractAddressFromOg(ogDesc);
-  const { region, sub_region } = extractRegion(address);
+  const { province, region, sub_region } = extractRegion(address);
 
   // 카카오 API에서 상세 카테고리 가져오기
   let lat = 0, lon = 0;
@@ -383,6 +424,7 @@ async function resolveKakaoPlace(item, kakaoKey, geminiKey) {
   return {
     name: name || `장소 ${item.id}`,
     address: address || '주소 미확인',
+    province: province || '서울',
     region: region || '서울',
     sub_region,
     category_main: category_main || null,
@@ -407,7 +449,7 @@ async function resolveNaverPlace(item, kakaoKey, geminiKey) {
   const ogDesc = extractMeta(html, 'og:description');
   const address = extractAddressFromOg(ogDesc) ?? (html.match(/((?:서울|경기|인천|부산)[^<"']{8,80})/)?.[1]?.replace(/&amp;/g, '&').trim());
   const coords = extractCoordsFromHtml(html);
-  const { region, sub_region } = extractRegion(address);
+  const { province, region, sub_region } = extractRegion(address);
 
   // 카카오 API로 카테고리 보완
   let kakaoCategoryName = '';
@@ -429,6 +471,7 @@ async function resolveNaverPlace(item, kakaoKey, geminiKey) {
   return {
     name: name || `장소 ${item.id}`,
     address: address || '주소 미확인',
+    province: province || '서울',
     region: region || '서울',
     sub_region,
     category_main: category_main || null,
@@ -450,7 +493,7 @@ async function resolveByName(item, kakaoKey, geminiKey) {
   if (!doc) throw new Error('검색 결과 없음');
 
   const address = doc.road_address_name || doc.address_name;
-  const { region, sub_region } = extractRegion(address);
+  const { province, region, sub_region } = extractRegion(address);
   const { main: category_main, sub: category_sub } = mapCategory(doc.category_name || doc.category_group_name || '', doc.place_name);
 
   // 블로그 리뷰 수집 + Gemini 요약
@@ -465,6 +508,7 @@ async function resolveByName(item, kakaoKey, geminiKey) {
   return {
     name: doc.place_name,
     address: address || '주소 미확인',
+    province: province || '서울',
     region: region || '서울',
     sub_region,
     category_main: category_main || null,
@@ -521,20 +565,22 @@ async function run() {
     process.stdout.write(`[${i + 1}/${items.length}] ${label} ... `);
 
     try {
-      // 중복 체크 (kakao_place_id 기준)
-      if (item.type === 'kakao' || item.type === 'naver') {
-        const idCol = item.type === 'kakao' ? 'kakao_place_id' : 'naver_place_id';
-        const { count } = await supabase.from('attractions').select('*', { count: 'exact', head: true }).eq(idCol, item.id);
-        if (count > 0) { console.log('이미 존재함 (스킵)'); await sleep(500); continue; }
-      }
-
       let data;
       if (item.type === 'kakao') data = await resolveKakaoPlace(item, kakaoKey, geminiKey);
       else if (item.type === 'naver') data = await resolveNaverPlace(item, kakaoKey, geminiKey);
       else data = await resolveByName(item, kakaoKey, geminiKey);
 
-      const { _tags, ...dbData } = data;
-      const payload = {
+      const domain = pickDomain(data.category_main);
+      const { _tags, province, ...dbData } = data;
+
+      // 중복 체크
+      if (item.type === 'kakao' || item.type === 'naver') {
+        const idCol = item.type === 'kakao' ? 'kakao_place_id' : 'naver_place_id';
+        const { count } = await supabase.from(domain).select('*', { count: 'exact', head: true }).eq(idCol, item.id);
+        if (count > 0) { console.log(`이미 존재함 [${domain}] (스킵)`); await sleep(500); continue; }
+      }
+
+      const basePayload = {
         ...dbData,
         rating: 0,
         curation_level: 1,
@@ -542,18 +588,19 @@ async function run() {
         event_tags: [],
         curator_visited: false,
       };
+      // locations 테이블은 province 컬럼 필요
+      const payload = domain === 'locations' ? { ...basePayload, province } : basePayload;
 
-      const { data: inserted, error } = await supabase.from('attractions').insert(payload).select('id').single();
+      const { data: inserted, error } = await supabase.from(domain).insert(payload).select('id').single();
 
       if (error) {
         if (error.code === '23505') console.log('이미 존재함');
         else { console.log('실패:', error.message); fail++; }
       } else {
-        // tags 테이블에 upsert 후 attraction_tags join 연결
         if (_tags.length > 0) {
-          await linkTags(supabase, inserted.id, _tags);
+          await linkTags(supabase, inserted.id, _tags, domain);
         }
-        console.log('추가됨');
+        console.log(`추가됨 [${domain}]`);
         ok++;
       }
     } catch (e) {
