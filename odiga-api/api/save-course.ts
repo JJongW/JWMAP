@@ -15,6 +15,40 @@ function hashCourse(course: { steps: { place: { id: string } }[] }): string {
   return createHash('sha256').update(key).digest('hex').slice(0, 16);
 }
 
+function normalizeCoursePayload(course: unknown): { steps: { place: { id: string; name?: string; region?: string } }[] } | null {
+  if (!course || typeof course !== 'object') return null;
+
+  const asRecord = course as {
+    steps?: unknown;
+    places?: Array<{ place_id?: unknown; name?: unknown; region?: unknown }>;
+  };
+
+  if (Array.isArray(asRecord.steps)) {
+    return asRecord.steps as { steps: { place: { id: string; name?: string; region?: string } }[] };
+  }
+
+  if (!Array.isArray(asRecord.places)) return null;
+
+  const steps = asRecord.places
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const item = entry as { place_id?: unknown; name?: unknown; region?: unknown };
+      if (typeof item.place_id !== 'string') return null;
+
+      return {
+        place: {
+          id: item.place_id,
+          name: typeof item.name === 'string' ? item.name : undefined,
+          region: typeof item.region === 'string' ? item.region : undefined,
+        },
+      };
+    })
+    .filter((step): step is { place: { id: string; name?: string; region?: string } } => Boolean(step));
+
+  if (steps.length < 2) return null;
+  return { steps };
+}
+
 function normalizeMeta(rawMeta: unknown): SavedCourseMeta {
   if (!rawMeta || typeof rawMeta !== 'object') return {};
 
@@ -40,8 +74,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!allowed) return;
 
   const { course, meta } = req.body || {};
+  const normalizedCourse = normalizeCoursePayload(course);
+  if (!normalizedCourse) {
+    return safeError(res, 400, 'Invalid course payload');
+  }
 
-  const basicValidation = validateCourseData(course);
+  const basicValidation = validateCourseData(normalizedCourse);
   if (!basicValidation.isValid) {
     return safeError(res, 400, `Invalid course: ${basicValidation.reason}`);
   }
@@ -52,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return safeError(res, 400, `Course verification failed: ${existenceValidation.reason}`);
     }
 
-    const validatedCourse = course as { steps: { place: { id: string } }[] };
+    const validatedCourse = normalizedCourse;
     const courseHash = hashCourse(validatedCourse);
     const placeIds = extractCoursePlaceIds(validatedCourse);
     const normalizedMeta = normalizeMeta(meta);
@@ -61,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { error } = await getSupabase().from('odiga_saved_courses').upsert(
       {
         course_hash: courseHash,
-        course_data: course,
+        course_data: normalizedCourse,
         source_query: normalizedMeta.raw_query ?? null,
         region: normalizedMeta.region ?? null,
         activity_type: normalizedMeta.activity_type ?? null,

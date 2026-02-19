@@ -4,6 +4,9 @@ import { detectCurrentSeason } from './season';
 import { getModeFromPeopleCount } from './scoringConfig';
 
 export type ResponseType = 'single' | 'course';
+export type NoisePreference = 'quiet' | 'balanced' | 'lively' | 'unknown';
+export type BudgetSensitivity = 'tight' | 'moderate' | 'flexible' | 'unknown';
+export type WalkingPreference = 'short' | 'moderate' | 'relaxed' | 'unknown';
 
 export interface ParsedIntent {
   response_type: ResponseType;
@@ -14,6 +17,9 @@ export interface ParsedIntent {
   season: string | null;
   mode: string | null;
   special_context: string | null;
+  noise_preference: NoisePreference;
+  budget_sensitivity: BudgetSensitivity;
+  walking_preference: WalkingPreference;
 }
 
 const CAFE_KEYWORDS = [
@@ -21,12 +27,30 @@ const CAFE_KEYWORDS = [
 ];
 const FOOD_KEYWORDS = [
   '맛집', '밥', '식사', '먹', '점심', '저녁', '아침', '야식', '국밥', '라멘', '파스타',
-  '고기', '회', '해장', '술안주', '브런치',
+  '고기', '회', '해장', '술안주', '브런치', '디저트', '찜닭', '회식',
 ];
 const ATTRACTION_KEYWORDS = [
-  '볼거리', '구경', '전시', '미술관', '박물관', '산책', '공원', '야경', '명소', '갈만한곳',
-  '가볼만한곳', '놀거리', '데이트코스',
+  '볼거리', '구경', '전시', '미술관', '박물관', '산책', '공원', '야경', '명소',
+  '가볼만한곳', '놀거리', '데이트코스', '여행', '공연', '전시회',
 ];
+
+const NOISE_KEYWORDS = {
+  quiet: ['조용', '한적', '고요', '말 없는', '시끌'],
+  lively: ['시끌', '붐비', '인파', '활기', '웅장', '핫', '번잡'],
+};
+const BUDGET_KEYWORDS = {
+  tight: ['저렴', '싼', '가성비', '간단히', '적게', '알뜰', '비싸지 않'],
+  moderate: ['적당', '무난', '보통', '적당히'],
+  flexible: ['프리미엄', '고급', '잘 먹', '특별히', '호화', '럭셔리'],
+};
+const WALKING_KEYWORDS = {
+  short: ['가깝', '짧', '도보 10', '근처', '인근'],
+  relaxed: ['천천히', '여유', '걷기', '산책', '버스', '택시', '차 타'],
+};
+
+const VALID_NOISE: NoisePreference[] = ['quiet', 'balanced', 'lively', 'unknown'];
+const VALID_BUDGET: BudgetSensitivity[] = ['tight', 'moderate', 'flexible', 'unknown'];
+const VALID_WALKING: WalkingPreference[] = ['short', 'moderate', 'relaxed', 'unknown'];
 
 function hasAnyKeyword(text: string, keywords: string[]): boolean {
   return keywords.some((keyword) => text.includes(keyword));
@@ -38,6 +62,72 @@ function normalizeActivityType(query: string, activityType: unknown): string {
   if (hasAnyKeyword(merged, FOOD_KEYWORDS)) return '맛집';
   if (hasAnyKeyword(merged, ATTRACTION_KEYWORDS)) return '볼거리';
   return '볼거리';
+}
+
+function clampNumber(value: unknown): number | null {
+  if (typeof value !== 'number') return null;
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return Math.floor(value);
+}
+
+function toStringOrNull(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function normalizeEnum<T extends string>(value: unknown, allowed: readonly T[]): T {
+  const candidate = toStringOrNull(value)?.toLowerCase() as T | undefined;
+  if (candidate && allowed.includes(candidate)) return candidate;
+  return (allowed[allowed.length - 1] as T);
+}
+
+function inferResponseType(input: string, parsedType: unknown): ResponseType {
+  if (parsedType === 'course') return 'course';
+  if (parsedType === 'single') return 'single';
+
+  const lowered = input.toLowerCase();
+  const courseSignals = ['코스', '코스로', '투어', '동선', '한바퀴', '코스짜', '코스 짜'];
+  return hasAnyKeyword(lowered, courseSignals) ? 'course' : 'single';
+}
+
+function inferNoisePreference(query: string, value: unknown): NoisePreference {
+  if (typeof value === 'string') {
+    const normalized = normalizeEnum(value as NoisePreference, VALID_NOISE);
+    if (normalized !== 'unknown') return normalized;
+  }
+  if (hasAnyKeyword(query, NOISE_KEYWORDS.quiet)) return 'quiet';
+  if (hasAnyKeyword(query, NOISE_KEYWORDS.lively)) return 'lively';
+  return 'balanced';
+}
+
+function inferBudgetSensitivity(query: string, value: unknown): BudgetSensitivity {
+  if (typeof value === 'string') {
+    const normalized = normalizeEnum(value as BudgetSensitivity, VALID_BUDGET);
+    if (normalized !== 'unknown') return normalized;
+  }
+  if (hasAnyKeyword(query, BUDGET_KEYWORDS.tight)) return 'tight';
+  if (hasAnyKeyword(query, BUDGET_KEYWORDS.flexible)) return 'flexible';
+  if (hasAnyKeyword(query, BUDGET_KEYWORDS.moderate)) return 'moderate';
+  return 'unknown';
+}
+
+function inferWalkingPreference(query: string, value: unknown): WalkingPreference {
+  if (typeof value === 'string') {
+    const normalized = normalizeEnum(value as WalkingPreference, VALID_WALKING);
+    if (normalized !== 'unknown') return normalized;
+  }
+  if (hasAnyKeyword(query, WALKING_KEYWORDS.short)) return 'short';
+  if (hasAnyKeyword(query, WALKING_KEYWORDS.relaxed)) return 'relaxed';
+  return 'moderate';
 }
 
 const SYSTEM_PROMPT = `You are a Korean place recommendation intent parser.
@@ -56,7 +146,10 @@ Return ONLY valid JSON with this exact schema:
   "people_count": number | null,
   "season": string | null,
   "mode": string | null,
-  "special_context": string | null
+  "special_context": string | null,
+  "noise_preference": "quiet" | "balanced" | "lively" | "unknown",
+  "budget_sensitivity": "tight" | "moderate" | "flexible" | "unknown",
+  "walking_preference": "short" | "moderate" | "relaxed" | "unknown"
 }
 
 ## Valid region values
@@ -91,6 +184,11 @@ When the user mentions a station name, neighborhood, or landmark, map it to the 
 
 If the user mentions "서울" broadly without a specific area, set region to "서울".
 If you cannot map a place name to any region, set region to null.
+
+New preference dimensions:
+- noise_preference: quiet(조용), balanced(보통), lively(활기), unknown
+- budget_sensitivity: tight(저렴), moderate(무난), flexible(넓게)
+- walking_preference: short(가깝게), moderate(보통), relaxed(여유 있게 걷기)
 
 Rules:
 - "오늘 점심 뭐 먹을까?" → response_type: "single", activity_type: "맛집"
@@ -129,6 +227,7 @@ export interface IntentResult {
 }
 
 export async function parseIntent(query: string): Promise<IntentResult> {
+  const normalizedQuery = query.toLowerCase();
   const defaultIntent: ParsedIntent = {
     response_type: 'single',
     region: null,
@@ -138,6 +237,9 @@ export async function parseIntent(query: string): Promise<IntentResult> {
     season: null,
     mode: null,
     special_context: null,
+    noise_preference: inferNoisePreference(normalizedQuery, null),
+    budget_sensitivity: inferBudgetSensitivity(normalizedQuery, null),
+    walking_preference: inferWalkingPreference(normalizedQuery, null),
   };
 
   try {
@@ -155,20 +257,26 @@ export async function parseIntent(query: string): Promise<IntentResult> {
 
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return { intent: defaultIntent, parseErrors: ['llm_json_parse_failed'] };
+      return {
+        intent: defaultIntent,
+        parseErrors: ['llm_json_parse_failed', 'region'],
+      };
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
-    const responseType = parsed.response_type === 'course' ? 'course' : 'single';
+    const responseType = inferResponseType(query, parsed.response_type);
     const intent: ParsedIntent = {
       response_type: responseType,
-      region: typeof parsed.region === 'string' ? parsed.region : null,
-      vibe: Array.isArray(parsed.vibe) ? parsed.vibe.filter((v: unknown) => typeof v === 'string') : [],
+      region: toStringOrNull(parsed.region),
+      vibe: toStringArray(parsed.vibe),
       activity_type: normalizeActivityType(query, parsed.activity_type),
-      people_count: typeof parsed.people_count === 'number' ? parsed.people_count : null,
-      season: typeof parsed.season === 'string' ? parsed.season : null,
-      mode: typeof parsed.mode === 'string' ? parsed.mode : null,
-      special_context: typeof parsed.special_context === 'string' ? parsed.special_context : null,
+      people_count: clampNumber(parsed.people_count),
+      season: toStringOrNull(parsed.season),
+      mode: toStringOrNull(parsed.mode),
+      special_context: toStringOrNull(parsed.special_context),
+      noise_preference: inferNoisePreference(normalizedQuery, parsed.noise_preference),
+      budget_sensitivity: inferBudgetSensitivity(normalizedQuery, parsed.budget_sensitivity),
+      walking_preference: inferWalkingPreference(normalizedQuery, parsed.walking_preference),
     };
 
     const parseErrors: string[] = [];
@@ -182,8 +290,15 @@ export async function parseIntent(query: string): Promise<IntentResult> {
     const msg = error instanceof Error ? error.message : String(error);
     console.error('Intent parsing failed:', msg);
     return {
-      intent: { ...defaultIntent, region: '서울' },
-      parseErrors: ['llm_call_failed'],
+      intent: {
+        ...defaultIntent,
+        response_type: 'single',
+        region: null,
+        noise_preference: inferNoisePreference(normalizedQuery, null),
+        budget_sensitivity: inferBudgetSensitivity(normalizedQuery, null),
+        walking_preference: inferWalkingPreference(normalizedQuery, null),
+      },
+      parseErrors: ['llm_call_failed', 'region'],
     };
   }
 }
@@ -205,8 +320,6 @@ export function applyServerDefaults(
 
   if (overrides.region) {
     result.region = overrides.region;
-  } else if (!result.region) {
-    result.region = '서울';
   }
 
   if (overrides.response_type) {
@@ -230,6 +343,10 @@ export function applyServerDefaults(
   if (!result.season) {
     result.season = detectCurrentSeason();
   }
+
+  if (!result.noise_preference) result.noise_preference = 'unknown';
+  if (!result.budget_sensitivity) result.budget_sensitivity = 'unknown';
+  if (!result.walking_preference) result.walking_preference = 'moderate';
 
   return result;
 }

@@ -1,5 +1,9 @@
 export type ResponseType = 'single' | 'course';
 export type Difficulty = '★☆☆' | '★★☆' | '★★★';
+export type NarrativeConfidence = 'high' | 'medium' | 'low';
+export type NoisePreference = 'quiet' | 'balanced' | 'lively' | 'unknown';
+export type BudgetSensitivity = 'tight' | 'moderate' | 'flexible' | 'unknown';
+export type WalkingPreference = 'short' | 'moderate' | 'relaxed' | 'unknown';
 
 export interface Place {
   id: string;
@@ -23,33 +27,37 @@ export interface Place {
   kakao_place_id?: string;
 }
 
-export interface ScoredPlace extends Place {
-  score: number;
-  scoreBreakdown: {
-    vibeMatch: number;
-    distance: number;
-    jjeopLevel: number;
-    popularity: number;
-    season: number;
-    activityMatch: number;
-  };
+export interface BrandedPlace {
+  rank: number;
+  place: Place;
+  recommendation_reason: string;
+  confidence: NarrativeConfidence;
 }
 
-export interface CourseStep {
-  label: string;
-  place: ScoredPlace;
-  distanceFromPrev: number | null;
+export interface CourseStepNarrative {
+  name: string;
+  place_id: string;
+  region: string;
+  vibe_hint: string;
 }
 
-export interface Course {
+export interface BrandedCourse {
   id: number;
-  steps: CourseStep[];
+  route_summary: string;
   totalDistance: number;
   difficulty: Difficulty;
   mode: string;
   vibes: string[];
   totalScore: number;
+  places: CourseStepNarrative[];
+  recommendation_reason: string;
+  confidence: NarrativeConfidence;
+  course_story: string;
+  mood_flow: string[];
+  ideal_time: string;
 }
+
+export type Course = BrandedCourse;
 
 export interface ParsedIntent {
   response_type: ResponseType;
@@ -60,6 +68,9 @@ export interface ParsedIntent {
   season: string | null;
   mode: string | null;
   special_context: string | null;
+  noise_preference: NoisePreference;
+  budget_sensitivity: BudgetSensitivity;
+  walking_preference: WalkingPreference;
 }
 
 export interface RecommendRequest {
@@ -72,10 +83,12 @@ export interface RecommendRequest {
   exclude_place_ids?: string[];
 }
 
-export interface RecommendResponse {
+export interface BrandedRecommendResponse {
   type: ResponseType;
-  places: ScoredPlace[];
-  courses: Course[];
+  curated_summary: string;
+  confidence: NarrativeConfidence;
+  places: BrandedPlace[];
+  courses: BrandedCourse[];
   intent: ParsedIntent;
   parseErrors: string[];
   timing: { llmMs: number; dbMs: number; totalMs: number };
