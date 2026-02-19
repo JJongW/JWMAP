@@ -132,7 +132,7 @@ export function inferCategoryFromText(text: string): { category_main: string | n
   }
 
   // 디저트/베이커리 (카페 전에 체크)
-  if (/베이커리|빵집|케이크|도넛|마카롱|아이스크림/.test(t)) {
+  if (/디저트|베이커리|빵집|케이크|도넛|마카롱|아이스크림/.test(t)) {
     if (t.includes('케이크')) return { category_main: '디저트', category_sub: '케이크' };
     return { category_main: '디저트', category_sub: '베이커리' };
   }
