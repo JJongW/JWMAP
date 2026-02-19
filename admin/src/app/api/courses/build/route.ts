@@ -68,7 +68,7 @@ function withSupabaseHint(error: SupabaseErrorLike): string {
   const message = String(error.message || '알 수 없는 DB 오류');
   const isAuth = /Invalid API key|JWT|ApiKey|api key|Unauthorized/i.test(message);
   if (isAuth) {
-    return `${message} (서비스키 확인 필요: SUPABASE_SERVICE_ROLE_KEY 또는 SUPABASE_SERVICE_KEY)`;
+    return `${message} (서비스키 확인 필요: SUPABASE_SERVICE_KEY)`;
   }
 
   return message;
