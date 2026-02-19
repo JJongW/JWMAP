@@ -86,6 +86,7 @@ export function buildCourseHash(placeIds: string[]): string {
 export function inferCategoryFromText(text: string): { category_main: string | null; category_sub: string | null } {
   const t = text.toLowerCase();
 
+  // 전시/문화/공간
   if (/전시|갤러리|미술관|박물관|도서관|library|팝업|공원|산책|전망|포토스팟/.test(t)) {
     if (t.includes('도서관') || t.includes('library')) return { category_main: '전시/문화', category_sub: '도서관' };
     if (t.includes('공원') || t.includes('산책')) return { category_main: '공간/휴식', category_sub: '공원/정원' };
@@ -94,13 +95,51 @@ export function inferCategoryFromText(text: string): { category_main: string | n
     return { category_main: '전시/문화', category_sub: '전시관' };
   }
 
-  if (/문구|팬시|stationery/.test(t)) {
-    return { category_main: '쇼핑/소품', category_sub: '문구점' };
+  // 쇼핑
+  if (/문구|팬시|stationery/.test(t)) return { category_main: '쇼핑/소품', category_sub: '문구점' };
+  if (/편집샵|소품샵/.test(t)) return { category_main: '쇼핑/소품', category_sub: '편집샵' };
+  if (/서점|독립서점/.test(t)) return { category_main: '쇼핑/소품', category_sub: '독립서점' };
+
+  // 고기/구이
+  if (/삼겹살|소고기|돼지고기|갈비|구이|바비큐|bbq|고깃집/.test(t)) return { category_main: '고기요리', category_sub: '구이' };
+  if (/스테이크/.test(t)) return { category_main: '고기요리', category_sub: '스테이크' };
+
+  // 해산물
+  if (/회|해산물|해물|초밥|스시|굴|조개/.test(t)) return { category_main: '해산물', category_sub: '회' };
+
+  // 면요리
+  if (/라멘|라면|파스타|국수|냉면|우동|쌀국수/.test(t)) {
+    if (t.includes('파스타')) return { category_main: '양식·퓨전', category_sub: '파스타' };
+    return { category_main: '면', category_sub: '면요리' };
   }
 
-  if (/카페|커피|라떼|디저트|베이커리|카공/.test(t)) {
+  // 양식/브런치 (카페보다 먼저 체크 — 브런치를 카페로 잘못 분류 방지)
+  if (/브런치|양식|레스토랑|restaurant|이탈리안|프렌치|파인다이닝|비스트로|다이닝/.test(t)) {
+    if (t.includes('브런치')) return { category_main: '양식·퓨전', category_sub: '브런치' };
+    if (t.includes('이탈리안') || t.includes('파스타')) return { category_main: '양식·퓨전', category_sub: '파스타' };
+    if (t.includes('프렌치') || t.includes('프랑스')) return { category_main: '양식·퓨전', category_sub: '프랑스' };
+    return { category_main: '양식·퓨전', category_sub: '양식' };
+  }
+
+  // 한식
+  if (/한식|백반|정식|한정식|국밥|찌개|된장|비빔밥/.test(t)) return { category_main: '밥', category_sub: '한식' };
+
+  // 술집
+  if (/이자카야|와인바|포차|호프|안주|칵테일바/.test(t)) {
+    if (t.includes('이자카야')) return { category_main: '술안주', category_sub: '이자카야' };
+    if (t.includes('와인')) return { category_main: '카페', category_sub: '와인바/바' };
+    return { category_main: '술안주', category_sub: '안주 전문' };
+  }
+
+  // 디저트/베이커리 (카페 전에 체크)
+  if (/베이커리|빵집|케이크|도넛|마카롱|아이스크림/.test(t)) {
+    if (t.includes('케이크')) return { category_main: '디저트', category_sub: '케이크' };
+    return { category_main: '디저트', category_sub: '베이커리' };
+  }
+
+  // 카페 (마지막 — 브런치/양식 분류 후 진입)
+  if (/카페|커피|라떼|카공/.test(t)) {
     if (t.includes('카공')) return { category_main: '카페', category_sub: '카공카페' };
-    if (t.includes('디저트') || t.includes('베이커리')) return { category_main: '디저트', category_sub: '베이커리' };
     return { category_main: '카페', category_sub: '커피' };
   }
 

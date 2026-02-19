@@ -18,6 +18,80 @@ import {
 type DomainTable = 'locations' | 'attractions';
 type TagDomain = 'food' | 'space';
 
+// ── 블로그 리뷰 수집 ──────────────────────────────────────────────────────────
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&[a-z]+;/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function fetchNaverBlogText(url: string): Promise<string> {
+  try {
+    const logNoMatch = url.match(/logNo=(\d+)/);
+    const blogIdMatch = url.match(/blog\.naver\.com\/([^/?&#]+)/);
+    if (!logNoMatch || !blogIdMatch) return '';
+
+    const postViewUrl = `https://blog.naver.com/PostView.naver?blogId=${blogIdMatch[1]}&logNo=${logNoMatch[1]}&redirect=Dlog&widgetTypeCall=true`;
+    const res = await fetch(postViewUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://blog.naver.com',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return '';
+    return stripHtml(await res.text()).slice(0, 1500);
+  } catch {
+    return '';
+  }
+}
+
+async function collectBlogReviews(placeName: string): Promise<string> {
+  try {
+    const query = encodeURIComponent(placeName);
+    const res = await fetch(
+      `https://search.naver.com/search.naver?where=blog&query=${query}&display=5`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'ko-KR,ko;q=0.9',
+        },
+        signal: AbortSignal.timeout(10000),
+      },
+    );
+    if (!res.ok) return '';
+
+    const html = await res.text();
+    const urlPattern = /href="(https?:\/\/blog\.naver\.com\/[^"?]+)"/g;
+    const blogUrls: string[] = [];
+    let match;
+    while ((match = urlPattern.exec(html)) !== null) {
+      const url = match[1];
+      if (!blogUrls.includes(url) && /\/\d+/.test(url)) {
+        blogUrls.push(url);
+        if (blogUrls.length >= 3) break;
+      }
+    }
+
+    const texts: string[] = [];
+    for (const url of blogUrls.slice(0, 2)) {
+      const text = await fetchNaverBlogText(url);
+      if (text.length > 100) texts.push(text);
+    }
+    return texts.join('\n---\n').slice(0, 3000);
+  } catch {
+    return '';
+  }
+}
+
 interface InputPlace {
   name: string;
   note: string;
@@ -94,7 +168,7 @@ async function enrichWithAi(place: InputPlace): Promise<AiEnrichment> {
 
   const fallback: AiEnrichment = {
     short_desc: place.note.slice(0, 90) || null,
-    memo: place.note || null,
+    memo: null,
     tags: fallbackTags,
     category_main: null,
     category_sub: null,
@@ -107,29 +181,35 @@ async function enrichWithAi(place: InputPlace): Promise<AiEnrichment> {
   const apiKey = process.env.GOOGLE_API_KEY?.trim();
   if (!apiKey) return fallback;
 
+  const blogReviews = await collectBlogReviews(place.name);
+  const blogSection = blogReviews
+    ? `\n[블로그 리뷰 참고 (요약에 활용할 것)]\n${blogReviews}\n`
+    : '';
+
   const prompt = [
     '너는 장소 큐레이션 데이터 정규화기다.',
-    '입력된 장소명/한줄느낌을 보고 JSON만 출력해.',
+    '장소명, 한줄느낌, 블로그 리뷰를 종합해서 JSON만 출력해.',
     '스키마:',
     '{',
-    '  "short_desc": string|null,',
-    '  "memo": string|null,',
-    '  "tags": string[],',
+    '  "short_desc": string|null,   // 1문장, 50자 이내, 장소의 핵심 매력',
+    '  "memo": string|null,         // 3~5줄. 운영시간⏰, 주차🚗, 특징⭐, 방문팁💡 포함. 이모지 항목별 앞에 붙임. 줄바꿈 \\n 사용',
+    '  "tags": string[],            // 3~7개. 분위기/상황/특징 태그 (예: 카공, 데이트, 감성카페, 조용한, 뷰맛집, 주차가능)',
     '  "category_main": string|null,',
     '  "category_sub": string|null,',
-    '  "price_level": number|null,',
-    '  "curation_level": number|null,',
+    '  "price_level": number|null,  // 1~4',
+    '  "curation_level": number|null, // 1~5',
     '  "is_chain": boolean,',
     '  "waiting_hotspot": boolean',
     '}',
     '규칙:',
-    '- tags에는 분위기/상황 태그 포함(예: 데이트, 카공, 혼밥, 조용한, 로컬맛집)',
+    '- memo는 블로그 리뷰 기반으로 실제 정보 위주로 작성. 리뷰 없으면 장소명/느낌에서 추론.',
+    '- memo에 "방문 가이드" 같은 헤더 문구 절대 포함 금지.',
+    '- tags는 반드시 3개 이상 포함. 비워두지 말 것.',
     '- chain 브랜드면 is_chain=true',
-    '- curation_level은 1~5',
-    '',
+    blogSection,
     `장소명: ${place.name}`,
     `한줄느낌: ${place.note}`,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   try {
     const res = await fetch(
@@ -169,7 +249,26 @@ async function enrichWithAi(place: InputPlace): Promise<AiEnrichment> {
   }
 }
 
-async function searchKakaoPlace(name: string): Promise<{
+type KakaoDoc = {
+  id: string;
+  address_name: string;
+  road_address_name?: string;
+  x: string;
+  y: string;
+  category_name: string;
+};
+
+async function kakaoKeywordSearch(query: string, apiKey: string): Promise<KakaoDoc | null> {
+  const res = await fetch(
+    `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=3`,
+    { headers: { Authorization: `KakaoAK ${apiKey}` } },
+  );
+  if (!res.ok) return null;
+  const data = await res.json() as { documents?: KakaoDoc[] };
+  return data.documents?.[0] ?? null;
+}
+
+async function searchKakaoPlace(name: string, noteHint = ''): Promise<{
   address: string;
   lat: number;
   lon: number;
@@ -177,36 +276,24 @@ async function searchKakaoPlace(name: string): Promise<{
   category_main: string | null;
   category_sub: string | null;
 }> {
+  const empty = { address: '', lat: 0, lon: 0, kakao_place_id: null, category_main: null, category_sub: null };
   const apiKey = (process.env.KAKAO_REST_API_KEY || process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY)?.trim();
-  if (!apiKey) {
-    return { address: '', lat: 0, lon: 0, kakao_place_id: null, category_main: null, category_sub: null };
-  }
+  if (!apiKey) return empty;
 
   try {
-    const res = await fetch(
-      `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(name)}&size=1`,
-      { headers: { Authorization: `KakaoAK ${apiKey}` } },
-    );
+    // 1차: 이름만으로 검색
+    let first = await kakaoKeywordSearch(name, apiKey);
 
-    if (!res.ok) {
-      return { address: '', lat: 0, lon: 0, kakao_place_id: null, category_main: null, category_sub: null };
+    // 2차: 서울 + 이름 (지역 힌트 추가)
+    if (!first) first = await kakaoKeywordSearch(`서울 ${name}`, apiKey);
+
+    // 3차: 노트에 카테고리 힌트 추출해서 재시도
+    if (!first && noteHint) {
+      const hint = /브런치|양식|카페|식당|레스토랑|바/.exec(noteHint)?.[0] ?? '';
+      if (hint) first = await kakaoKeywordSearch(`${name} ${hint}`, apiKey);
     }
 
-    const data = await res.json() as {
-      documents?: Array<{
-        id: string;
-        address_name: string;
-        road_address_name?: string;
-        x: string;
-        y: string;
-        category_name: string;
-      }>;
-    };
-
-    const first = data.documents?.[0];
-    if (!first) {
-      return { address: '', lat: 0, lon: 0, kakao_place_id: null, category_main: null, category_sub: null };
-    }
+    if (!first) return empty;
 
     const mapped = mapKakaoCategoryByDomain(first.category_name || '', 'locations');
     return {
@@ -218,7 +305,7 @@ async function searchKakaoPlace(name: string): Promise<{
       category_sub: mapped.sub ?? null,
     };
   } catch {
-    return { address: '', lat: 0, lon: 0, kakao_place_id: null, category_main: null, category_sub: null };
+    return empty;
   }
 }
 
@@ -339,13 +426,14 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
 
   const [enriched, kakao] = await Promise.all([
     enrichWithAi(input),
-    searchKakaoPlace(input.name),
+    searchKakaoPlace(input.name, input.note),
   ]);
 
   const mappedRegion = kakao.address ? extractRegionFromAddress(kakao.address) : null;
   const inferred = inferCategoryFromText(`${input.name} ${input.note}`);
-  const categoryMain = enriched.category_main || kakao.category_main || inferred.category_main;
-  const categorySub = enriched.category_sub || kakao.category_sub || inferred.category_sub;
+  // 카카오 실제 업종 데이터 우선 → AI 보완 → 텍스트 추론 순서
+  const categoryMain = kakao.category_main || enriched.category_main || inferred.category_main;
+  const categorySub = kakao.category_sub || enriched.category_sub || inferred.category_sub;
   const domain = pickDomain(categoryMain);
 
   const tags = uniqueTags([
@@ -365,7 +453,7 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
     lon: kakao.lon || 0,
     lat: kakao.lat || 0,
     address: kakao.address || '',
-    memo: [enriched.memo, input.note].filter(Boolean).join('\n\n'),
+    memo: enriched.memo || input.note || '',
     short_desc: enriched.short_desc || null,
     rating: 0,
     curation_level: curationLevel,
