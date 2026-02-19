@@ -55,8 +55,30 @@ interface PlaceLike {
   kakao_place_id: string | null;
 }
 
+type SupabaseErrorLike = {
+  message?: string;
+  code?: string;
+  details?: string;
+};
+
 const SITUATION_TAGS = ['데이트', '카공', '혼밥', '혼술', '가족모임', '친구모임', '산책', '드라이브'];
 const MOOD_KEYWORDS = ['감성', '조용', '아늑', '빈티지', '모던', '힙', '고즈넉', '뷰맛집', '로컬', '활기'];
+
+function withSupabaseHint(error: SupabaseErrorLike): string {
+  const message = String(error.message || '알 수 없는 DB 오류');
+  const isAuth = /Invalid API key|JWT|ApiKey|api key|Unauthorized/i.test(message);
+  if (isAuth) {
+    return `${message} (서비스키 확인 필요: SUPABASE_SERVICE_ROLE_KEY 또는 SUPABASE_SERVICE_KEY)`;
+  }
+
+  return message;
+}
+
+function buildDbError(operation: 'insert' | 'update', domain: DomainTable, name: string, error: SupabaseErrorLike): string {
+  const base = withSupabaseHint(error);
+  const code = error.code ? ` (code: ${error.code})` : '';
+  return `[${domain}] ${operation} failed for "${name}": ${base}${code}`;
+}
 
 function toTagDomain(domain: DomainTable): TagDomain {
   return domain === 'attractions' ? 'space' : 'food';
@@ -82,7 +104,7 @@ async function enrichWithAi(place: InputPlace): Promise<AiEnrichment> {
     waiting_hotspot: /웨이팅|줄\s?김|오픈런|대기/.test(place.note),
   };
 
-  const apiKey = process.env.GOOGLE_API_KEY;
+  const apiKey = process.env.GOOGLE_API_KEY?.trim();
   if (!apiKey) return fallback;
 
   const prompt = [
@@ -155,7 +177,7 @@ async function searchKakaoPlace(name: string): Promise<{
   category_main: string | null;
   category_sub: string | null;
 }> {
-  const apiKey = process.env.KAKAO_REST_API_KEY || process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY;
+  const apiKey = (process.env.KAKAO_REST_API_KEY || process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY)?.trim();
   if (!apiKey) {
     return { address: '', lat: 0, lon: 0, kakao_place_id: null, category_main: null, category_sub: null };
   }
@@ -377,7 +399,7 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
       .select('*')
       .single();
     if (error) {
-      throw new Error(`[${domain}] update failed for "${input.name}": ${error.message} (code: ${error.code})`);
+      throw new Error(buildDbError('update', domain, input.name, error as SupabaseErrorLike));
     }
     row = updated as Record<string, unknown>;
   } else {
@@ -387,7 +409,7 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
       .select('*')
       .single();
     if (error) {
-      throw new Error(`[${domain}] insert failed for "${input.name}": ${error.message} (code: ${error.code})`);
+      throw new Error(buildDbError('insert', domain, input.name, error as SupabaseErrorLike));
     }
     row = data as Record<string, unknown>;
     created = true;
