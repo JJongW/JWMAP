@@ -249,17 +249,6 @@ async function runSingleMode(
     }
 
     renderPlaceDetail(selected);
-
-    logSilent({
-      rawQuery,
-      intent: response.intent,
-      mode: 'single',
-      parseErrors: response.parseErrors,
-      selectedPlaceId: selected.place.id,
-      selectedPlaceName: selected.place.name,
-      regenerateCount,
-      userFeedbacks: feedbacks,
-    });
     return { type: 'done' };
   }
 }
@@ -353,15 +342,6 @@ async function runCourseMode(
     }
   }
 
-  logSilent({
-    rawQuery,
-    intent: response.intent,
-    mode: selectedCourse!.mode,
-    parseErrors: response.parseErrors,
-    selectedCourse,
-    regenerateCount,
-    userFeedbacks: feedbacks,
-  });
   return { type: 'done' };
 }
 
@@ -450,6 +430,13 @@ async function runSearch(rawQuery: string): Promise<FlowAction> {
     console.log(c.warn('  지역 정보를 확인할 수 없어요. 지역을 더 구체적으로 입력해주세요.'));
     return { type: 'done' };
   }
+
+  logSilent({
+    rawQuery: query,
+    intent: response.intent,
+    mode: response.intent.mode || (response.type === 'course' ? 'course' : 'single'),
+    parseErrors: response.parseErrors,
+  });
 
   console.log(c.dim(`  ${response.type === 'course' ? '코스' : '장소'} 추천 | 지역: ${response.intent.region} | 시즌: ${response.intent.season}`));
   console.log(c.dim(`  오늘오디가의 요약: ${response.curated_summary}`));
