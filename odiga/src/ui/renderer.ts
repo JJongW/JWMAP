@@ -95,8 +95,25 @@ export function renderCourseList(courses: Course[]): void {
 }
 
 export function renderCourseSummary(course: Course): void {
-  const distKm = (course.totalDistance / 1000).toFixed(1);
+  if (course.curation_text) {
+    // Show header through "— 흐름 —" section only (steps shown in detail view)
+    const lines = course.curation_text.split('\n');
+    const summaryLines: string[] = [];
+    for (const line of lines) {
+      if (/^\[1\]/.test(line)) break;
+      summaryLines.push(line);
+    }
+    while (summaryLines.length > 0 && summaryLines[summaryLines.length - 1].trim() === '') {
+      summaryLines.pop();
+    }
+    for (const line of summaryLines) {
+      console.log(`  ${line}`);
+    }
+    console.log();
+    return;
+  }
 
+  const distKm = (course.totalDistance / 1000).toFixed(1);
   console.log(c.highlight(`  ── 코스 ${course.id} 스토리 ──`));
   console.log(`  ${c.distance(`${c.emoji.walk} ${distKm}km`)} ${course.difficulty} ${c.dim(getDifficultyLabel(course.difficulty))}`);
   console.log(c.dim(`  ${course.course_story}`));
@@ -106,6 +123,23 @@ export function renderCourseSummary(course: Course): void {
 
 export function renderCourseDetail(course: Course): void {
   console.log();
+
+  if (course.curation_text) {
+    for (const line of course.curation_text.split('\n')) {
+      console.log(`  ${line}`);
+    }
+    console.log();
+    console.log(c.dim('  — 지도 링크 —'));
+    console.log();
+    for (const step of course.places) {
+      console.log(c.highlight(`  ${step.name}`));
+      console.log(c.link(`    ${c.emoji.map} 네이버: ${naverMapLink(step.name)}`));
+      console.log(c.link(`    ${c.emoji.map} 카카오: ${kakaoMapLink(step.name)}`));
+      console.log();
+    }
+    return;
+  }
+
   console.log(c.title(`  ═══ 코스 ${course.id} 상세 ═══`));
   console.log();
 
@@ -125,7 +159,6 @@ export function renderCourseDetail(course: Course): void {
 
   console.log(c.highlight(`  루트`));
   console.log(c.dim(`  ${course.route_summary}`));
-
   console.log(c.dim(`  ${c.emoji.map} 최적 시간: ${course.ideal_time}`));
   console.log();
 
@@ -133,7 +166,6 @@ export function renderCourseDetail(course: Course): void {
     console.log(c.step(`  [${step.vibe_hint}]`) + ' ' + c.highlight(step.name));
     console.log(c.dim(`    ${c.emoji.pin} ${step.region}`));
     console.log();
-
     console.log(c.link(`    ${c.emoji.map} 네이버: ${naverMapLink(step.name)}`));
     console.log(c.link(`    ${c.emoji.map} 카카오: ${kakaoMapLink(step.name)}`));
     console.log();

@@ -55,6 +55,7 @@ export interface BrandedCourse {
   course_story: string;
   mood_flow: string[];
   ideal_time: string;
+  curation_text?: string;
 }
 
 export type Course = BrandedCourse;
