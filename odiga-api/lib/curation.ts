@@ -35,6 +35,7 @@ export interface BrandedCourse {
   course_story: string;
   mood_flow: string[];
   ideal_time: string;
+  curation_text?: string;
 }
 
 export interface BrandedRecommendResponse {
@@ -273,6 +274,99 @@ async function callLLMForCuration(topPlaces: ScoredPlace[], topCourses: Course[]
   return parseCuratedResponse(parsed) ?? {};
 }
 
+function buildCourseCurationPrompt(courses: Course[], intent: ParsedIntent): string {
+  const region = intent.region || '지역 미지정';
+  const vibeText = intent.vibe.join(', ') || '';
+
+  const coursesInput = courses.map((course, idx) => {
+    const steps = course.steps.map((step, i) =>
+      `  [${i + 1}] ${step.place.name} (${getPlaceActivityBucket(step.place)})`,
+    ).join('\n');
+    return `코스 ${idx + 1}:\n${steps}`;
+  }).join('\n\n');
+
+  return `너는 "오늘오디가?"의 내부 큐레이터다.
+이 출력은 CLI 화면에 표시된다.
+가독성을 최우선으로 하라.
+
+규칙:
+1. 불필요하게 길게 쓰지 말 것.
+2. 한 문장은 최대 2줄 이내.
+3. 감정 과장 금지.
+4. 점수, 평점 언급 금지.
+5. 구조화된 텍스트로 작성하라.
+6. 구분선과 번호 구조를 활용하라.
+7. 스크롤을 최소화하라.
+
+출력은 아래 형식의 텍스트로 반환하라. JSON 금지.
+코스가 여러 개일 경우 각 코스 블록 사이에 반드시 "---" 구분선을 삽입하라.
+
+출력 형식 (코스마다 반복):
+🔥 오늘오디가의 제안
+
+[지역명], [한 줄 상황 설명]
+
+[한 줄 흐름 설명]
+
+이런 날:
+• [상황1]
+• [상황2]
+
+— 흐름 —
+[활동1] → [활동2] → [활동3]
+
+[1] [장소명]
+   왜 여기: [한 문장]
+   순서 이유: [한 문장]
+
+확신도: 높음/보통/낮음
+
+---
+
+사용자 쿼리: ${vibeText}
+지역: ${region}
+
+코스 목록:
+${coursesInput}`;
+}
+
+async function callLLMForCourseCuration(courses: Course[], intent: ParsedIntent): Promise<string[]> {
+  if (courses.length === 0) return [];
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) throw new Error('Missing GOOGLE_API_KEY');
+  const llm = new ChatGoogleGenerativeAI({
+    model: 'gemini-2.0-flash',
+    maxOutputTokens: 1500,
+    apiKey,
+  });
+  const response = await llm.invoke([new HumanMessage(buildCourseCurationPrompt(courses, intent))]);
+  const content = typeof response.content === 'string' ? response.content.trim() : '';
+  const blocks = content.split(/\n---\n/).map((s) => s.trim()).filter((s) => s.length > 0);
+  return blocks;
+}
+
+function buildFallbackCourseText(course: Course): string {
+  const region = course.steps[0]?.place.region || '지역';
+  const vibeSummary = course.vibes.length > 0 ? course.vibes[0] : '코스';
+  const route = course.steps.map((s) => getPlaceActivityBucket(s.place)).join(' → ');
+  const steps = course.steps.map((step, i) =>
+    `[${i + 1}] ${step.place.name}\n   왜 여기: 해당 지역에서 추천하는 장소입니다.\n   순서 이유: 자연스러운 동선입니다.`,
+  ).join('\n\n');
+  const confidence = deriveConfidenceFromScore(course.totalScore, course.steps.length);
+  const confidenceKo = confidence === 'high' ? '높음' : confidence === 'medium' ? '보통' : '낮음';
+
+  return `🔥 오늘오디가의 제안
+
+${region}, ${vibeSummary}
+
+— 흐름 —
+${route}
+
+${steps}
+
+확신도: ${confidenceKo}`;
+}
+
 function applyPlaceCuration(topPlaces: ScoredPlace[], llmOutput: LlmResponse): BrandedPlace[] {
   return topPlaces.map((place, index) => {
     const item = (llmOutput.places || []).find((entry) => entry.id === place.id);
@@ -292,17 +386,12 @@ function toStringReason(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : fallback;
 }
 
-function applyCourseCuration(courses: Course[], llmOutput: LlmResponse): BrandedCourse[] {
-  return courses.map((course) => {
-    const item = (llmOutput.courses || []).find((entry) => entry.id === course.id);
-
-    const moodFlow = Array.isArray(item?.mood_flow)
-      ? item.mood_flow.filter((v): v is string => typeof v === 'string').filter((v) => v.length > 0)
-      : course.steps.map((step) => step.label).filter((v): v is string => typeof v === 'string' && v.length > 0);
-
-    const idealTime = toStringReason(item?.ideal_time, toNarrativeMinutes(course.totalDistance));
-    const story = toStringReason(item?.course_story,
-      `${course.steps.map((step) => `${step.place.name}`).join(' → ')} 흐름의 데이트 스토리`);
+function applyCourseCuration(courses: Course[], curationTexts: string[]): BrandedCourse[] {
+  return courses.map((course, idx) => {
+    const curation_text = curationTexts[idx] || buildFallbackCourseText(course);
+    const moodFlow = course.steps
+      .map((step) => step.label)
+      .filter((v): v is string => typeof v === 'string' && v.length > 0);
 
     return {
       id: course.id,
@@ -313,11 +402,12 @@ function applyCourseCuration(courses: Course[], llmOutput: LlmResponse): Branded
       vibes: course.vibes,
       totalScore: course.totalScore,
       places: toCourseNarrativeSteps(course),
-      recommendation_reason: toStringReason(item?.recommendation_reason, buildFallbackCourseReasons(course)),
-      confidence: normalizeConfidence(item?.confidence),
-      course_story: story,
+      recommendation_reason: buildFallbackCourseReasons(course),
+      confidence: deriveConfidenceFromScore(course.totalScore, course.steps.length),
+      course_story: curation_text,
       mood_flow: moodFlow,
-      ideal_time: idealTime,
+      ideal_time: toNarrativeMinutes(course.totalDistance),
+      curation_text,
     };
   });
 }
@@ -332,10 +422,19 @@ export function curateWithLLM(
 
   return (async () => {
     try {
+      if (intent.response_type === 'course') {
+        const curationTexts = await callLLMForCourseCuration(topCourses, intent);
+        const parsedCourses = applyCourseCuration(topCourses, curationTexts);
+        return {
+          curated_summary: '',
+          confidence: 'medium',
+          places: [],
+          courses: parsedCourses,
+        };
+      }
+
       const llmOutput = await callLLMForCuration(topPlaces, topCourses, intent);
       const parsedPlaces = applyPlaceCuration(topPlaces, llmOutput);
-      const parsedCourses = applyCourseCuration(topCourses, llmOutput);
-
       const summarizedConfidence = normalizeConfidence(llmOutput.confidence);
       const curatedSummary = toStringReason(
         llmOutput.curated_summary,
@@ -346,7 +445,7 @@ export function curateWithLLM(
         curated_summary: curatedSummary,
         confidence: summarizedConfidence,
         places: parsedPlaces,
-        courses: parsedCourses,
+        courses: [],
       };
     } catch {
       return buildFallbackResponse(topPlaces, topCourses);
