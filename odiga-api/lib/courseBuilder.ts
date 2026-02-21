@@ -97,11 +97,32 @@ function pickDiverseSteps(
     }
   }
 
+  const makeKey = (steps: ScoredPlace[]) => steps.map((s) => s.id).join('|');
+
   const fallback = candidates.slice(0, needed);
-  if (fallback.length === needed && satisfiesBuckets(fallback, desiredBuckets, true, hasAttractionCandidate)) {
+  if (
+    fallback.length === needed &&
+    satisfiesBuckets(fallback, desiredBuckets, true, hasAttractionCandidate) &&
+    !usedSets.has(makeKey(fallback))
+  ) {
     return fallback;
   }
 
+  // If an attraction candidate exists but couldn't be placed within distance constraints,
+  // force-include the best attraction alongside the top-scored other places.
+  if (hasAttractionCandidate) {
+    const attraction = candidates.find((p) => getPlaceActivityBucket(p) === '볼거리');
+    if (attraction) {
+      const others = candidates.filter((p) => p.id !== attraction.id).slice(0, needed - 1);
+      if (others.length === needed - 1) {
+        const forced = [attraction, ...others];
+        if (!usedSets.has(makeKey(forced))) return forced;
+      }
+    }
+  }
+
+  // Last resort: return top N regardless of bucket diversity.
+  if (fallback.length === needed && !usedSets.has(makeKey(fallback))) return fallback;
   return [];
 }
 

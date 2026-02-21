@@ -72,7 +72,7 @@ function matchesActivityBucket(place: Place, activityType: string | null): boole
   return getPlaceActivityBucket(place) === activityType;
 }
 
-export async function queryPlaces(intent: ParsedIntent): Promise<Place[]> {
+async function queryLocations(intent: ParsedIntent): Promise<Place[]> {
   let query = getSupabase().from('locations').select('*');
 
   if (intent.region) {
@@ -95,12 +95,46 @@ export async function queryPlaces(intent: ParsedIntent): Promise<Place[]> {
     .order('rating', { ascending: false })
     .limit(200);
 
-  if (error) {
-    throw new Error(`Supabase query failed: ${error.message}`);
+  if (error) throw new Error(`locations query failed: ${error.message}`);
+  return (data || []) as Place[];
+}
+
+async function queryAttractions(intent: ParsedIntent): Promise<Place[]> {
+  let query = getSupabase()
+    .from('attractions')
+    .select('id,name,region,sub_region,category_main,category_sub,lon,lat,address,memo,short_desc,rating,price_level,tags,imageUrl,naver_place_id,kakao_place_id');
+
+  if (intent.region) {
+    query = query.or(`region.ilike.%${intent.region}%,sub_region.ilike.%${intent.region}%`);
   }
 
-  const rows = (data || []) as Place[];
-  return rows.filter((place) => matchesActivityBucket(place, intent.activity_type));
+  const { data, error } = await query.limit(100);
+  if (error) throw new Error(`attractions query failed: ${error.message}`);
+
+  // attractions table has no province or features columns; rating defaults to 4.0 when unset
+  return (data || []).map((row) => ({
+    ...row,
+    rating: row.rating > 0 ? row.rating : 4.0,
+    lon: row.lon || 0,
+    lat: row.lat || 0,
+  })) as Place[];
+}
+
+export async function queryPlaces(intent: ParsedIntent): Promise<Place[]> {
+  const needsAttractions =
+    intent.response_type === 'course' || intent.activity_type === '볼거리';
+
+  const [locations, attractions] = await Promise.all([
+    queryLocations(intent),
+    needsAttractions ? queryAttractions(intent) : Promise.resolve([] as Place[]),
+  ]);
+
+  const combined = [...locations, ...attractions];
+
+  // Course mode: return all place types for diverse course building
+  if (intent.response_type === 'course') return combined;
+  // Single mode: filter to the requested activity bucket
+  return combined.filter((place) => matchesActivityBucket(place, intent.activity_type));
 }
 
 export { getSupabase };

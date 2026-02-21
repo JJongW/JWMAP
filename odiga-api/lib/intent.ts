@@ -56,11 +56,14 @@ function hasAnyKeyword(text: string, keywords: string[]): boolean {
   return keywords.some((keyword) => text.includes(keyword));
 }
 
-function normalizeActivityType(query: string, activityType: unknown): string {
+function normalizeActivityType(query: string, activityType: unknown, responseType: ResponseType): string | null {
   const merged = `${query} ${typeof activityType === 'string' ? activityType : ''}`.toLowerCase();
   if (hasAnyKeyword(merged, CAFE_KEYWORDS)) return '카페';
   if (hasAnyKeyword(merged, FOOD_KEYWORDS)) return '맛집';
   if (hasAnyKeyword(merged, ATTRACTION_KEYWORDS)) return '볼거리';
+  // Course mode without an explicit activity focus → return null so queryPlaces
+  // returns all place types (맛집, 카페, 볼거리) for diverse course building.
+  if (responseType === 'course') return null;
   return '볼거리';
 }
 
@@ -194,14 +197,17 @@ Rules:
 - "오늘 점심 뭐 먹을까?" → response_type: "single", activity_type: "맛집"
 - "커피 마시고 싶다" → response_type: "single", activity_type: "카페"
 - "어디 가볼만한 곳 있어?" → response_type: "single", activity_type: "볼거리"
-- "강남 데이트 코스 짜줘" → response_type: "course"
+- "강남 데이트 코스 짜줘" → response_type: "course", activity_type: null
+- "홍대 데이트 코스" → response_type: "course", activity_type: null
 - "라멘 맛집" → response_type: "single", activity_type: "면"
 - "홍대 카페 투어" → response_type: "course", activity_type: "카페"
+- "성수 맛집 코스" → response_type: "course", activity_type: "맛집"
 - "서울대입구역 맛집" → region: "구로/관악/동작"
 - "압구정 카페" → region: "강남"
 - "을지로 술집" → region: "종로/중구"
 - If unclear, default to "single"
-- activity_type must be normalized into one of: "맛집", "카페", "볼거리"
+- activity_type must be one of: "맛집", "카페", "볼거리", or null
+- For course mode without a specific activity focus (e.g. 데이트 코스, 산책 코스), set activity_type to null
 - Extract season from context (e.g. "벚꽃" → "봄", "눈" → "겨울")
 - Infer mode from people_count if not explicit
 - vibe should capture mood/atmosphere keywords
@@ -269,7 +275,7 @@ export async function parseIntent(query: string): Promise<IntentResult> {
       response_type: responseType,
       region: toStringOrNull(parsed.region),
       vibe: toStringArray(parsed.vibe),
-      activity_type: normalizeActivityType(query, parsed.activity_type),
+      activity_type: normalizeActivityType(query, parsed.activity_type, responseType),
       people_count: clampNumber(parsed.people_count),
       season: toStringOrNull(parsed.season),
       mode: toStringOrNull(parsed.mode),
