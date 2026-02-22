@@ -84,6 +84,7 @@ export async function getDashboardData() {
     { count: total },
     { data: locations },
     { data: recentUpdates },
+    { data: attractions },
   ] = await Promise.all([
     supabase.from('locations').select('*', { count: 'exact', head: true }),
     supabase.from('locations').select('*'),
@@ -92,6 +93,7 @@ export async function getDashboardData() {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(10),
+    supabase.from('attractions').select('tags'),
   ]);
 
   const allLocations = (locations ?? []) as Record<string, unknown>[];
@@ -103,6 +105,13 @@ export async function getDashboardData() {
   const noImageCount = allLocations.filter((l) => {
     const img = (l.imageUrl ?? l.image_url ?? '') as string;
     return !img || img === '';
+  }).length;
+
+  const allAttractions = (attractions ?? []) as Record<string, unknown>[];
+  const attractionsTotal = allAttractions.length;
+  const attractionsNoTagsCount = allAttractions.filter((a) => {
+    const tags = a.tags;
+    return !tags || (Array.isArray(tags) && tags.length === 0);
   }).length;
 
   const regionMap = new Map<string, number>();
@@ -211,6 +220,8 @@ export async function getDashboardData() {
     total: total ?? 0,
     noTagsCount,
     noImageCount,
+    attractionsTotal,
+    attractionsNoTagsCount,
     byRegion,
     byCategory,
     recentUpdates: (recentUpdates ?? []) as Record<string, unknown>[],

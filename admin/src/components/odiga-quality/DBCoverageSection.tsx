@@ -1,6 +1,6 @@
 import type { ElementType } from 'react';
 import Link from 'next/link';
-import { MapPin, Tags, ImageOff, Bookmark, Search, Activity } from 'lucide-react';
+import { MapPin, Landmark, Tags, ImageOff, Bookmark, Search, Activity } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { DBPressureTable } from './DBPressureTable';
 import type { DBPressureRow } from '@/types/odiga-quality';
@@ -18,6 +18,8 @@ interface DBCoverageSectionProps {
     total: number;
     noTagsCount: number;
     noImageCount: number;
+    attractionsTotal: number;
+    attractionsNoTagsCount: number;
     activityTotals: {
       webSearches: number;
       clicks: number;
@@ -74,17 +76,23 @@ export function DBCoverageSection({ db, pressure }: DBCoverageSectionProps) {
 
   return (
     <div className="space-y-4">
-      {/* Coverage & activity mini-cards */}
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+      {/* Row 1: DB Coverage — locations + attractions */}
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
         <CoverageCard
           icon={MapPin}
-          label="총 장소"
+          label="맛집 / 카페"
           value={db.total.toLocaleString()}
           note="locations 테이블"
         />
         <CoverageCard
+          icon={Landmark}
+          label="볼거리"
+          value={db.attractionsTotal.toLocaleString()}
+          note="attractions 테이블"
+        />
+        <CoverageCard
           icon={Tags}
-          label="태그 없음"
+          label="태그 없음 (맛집)"
           value={db.noTagsCount}
           note="클릭해서 확인 →"
           href="/locations/incomplete?filter=no_tags"
@@ -97,6 +105,17 @@ export function DBCoverageSection({ db, pressure }: DBCoverageSectionProps) {
           note="클릭해서 확인 →"
           href="/locations/incomplete?filter=no_image"
           accent={db.noImageCount > 0}
+        />
+      </div>
+
+      {/* Row 2: Activity totals */}
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+        <CoverageCard
+          icon={Tags}
+          label="태그 없음 (볼거리)"
+          value={db.attractionsNoTagsCount}
+          accent={db.attractionsNoTagsCount > 0}
+          note="attractions 미태깅"
         />
         <CoverageCard
           icon={Search}
