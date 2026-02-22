@@ -1,6 +1,6 @@
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { CourseBuilder } from '@/components/courses/CourseBuilder';
-import { createServiceSupabase } from '@/lib/supabase/service';
+import { createServerSupabase } from '@/lib/supabase/server';
 
 export interface SavedCourseRow {
   id: string;
@@ -19,7 +19,7 @@ export interface SavedCourseRow {
 
 async function getInitialCourses(): Promise<{ courses: SavedCourseRow[]; error: string | null }> {
   try {
-    const supabase = createServiceSupabase();
+    const supabase = await createServerSupabase();
     const { data, error } = await supabase
       .from('odiga_saved_courses')
       .select('id, course_hash, source_query, region, activity_type, usage_count, validation_status, created_at, place_ids, course_data')
