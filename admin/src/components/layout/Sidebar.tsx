@@ -2,16 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MapPin, AlertTriangle, Sparkles, Route, Bot, Cpu, BarChart2 } from 'lucide-react';
+import { MapPin, AlertTriangle, Sparkles, Route, Bot, Cpu, BarChart2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/dashboard', label: '대시보드', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Odiga Analytics', icon: BarChart2 },
   { href: '/locations', label: '맛집/카페 관리', icon: MapPin },
   { href: '/attractions', label: '볼거리 관리', icon: Sparkles },
   { href: '/courses', label: '코스 관리', icon: Route },
   { href: '/locations/incomplete', label: '데이터 품질', icon: AlertTriangle },
-  { href: '/odiga-quality', label: 'Quality Console', icon: BarChart2 },
   { href: '/content-engine', label: '콘텐츠 엔진', icon: Bot },
   { href: '/automation', label: 'Automation', icon: Cpu },
 ];
