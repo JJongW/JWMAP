@@ -87,6 +87,25 @@ export async function askRegion(): Promise<string> {
   return (region || '').trim();
 }
 
+export async function askPeopleCount(): Promise<number | undefined> {
+  const { count } = await (Enquirer as any).prompt({
+    type: 'select',
+    name: 'count',
+    message: '몇 명이서 가나요?',
+    choices: [
+      { name: '1', message: '1명 (혼자)' },
+      { name: '2', message: '2명' },
+      { name: '3', message: '3명' },
+      { name: '4+', message: '4명 이상' },
+      { name: 'skip', message: '건너뛰기 (기본 2명으로 추천)' },
+    ],
+  });
+
+  if (count === 'skip') return undefined;
+  if (count === '4+') return 4;
+  return parseInt(count, 10);
+}
+
 export async function confirmStory(): Promise<boolean> {
   const { story } = await (Enquirer as any).prompt({
     type: 'confirm',

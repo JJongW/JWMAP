@@ -23,6 +23,7 @@ import {
   askFeedback,
   askNewSearchQuery,
   askRegion,
+  askPeopleCount,
 } from './ui/prompts.js';
 import { sanitizeQuery } from './utils/validators.js';
 import { c } from './ui/colors.js';
@@ -409,10 +410,12 @@ async function runSearch(rawQuery: string): Promise<FlowAction> {
   console.log(c.dim(`  ${c.emoji.search}  "${query}" 분석 중...`));
   console.log();
 
+  const detectedPeopleCount = detectPeopleCount(query);
+
   let response = await requestRecommendation(
     query,
     detectRegion(query),
-    detectPeopleCount(query),
+    detectedPeopleCount,
   );
 
   if (!response.intent.region) {
@@ -429,6 +432,18 @@ async function runSearch(rawQuery: string): Promise<FlowAction> {
   if (!response.intent.region) {
     console.log(c.warn('  지역 정보를 확인할 수 없어요. 지역을 더 구체적으로 입력해주세요.'));
     return { type: 'done' };
+  }
+
+  // 코스 요청인데 인원수를 쿼리에서 파악할 수 없으면 사용자에게 묻는다
+  if (response.type === 'course' && detectedPeopleCount === undefined) {
+    const askedCount = await askPeopleCount();
+    if (askedCount !== undefined) {
+      response = await requestRecommendation(
+        query,
+        response.intent.region || undefined,
+        askedCount,
+      );
+    }
   }
 
   logSilent({
