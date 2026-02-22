@@ -4,7 +4,10 @@
 
 ## Tech Stack
 
-- **Frontend:** React 18 + TypeScript + Vite
+- **Frontend (project/):** React 18 + TypeScript + Vite
+- **Admin (admin/):** Next.js 16 App Router + TypeScript
+- **CLI (odiga/):** Node.js ESM + TypeScript (npm publish)
+- **API (odiga-api/):** Vercel Serverless Functions (TypeScript)
 - **Styling:** Tailwind CSS
 - **Database:** Supabase (PostgreSQL)
 - **Maps:** Kakao Maps API + Naver Maps (deeplinks)
@@ -16,6 +19,29 @@
 
 ```
 JWMAP/
+├── odiga/                          # CLI npm 패키지 (npm install -g odiga)
+│   ├── src/
+│   │   ├── index.ts              # CLI 진입점
+│   │   ├── api/client.ts         # API 클라이언트 (odiga.vercel.app/api)
+│   │   ├── api/types.ts          # BrandedCourse, curation_text 등
+│   │   ├── ui/renderer.ts        # curation_text 기반 코스 렌더링
+│   │   ├── ui/colors.ts          # Apricot Orange (#FF8A3D) 브랜드 색상
+│   │   └── utils/mapLink.ts      # 네이버/카카오 딥링크
+│   └── package.json              # version 1.3.0
+├── odiga-api/                      # Vercel Serverless API (odiga.vercel.app)
+│   ├── api/
+│   │   ├── recommend.ts          # 메인 추천 파이프라인
+│   │   ├── log.ts                # 검색 로그 기록
+│   │   ├── stats.ts              # 통계 조회
+│   │   └── save-course.ts        # 코스 저장
+│   └── lib/
+│       ├── curation.ts           # LLM 큐레이션 (장소: JSON, 코스: 텍스트)
+│       ├── scoring.ts            # 스코어링 엔진
+│       └── intentParser.ts       # 자연어 → ParsedIntent
+├── admin/                          # 콘텐츠 관리 대시보드 (Next.js 16)
+│   ├── app/                      # App Router
+│   ├── supabase/migrations/      # DB 마이그레이션 SQL
+│   └── tests/                    # Vitest + Playwright
 ├── project/
 │   ├── src/
 │   │   ├── App.tsx                 # 메인 앱, 전역 상태 관리
@@ -216,6 +242,29 @@ interface SearchSlots {
 | visit_date | date? | 방문일 |
 | created_at | timestamptz | 생성일 |
 
+### Table: `attractions`
+볼거리/관광지 장소 (코스 추천 시 `locations`와 혼합 사용)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | PK |
+| name | text | 장소명 |
+| region | text | 지역 소분류 |
+| sub_region | text? | 세부 지역 |
+| category_main | text? | 카테고리 대분류 |
+| category_sub | text? | 카테고리 소분류 |
+| lon, lat | double | 좌표 |
+| address | text | 주소 |
+| memo | text? | 메모 |
+| short_desc | text? | 한줄 설명 |
+| features | jsonb | 장소 특징 |
+| tags | text[] | LLM 태그 |
+| rating | double | 평점 |
+| naver_place_id | text? | 네이버 딥링크용 |
+| kakao_place_id | text? | 카카오 딥링크용 |
+
+> `locations`와 달리 `province` 컬럼 없음, `imageUrl`/`price_level` 없음
+
 ### Table: `reviews`
 | Column | Type |
 |--------|------|
@@ -228,6 +277,8 @@ interface SearchSlots {
 | created_at | timestamptz |
 
 ### Table: `search_logs`
+프론트엔드 자연어 검색 로그 (project/ api/search.ts)
+
 | Column | Type |
 |--------|------|
 | id | uuid |
@@ -236,6 +287,28 @@ interface SearchSlots {
 | result_count | int |
 | llm_ms, db_ms, total_ms | int |
 | created_at | timestamptz |
+
+### Table: `odiga_search_logs`
+CLI odiga 검색 로그 (odiga-api/ api/log.ts)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | PK |
+| raw_query | text | 원본 검색 쿼리 |
+| region | text? | 지역 |
+| vibe | text[] | 분위기 키워드 |
+| people_count | int? | 인원수 |
+| mode | text? | 이동수단 |
+| season | text? | 계절 |
+| activity_type | text? | 활동 유형 |
+| response_type | text? | 'single' \| 'course' |
+| selected_course | jsonb? | 선택된 코스 |
+| selected_place_id | text? | 선택된 장소 ID |
+| selected_place_name | text? | 선택된 장소명 |
+| regenerate_count | int | 재추천 횟수 |
+| parse_error_fields | text[] | 파싱 오류 필드 |
+| user_feedbacks | text[] | 사용자 피드백 목록 |
+| created_at | timestamptz | 생성일 |
 
 ### Table: `click_logs`
 | Column | Type |

@@ -12,7 +12,48 @@
 
 ---
 
+## 서비스 구성
+
+| 서비스 | URL | 설명 |
+|---|---|---|
+| **웹 프론트엔드** (project/) | jwmap.vercel.app | 지도 기반 장소 탐색 |
+| **CLI** (odiga/) | npm: `odiga` | AI 장소/코스 추천 CLI |
+| **CLI API** (odiga-api/) | odiga.vercel.app/api | CLI 백엔드 Serverless API |
+| **Admin** (admin/) | — | 콘텐츠 관리 대시보드 |
+
+---
+
 ## 주요 기능
+
+### 0. odiga CLI — AI 장소/코스 추천
+
+npm 패키지로 배포되는 CLI 도구. `.env` 불필요, 설치 후 바로 사용.
+
+```bash
+npm install -g odiga
+odiga "강남 데이트 코스 짜줘"
+```
+
+**장소 추천 모드**: 단일 장소를 자연어로 검색 → 랭킹 + 상세 정보
+
+**코스 추천 모드**: "코스", "짜줘" 키워드 감지 → 맛집(`locations`) + 볼거리(`attractions`)를 혼합하여 도보/이동 코스 구성. LLM(Gemini 2.0 Flash)이 전체 코스에 대한 큐레이션 텍스트(`curation_text`)를 생성:
+
+```
+🔥 오늘오디가의 제안
+강남, 데이트 하기 좋은 오후 코스
+흐름: 히코 라멘 → 카페 온도 → 선릉 순례길
+이런 날: 여유로운 주말 오후
+— 흐름 —
+[1] 히코 라멘
+   왜 여기: 담백한 돈코츠로 든든하게 시작
+   순서 이유: 점심 타이밍에 웨이팅이 가장 짧음
+...
+확신도: 높음
+```
+
+**통계**: `odiga stats` 명령어로 누적 검색 패턴, 인기 지역, 시간대 분포 조회.
+
+---
 
 ### 1. 지능형 자연어 검색
 
@@ -117,8 +158,16 @@ Google Gemini 기반의 AI 검색 엔진으로 자연스러운 한국어 질문�
 
 ### Frontend
 - **React 18** + **TypeScript** + **Vite**
-- **Tailwind CSS** - 유틸리티 기반 스타일링
+- **Tailwind CSS** - 유틸리티 기반 스타일링 (Apricot Orange `#FF8A3D` 브랜드 색상)
 - 반응형 디자인 (모바일/데스크톱)
+
+### Admin
+- **Next.js 16** App Router + TypeScript
+- Vitest (유닛) + Playwright (E2E)
+
+### CLI
+- **Node.js ESM** + TypeScript (`npm install -g odiga`)
+- Enquirer (대화형 프롬프트), Chalk (브랜드 컬러)
 
 ### Backend & Database
 - **Supabase (PostgreSQL)** - 데이터베이스 및 인증
@@ -127,32 +176,31 @@ Google Gemini 기반의 AI 검색 엔진으로 자연스러운 한국어 질문�
 ### 외부 서비스
 - **Kakao Maps API** - 지도 및 장소 검색
 - **Naver Maps API** - 딥링크 지원
-- **Google Gemini (gemini-2.0-flash)** - 자연어 검색 파싱
+- **Google Gemini (gemini-2.0-flash)** - 자연어 검색 파싱 + 코스 큐레이션
 - **LangChain** - LLM 프롬프트 관리
 - **Cloudinary** - 이미지 호스팅 및 최적화
 
 ### 배포
-- **Vercel** - 프론트엔드 및 서버리스 함수 배포
+- **Vercel** - 프론트엔드, 서버리스 함수, CLI API 배포
 
 ---
 
 ## 데이터 구조
 
-### 장소 (Location)
-- 기본 정보: 이름, 주소, 좌표, 평점, 가격대
-- 분류: 지역 (province, region, sub_region), 카테고리 (category_main, category_sub)
-- 특징: features (JSON), tags (배열), event_tags (배열)
-- 메타데이터: 이미지 URL, 방문일, 생성일
-- 외부 연동: 카카오/네이버 place_id
+### 장소 (Location / Attraction)
+- `locations`: 맛집/카페 등 음식점 중심 장소
+- `attractions`: 볼거리/관광지 (코스 추천 시 `locations`와 혼합)
+- 공통: 이름, 주소, 좌표, 평점, features, tags, 카카오/네이버 place_id
+- `locations` 전용: province, imageUrl, price_level, event_tags
 
 ### 리뷰 (Review)
 - 장소 ID, 사용자 표시명
 - 한줄 리뷰, 방문 유형 (첫 방문/재방문)
 - 특징 태그, 생성일
 
-### 검색 로그 (Search Logs)
-- 검색 쿼리, 파싱 결과 (JSON)
-- 결과 개수, 성능 메트릭 (LLM 시간, DB 시간, 총 시간)
+### 검색 로그 (Search Logs / odiga_search_logs)
+- `search_logs`: 웹 자연어 검색 (쿼리, 파싱 결과, 결과 수, 성능 메트릭)
+- `odiga_search_logs`: CLI 검색 (쿼리, 의도 파싱, 선택한 장소/코스, user_feedbacks)
 
 ### 클릭 로그 (Click Logs)
 - 검색 ID, 장소 ID, 액션 타입, 타임스탬프
@@ -161,6 +209,7 @@ Google Gemini 기반의 AI 검색 엔진으로 자연스러운 한국어 질문�
 
 ## 핵심 UX 플로우
 
+### 웹 (project/)
 ```
 1. 사용자가 장소 탐색
    ├─ 지역/카테고리 필터 선택
@@ -183,6 +232,16 @@ Google Gemini 기반의 AI 검색 엔진으로 자연스러운 한국어 질문�
    └─ 모바일: 네이버/카카오 앱 딥링크
 ```
 
+### CLI (odiga)
+```
+1. odiga "강남 데이트 코스 짜줘"
+2. API → Gemini가 intent 파싱 (response_type: 'course')
+3. locations + attractions 쿼리 → 스코어링
+4. Gemini가 curation_text 생성 (코스별 텍스트 블록)
+5. CLI에 코스 목록 표시 (요약 → 선택 → 상세)
+6. 네이버/카카오 지도 딥링크 제공
+```
+
 ---
 
 ## 차별화 포인트
@@ -192,6 +251,7 @@ Google Gemini 기반의 AI 검색 엔진으로 자연스러운 한국어 질문�
 3. **빠른 의사결정**: 핵심 정보만 제공하여 빠르게 선택 가능
 4. **지도 중심 UX**: 지도와 목록이 실시간으로 동기화되어 직관적
 5. **모바일 최적화**: 모바일에서도 편리하게 사용 가능한 제스처 기반 인터페이스
+6. **CLI 추천**: 터미널에서 자연어로 코스까지 추천 (맛집 + 볼거리 혼합)
 
 ---
 
@@ -223,6 +283,11 @@ Google Gemini 기반의 AI 검색 엔진으로 자연스러운 한국어 질문�
    - 자연어 검색: "카공카페"
    - 조용하고 오래 앉을 수 있는 카페 필터링
    - 위치 확인 후 바로 이동
+
+5. **"강남 반나절 코스 짜줘" (CLI)**
+   - `odiga "강남 반나절 코스 짜줘"`
+   - 맛집 + 볼거리 혼합 코스 3개 생성
+   - LLM 큐레이션 텍스트로 각 장소 흐름 설명
 
 ---
 
