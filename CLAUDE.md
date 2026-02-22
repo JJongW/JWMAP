@@ -527,3 +527,78 @@ const supabaseData = {
 1. Supabase 대시보드에서 컬럼 추가
 2. `src/types/location.ts` - Location 인터페이스 수정
 3. `src/utils/supabase.ts` - getAll/create/update에서 필드 매핑
+
+## Admin UI Design System
+
+`admin/` 대시보드는 **Catalyst SaaS 스타일**을 사용한다. 모든 admin 페이지/컴포넌트에 아래 규칙을 적용한다.
+
+### 브랜드 컬러
+- Primary accent: `#FF8A3D` (Apricot Orange) — CLI `odiga/src/ui/colors.ts`와 동일
+- Tailwind: `orange-500` / `orange-600` (인터랙티브), `orange-50` / `orange-100` (배경)
+
+### 카드 패턴
+```tsx
+<Card className="shadow-sm rounded-xl border-gray-100 bg-white">
+  <div className="px-5 pt-5 pb-3">
+    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">섹션 제목</p>
+    <p className="text-xs text-muted-foreground/70 mt-0.5">서브 설명 또는 카운트</p>
+  </div>
+  <CardContent className="px-5 pb-5">
+    {/* content */}
+  </CardContent>
+</Card>
+```
+- `CardHeader`/`CardTitle` 사용 금지 — raw `div`로 직접 패딩 제어
+- 모든 카드: `shadow-sm rounded-xl border-gray-100 bg-white`
+
+### 섹션 레이블
+컨텐츠/메트릭 위에 항상 소문자 레이블 배치:
+```tsx
+<p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">레이블</p>
+```
+
+### 버튼
+- Primary (저장, 제출): `bg-orange-500 hover:bg-orange-600 text-white`
+- Secondary: `variant="outline"` + `border-gray-200 hover:border-orange-300 hover:text-orange-600`
+- Destructive/subtle: `variant="ghost"` + `hover:text-red-500 hover:bg-red-50`
+
+### 배지 / 필
+```tsx
+// 오렌지 (카운트, 강조)
+<span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-600">N곳</span>
+
+// 상태 배지
+// healthy:  bg-emerald-50 text-emerald-700
+// warning:  bg-orange-50  text-orange-600
+// error:    bg-red-50     text-red-600
+// unknown:  bg-gray-100   text-muted-foreground
+```
+
+### 리스트 아이템
+```tsx
+<div className="rounded-lg border border-gray-100 p-3 hover:bg-gray-50/50 transition-colors">
+  {/* item content */}
+</div>
+```
+
+### 페이지 제목
+```tsx
+<h1 className="text-xl font-bold tracking-tight">페이지 제목</h1>
+<p className="text-xs text-muted-foreground mt-1">설명</p>
+```
+
+### 차트 (Recharts)
+- Primary stroke: `#FF8A3D`
+- Area fill gradient: `#FF8A3D` 15% → 0% opacity
+- Bar colors: `#FF8A3D` / `#FFBB85` / `#E5E7EB` (primary / secondary / empty)
+- Recharts 컴포넌트는 반드시 `'use client'`
+
+### 기간 필터 탭
+```tsx
+<div className="flex items-center rounded-lg border bg-gray-50 p-0.5 gap-0.5">
+  <button className={cn(
+    'h-7 rounded-md px-3 text-xs font-medium transition-all',
+    active ? 'bg-orange-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
+  )}>레이블</button>
+</div>
+```

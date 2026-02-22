@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -154,10 +154,10 @@ export function CourseBuilder({ initialCourses, fetchError }: CourseBuilderProps
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* 서비스 키 오류 등 fetch 실패 시 배너 */}
       {fetchError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <span className="font-semibold">코스 목록 로드 실패:</span> {fetchError}
           <br />
           <span className="text-xs text-red-500">
@@ -166,73 +166,105 @@ export function CourseBuilder({ initialCourses, fetchError }: CourseBuilderProps
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>코스 수동 등록 (AI 보강 + 자동 장소 저장)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {/* 코스 등록 폼 */}
+      <Card className="shadow-sm rounded-xl border-gray-100 bg-white">
+        <div className="px-5 pt-5 pb-3">
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">코스 수동 등록</p>
+          <p className="text-xs text-muted-foreground/70 mt-0.5">AI 보강 + 자동 장소 저장 · 장소명 + 한 줄 느낌만 입력</p>
+        </div>
+        <CardContent className="px-5 pb-5 space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
             <Input
               placeholder="코스 제목 (예: 벚꽃 데이트 코스)"
               value={courseTitle}
               onChange={(e) => setCourseTitle(e.target.value)}
+              className="border-gray-200 focus-visible:ring-orange-400"
             />
             <Input
               placeholder="지역 힌트 (선택, 예: 마포구)"
               value={regionHint}
               onChange={(e) => setRegionHint(e.target.value)}
+              className="border-gray-200 focus-visible:ring-orange-400"
             />
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {places.map((place, index) => (
-              <div key={place.id} className="rounded-lg border p-3 space-y-2">
+              <div key={place.id} className="rounded-lg border border-gray-100 bg-gray-50/40 p-3 space-y-2">
                 <div className="flex items-center gap-2">
+                  <span className="shrink-0 w-5 text-center text-[11px] font-semibold text-muted-foreground">
+                    {index + 1}
+                  </span>
                   <Input
-                    placeholder={`장소명 ${index + 1}`}
+                    placeholder="장소명"
                     value={place.name}
                     onChange={(e) => updatePlace(index, 'name', e.target.value)}
+                    className="border-gray-200 focus-visible:ring-orange-400"
                   />
                   {places.length > 2 && (
-                    <Button type="button" variant="outline" onClick={() => removePlace(index)}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removePlace(index)}
+                      className="shrink-0 text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                    >
                       삭제
                     </Button>
                   )}
                 </div>
                 <Textarea
-                  placeholder="한 줄 느낌/리뷰 (예: 라떼가 고소하고 공간이 넓어 카공하기 좋음. 주말 웨이팅 있음)"
+                  placeholder="한 줄 느낌 (예: 라떼가 고소하고 공간이 넓어 카공하기 좋음. 주말 웨이팅 있음)"
                   value={place.note}
                   onChange={(e) => updatePlace(index, 'note', e.target.value)}
-                  rows={3}
+                  rows={2}
+                  className="ml-7 border-gray-200 focus-visible:ring-orange-400 resize-none"
                 />
               </div>
             ))}
           </div>
 
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={addPlace}>
-              장소 추가
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addPlace}
+              className="border-gray-200 hover:border-orange-300 hover:text-orange-600"
+            >
+              + 장소 추가
             </Button>
-            <Button type="button" onClick={handleSave} disabled={isSaving}>
+            <Button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
               {isSaving ? '저장 중...' : '코스 저장'}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>저장된 코스 ({savedCourses.length}개)</CardTitle>
-            <Button variant="outline" size="sm" onClick={refreshCourses}>
-              새로고침
-            </Button>
+      {/* 저장된 코스 목록 */}
+      <Card className="shadow-sm rounded-xl border-gray-100 bg-white">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div>
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">저장된 코스</p>
+            <p className="text-xs text-muted-foreground/70 mt-0.5">{savedCourses.length}개</p>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={refreshCourses}
+            className="text-xs text-muted-foreground hover:text-orange-600"
+          >
+            새로고침
+          </Button>
+        </div>
+        <CardContent className="px-5 pb-5">
+          <div className="space-y-2">
             {savedCourses.length === 0 && !fetchError && (
-              <p className="text-sm text-muted-foreground">저장된 코스가 없습니다.</p>
+              <p className="py-6 text-center text-sm text-muted-foreground">저장된 코스가 없습니다.</p>
             )}
             {savedCourses.map((course) => {
               const placeNames = extractPlaceNames(course.course_data);
@@ -241,22 +273,38 @@ export function CourseBuilder({ initialCourses, fetchError }: CourseBuilderProps
                   ? placeNames.join(' → ')
                   : titleFromQuery(course.source_query) || '(이름 없음)';
               const placeCount = placeNames.length || course.place_ids?.length || 0;
+              const status = course.validation_status;
 
               return (
-                <div key={course.id} className="rounded-md border p-3 space-y-1">
+                <div
+                  key={course.id}
+                  className="rounded-lg border border-gray-100 p-3 space-y-1.5 hover:bg-gray-50/50 transition-colors"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium leading-snug">{displayTitle}</p>
-                    {placeCount > 0 && (
-                      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                        {placeCount}곳
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {placeCount > 0 && (
+                        <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-600">
+                          {placeCount}곳
+                        </span>
+                      )}
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          status === 'valid'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : status === 'invalid'
+                              ? 'bg-red-50 text-red-600'
+                              : 'bg-gray-100 text-muted-foreground'
+                        }`}
+                      >
+                        {status || 'unknown'}
                       </span>
-                    )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                    <span>hash: {course.course_hash}</span>
+                    <span className="font-mono">{course.course_hash}</span>
                     {course.region && <span>지역: {course.region}</span>}
                     {course.activity_type && <span>활동: {course.activity_type}</span>}
-                    <span>상태: {course.validation_status || 'unknown'}</span>
                     <span>사용: {course.usage_count ?? 0}회</span>
                     <span>{new Date(course.created_at).toLocaleString('ko-KR')}</span>
                   </div>

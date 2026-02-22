@@ -38,11 +38,13 @@ export default async function CoursesPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold">코스 관리</h1>
-        <p className="text-sm text-muted-foreground">
-          장소명 + 한 줄 느낌만 입력하면 AI가 태그/카테고리/큐레이션 레벨을 보강하고, 장소 중복을 검사해 자동 저장합니다.
-        </p>
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">코스 관리</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            장소명 + 한 줄 느낌만 입력하면 AI가 태그/카테고리/큐레이션 레벨을 보강하고, 장소 중복을 검사해 자동 저장합니다.
+          </p>
+        </div>
         <CourseBuilder initialCourses={courses} fetchError={error} />
       </div>
     </AdminLayout>
