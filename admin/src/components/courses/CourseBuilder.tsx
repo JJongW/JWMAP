@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import type { SavedCourseRow } from '@/app/courses/page';
 
 interface DraftPlace {
   id: string;
@@ -13,21 +14,71 @@ interface DraftPlace {
   note: string;
 }
 
-interface SavedCourseRow {
-  id: string;
-  course_hash: string;
-  source_query: string | null;
-  region: string | null;
-  activity_type: string | null;
-  usage_count: number | null;
-  validation_status: string | null;
-  created_at: string;
-  course_data: {
-    steps?: Array<{ place?: { name?: string } }>;
-  } | null;
+/**
+ * course_data 에서 장소명 배열을 추출한다.
+ * odiga CLI 저장 포맷과 admin 빌더 포맷 모두 처리한다.
+ *
+ * 지원하는 구조:
+ *   A) { steps: [{ place: { name } }] }              ← admin builder / odiga API
+ *   B) { course: { steps: [{ place: { name } }] } }  ← 일부 CLI 변형
+ *   C) { places: [{ name }] }                        ← 단순 places 배열
+ *   D) [{ place: { name } }]                         ← steps 배열 자체가 루트
+ */
+function extractPlaceNames(courseData: unknown): string[] {
+  if (!courseData || typeof courseData !== 'object') return [];
+  const d = courseData as Record<string, unknown>;
+
+  // A: { steps: [...] }
+  if (Array.isArray(d.steps)) {
+    const names = d.steps
+      .map((s) => (s as Record<string, unknown>)?.place)
+      .map((p) => (p as Record<string, unknown>)?.name)
+      .filter((n): n is string => typeof n === 'string' && n.length > 0);
+    if (names.length) return names;
+  }
+
+  // B: { course: { steps: [...] } }
+  const inner = d.course as Record<string, unknown> | undefined;
+  if (inner && Array.isArray(inner.steps)) {
+    const names = inner.steps
+      .map((s) => (s as Record<string, unknown>)?.place)
+      .map((p) => (p as Record<string, unknown>)?.name)
+      .filter((n): n is string => typeof n === 'string' && n.length > 0);
+    if (names.length) return names;
+  }
+
+  // C: { places: [{ name }] }
+  if (Array.isArray(d.places)) {
+    const names = d.places
+      .map((p) => (p as Record<string, unknown>)?.name)
+      .filter((n): n is string => typeof n === 'string' && n.length > 0);
+    if (names.length) return names;
+  }
+
+  // D: root is steps array
+  if (Array.isArray(courseData)) {
+    const names = (courseData as unknown[])
+      .map((s) => (s as Record<string, unknown>)?.place)
+      .map((p) => (p as Record<string, unknown>)?.name)
+      .filter((n): n is string => typeof n === 'string' && n.length > 0);
+    if (names.length) return names;
+  }
+
+  return [];
 }
 
-export function CourseBuilder({ initialCourses }: { initialCourses: SavedCourseRow[] }) {
+/** source_query 첫 번째 줄을 제목으로 사용 */
+function titleFromQuery(sourceQuery: string | null): string {
+  if (!sourceQuery) return '';
+  return sourceQuery.split('\n')[0].trim();
+}
+
+interface CourseBuilderProps {
+  initialCourses: SavedCourseRow[];
+  fetchError: string | null;
+}
+
+export function CourseBuilder({ initialCourses, fetchError }: CourseBuilderProps) {
   const [courseTitle, setCourseTitle] = useState('');
   const [regionHint, setRegionHint] = useState('');
   const [places, setPlaces] = useState<DraftPlace[]>([
@@ -104,6 +155,17 @@ export function CourseBuilder({ initialCourses }: { initialCourses: SavedCourseR
 
   return (
     <div className="space-y-6">
+      {/* 서비스 키 오류 등 fetch 실패 시 배너 */}
+      {fetchError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span className="font-semibold">코스 목록 로드 실패:</span> {fetchError}
+          <br />
+          <span className="text-xs text-red-500">
+            SUPABASE_SERVICE_KEY 환경변수를 확인하거나, Supabase에서 odiga_saved_courses 테이블 RLS를 확인하세요.
+          </span>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>코스 수동 등록 (AI 보강 + 자동 장소 저장)</CardTitle>
@@ -160,24 +222,43 @@ export function CourseBuilder({ initialCourses }: { initialCourses: SavedCourseR
 
       <Card>
         <CardHeader>
-          <CardTitle>최근 저장 코스</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>저장된 코스 ({savedCourses.length}개)</CardTitle>
+            <Button variant="outline" size="sm" onClick={refreshCourses}>
+              새로고침
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {savedCourses.length === 0 && (
+            {savedCourses.length === 0 && !fetchError && (
               <p className="text-sm text-muted-foreground">저장된 코스가 없습니다.</p>
             )}
             {savedCourses.map((course) => {
-              const names = course.course_data?.steps?.map((s) => s.place?.name).filter(Boolean) ?? [];
+              const placeNames = extractPlaceNames(course.course_data);
+              const displayTitle =
+                placeNames.length > 0
+                  ? placeNames.join(' → ')
+                  : titleFromQuery(course.source_query) || '(이름 없음)';
+              const placeCount = placeNames.length || course.place_ids?.length || 0;
+
               return (
-                <div key={course.id} className="rounded-md border p-3">
-                  <div className="text-sm font-medium">{names.join(' → ') || '(코스 이름 없음)'}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    hash: {course.course_hash} · 지역: {course.region || '-'} · 활동: {course.activity_type || '-'}
+                <div key={course.id} className="rounded-md border p-3 space-y-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium leading-snug">{displayTitle}</p>
+                    {placeCount > 0 && (
+                      <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        {placeCount}곳
+                      </span>
+                    )}
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    상태: {course.validation_status || 'unknown'} · 사용: {course.usage_count ?? 0}회 · 생성:{' '}
-                    {new Date(course.created_at).toLocaleString('ko-KR')}
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                    <span>hash: {course.course_hash}</span>
+                    {course.region && <span>지역: {course.region}</span>}
+                    {course.activity_type && <span>활동: {course.activity_type}</span>}
+                    <span>상태: {course.validation_status || 'unknown'}</span>
+                    <span>사용: {course.usage_count ?? 0}회</span>
+                    <span>{new Date(course.created_at).toLocaleString('ko-KR')}</span>
                   </div>
                 </div>
               );

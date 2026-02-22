@@ -2,7 +2,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { CourseBuilder } from '@/components/courses/CourseBuilder';
 import { createServiceSupabase } from '@/lib/supabase/service';
 
-interface SavedCourseRow {
+export interface SavedCourseRow {
   id: string;
   course_hash: string;
   source_query: string | null;
@@ -11,29 +11,30 @@ interface SavedCourseRow {
   usage_count: number | null;
   validation_status: string | null;
   created_at: string;
-  course_data: {
-    steps?: Array<{ place?: { name?: string } }>;
-  } | null;
+  place_ids: string[] | null;
+  // course_data can be any JSON shape depending on whether it was saved by
+  // the admin builder or the odiga CLI — keep as unknown for flexible parsing
+  course_data: unknown;
 }
 
-async function getInitialCourses(): Promise<SavedCourseRow[]> {
+async function getInitialCourses(): Promise<{ courses: SavedCourseRow[]; error: string | null }> {
   try {
     const supabase = createServiceSupabase();
     const { data, error } = await supabase
       .from('odiga_saved_courses')
-      .select('id, course_hash, source_query, region, activity_type, usage_count, validation_status, created_at, course_data')
+      .select('id, course_hash, source_query, region, activity_type, usage_count, validation_status, created_at, place_ids, course_data')
       .order('created_at', { ascending: false })
-      .limit(30);
+      .limit(50);
 
-    if (error) return [];
-    return (data ?? []) as SavedCourseRow[];
-  } catch {
-    return [];
+    if (error) return { courses: [], error: error.message };
+    return { courses: (data ?? []) as SavedCourseRow[], error: null };
+  } catch (e) {
+    return { courses: [], error: e instanceof Error ? e.message : String(e) };
   }
 }
 
 export default async function CoursesPage() {
-  const initialCourses = await getInitialCourses();
+  const { courses, error } = await getInitialCourses();
 
   return (
     <AdminLayout>
@@ -42,7 +43,7 @@ export default async function CoursesPage() {
         <p className="text-sm text-muted-foreground">
           장소명 + 한 줄 느낌만 입력하면 AI가 태그/카테고리/큐레이션 레벨을 보강하고, 장소 중복을 검사해 자동 저장합니다.
         </p>
-        <CourseBuilder initialCourses={initialCourses} />
+        <CourseBuilder initialCourses={courses} fetchError={error} />
       </div>
     </AdminLayout>
   );
