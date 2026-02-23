@@ -16,6 +16,19 @@ export interface GeneratedDraft {
   generated_at: string;
   approved_at: string | null;
   published_at: string | null;
+  place_id: string | null;
+  place_name: string | null;
+}
+
+export interface PlaceCandidate {
+  id: string;
+  place_name: string;
+  mention_count: number;
+  confidence_score: number;
+  region: string;
+  category: string;
+  status: string;
+  source_date: string;
 }
 
 export interface DailyTrendReport {
@@ -223,4 +236,66 @@ export async function getTrendReport(id: string) {
 
   if (error) return null;
   return data as DailyTrendReport;
+}
+
+// ── 장소 후보 목록 ────────────────────────────────────────
+
+export async function getPendingPlaceCandidates(limit: number = 200): Promise<PlaceCandidate[]> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from('place_candidates')
+    .select('*')
+    .eq('status', 'pending')
+    .order('confidence', { ascending: false })
+    .order('mention_count', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('[content-engine] getPendingPlaceCandidates error:', error.message);
+    return [];
+  }
+
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    id: row.id as string,
+    place_name: (row.name ?? '') as string,
+    mention_count: (row.mention_count ?? 0) as number,
+    confidence_score: (row.confidence ?? 0) as number,
+    region: (row.region ?? '') as string,
+    category: (row.category ?? 'other') as string,
+    status: (row.status ?? 'pending') as string,
+    source_date: (row.source_date ?? '') as string,
+  }));
+}
+
+// ── 장소 후보 상태 변경 ───────────────────────────────────
+
+export async function updatePlaceCandidateStatus(
+  id: string,
+  status: 'approved' | 'rejected',
+) {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase
+    .from('place_candidates')
+    .update({ status })
+    .eq('id', id);
+
+  if (error) {
+    console.error('[content-engine] updatePlaceCandidateStatus error:', error.message);
+    throw error;
+  }
+}
+
+// ── 초안 스케줄 설정 ──────────────────────────────────────
+
+export async function updateDraftSchedule(id: string, scheduledTime: string) {
+  const supabase = await createServerSupabase();
+  const { error } = await supabase
+    .from('generated_drafts')
+    .update({ status: 'approved', approved_at: new Date().toISOString(), scheduled_time: scheduledTime })
+    .eq('id', id);
+
+  if (error) {
+    console.error('[content-engine] updateDraftSchedule error:', error.message);
+    throw error;
+  }
 }
