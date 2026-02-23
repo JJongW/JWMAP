@@ -133,6 +133,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       response_type: validateResponseType(response_type),
     });
 
+    // override나 server default로 해결된 필드는 parseErrors에서 제거
+    // (클라이언트가 명시적으로 제공했거나 LLM 외 수단으로 파악된 경우)
+    const resolvedParseErrors = parseErrors.filter((field) => {
+      if (field === 'people_count' && intent.people_count !== null) return false;
+      if (field === 'region' && intent.region !== null) return false;
+      return true;
+    });
+
     const dbStart = Date.now();
     const places = await queryPlaces(intent);
     const dbMs = Date.now() - dbStart;
@@ -145,7 +153,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         curated_summary: `${intent.region || '요청'}의 데이터가 아직 적어 추천 가능한 후보가 충분하지 않아요.`,
         confidence: 'low',
         intent,
-        parseErrors,
+        parseErrors: resolvedParseErrors,
         timing: { llmMs: parseMs, dbMs, totalMs: Date.now() - startTime },
       });
     }

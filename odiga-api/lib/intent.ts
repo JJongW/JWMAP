@@ -197,8 +197,8 @@ Rules:
 - "오늘 점심 뭐 먹을까?" → response_type: "single", activity_type: "맛집"
 - "커피 마시고 싶다" → response_type: "single", activity_type: "카페"
 - "어디 가볼만한 곳 있어?" → response_type: "single", activity_type: "볼거리"
-- "강남 데이트 코스 짜줘" → response_type: "course", activity_type: null
-- "홍대 데이트 코스" → response_type: "course", activity_type: null
+- "강남 데이트 코스 짜줘" → response_type: "course", activity_type: null, people_count: 2
+- "홍대 데이트 코스" → response_type: "course", activity_type: null, people_count: 2
 - "라멘 맛집" → response_type: "single", activity_type: "면"
 - "홍대 카페 투어" → response_type: "course", activity_type: "카페"
 - "성수 맛집 코스" → response_type: "course", activity_type: "맛집"
@@ -213,7 +213,18 @@ Rules:
 - vibe should capture mood/atmosphere keywords
 - The region field MUST be one of the valid region values listed above, or null. NEVER return a raw station/landmark name as region.
 - Return null for fields you cannot determine
-- Output ONLY JSON. No explanation.`;
+- Output ONLY JSON. No explanation.
+
+## people_count extraction rules
+
+Extract people_count from these Korean expressions:
+- "혼자", "혼밥", "혼술", "나 혼자" → 1
+- "데이트", "둘이", "둘이서", "커플", "애인이랑", "남자친구랑", "여자친구랑" → 2
+- "셋이", "세명", "3명", "친구 둘" → 3
+- "넷이", "네명", "4명" → 4
+- "다섯명", "5명" → 5
+- "N명" pattern → extract the number N
+- If not mentioned, return null`;
 
 function getLLM(): ChatGoogleGenerativeAI {
   const apiKey = process.env.GOOGLE_API_KEY;
