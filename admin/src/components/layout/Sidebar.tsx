@@ -12,7 +12,7 @@ const navItems = [
   { href: '/courses', label: '코스 관리', icon: Route },
   { href: '/locations/incomplete', label: '데이터 품질', icon: AlertTriangle },
   { href: '/content-engine', label: '콘텐츠 엔진', icon: Bot },
-  { href: '/todo', label: 'Weekly Tasks', icon: CheckSquare },
+  { href: '/todo', label: 'Daily Tasks', icon: CheckSquare },
 ];
 
 export function Sidebar() {

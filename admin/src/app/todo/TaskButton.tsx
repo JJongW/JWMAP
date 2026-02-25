@@ -19,22 +19,22 @@ export function TaskButton({ taskType, label, date, completed }: TaskButtonProps
       type="button"
       disabled={isPending}
       onClick={() => startTransition(() => toggleTask(taskType, date, completed))}
-      className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-60 ${
+      className={`flex min-h-[88px] w-full flex-col items-center justify-center gap-2 rounded-xl p-3 text-center transition-colors disabled:opacity-60 ${
         completed
           ? 'bg-sky-500 text-white hover:bg-sky-600'
-          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+          : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
       }`}
     >
       <span
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-xs ${
+        className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold ${
           completed
             ? 'border-white bg-white text-sky-500'
-            : 'border-slate-400 dark:border-slate-500'
+            : 'border-slate-300 dark:border-slate-600'
         }`}
       >
-        {completed && '✓'}
+        {completed ? '✓' : ''}
       </span>
-      {label}
+      <span className="text-xs font-medium leading-tight">{label}</span>
     </button>
   );
 }
