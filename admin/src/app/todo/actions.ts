@@ -5,9 +5,9 @@ import { upsertChecklist, type TaskType } from '@/lib/queries/todo';
 
 export async function toggleTask(
   taskType: TaskType,
-  weekStart: string,
+  date: string,
   currentlyCompleted: boolean,
 ): Promise<void> {
-  await upsertChecklist(taskType, weekStart, !currentlyCompleted);
+  await upsertChecklist(taskType, date, !currentlyCompleted);
   revalidatePath('/todo');
 }

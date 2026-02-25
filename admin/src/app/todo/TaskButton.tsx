@@ -7,18 +7,18 @@ import type { TaskType } from '@/lib/queries/todo';
 interface TaskButtonProps {
   taskType: TaskType;
   label: string;
-  weekStart: string;
+  date: string;
   completed: boolean;
 }
 
-export function TaskButton({ taskType, label, weekStart, completed }: TaskButtonProps) {
+export function TaskButton({ taskType, label, date, completed }: TaskButtonProps) {
   const [isPending, startTransition] = useTransition();
 
   return (
     <button
       type="button"
       disabled={isPending}
-      onClick={() => startTransition(() => toggleTask(taskType, weekStart, completed))}
+      onClick={() => startTransition(() => toggleTask(taskType, date, completed))}
       className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-60 ${
         completed
           ? 'bg-sky-500 text-white hover:bg-sky-600'
