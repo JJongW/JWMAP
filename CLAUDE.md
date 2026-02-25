@@ -1,3 +1,77 @@
+# 🟢 SESSION START PROTOCOL (새 대화 시작 시 반드시 실행)
+
+새 대화가 시작되면 **코드를 작성하기 전** 아래 3개 파일을 읽고 사용자에게 현재 상태를 브리핑한다:
+
+```
+1. Read: .claude/context/CURRENT_PLAN.md   → 현재 작업 목표 파악
+2. Read: .claude/context/CONTEXT_LOG.md    → 지난 결정 맥락 파악
+3. Read: .claude/context/TODO_CHECKLIST.md → 남은 작업 확인
+```
+
+브리핑 형식:
+```
+📋 이전 계획: {CURRENT_PLAN.md의 목표}
+✅ 완료: {TODO_CHECKLIST의 완료 항목 수}개
+📌 남은 작업: {남은 항목 목록}
+```
+파일이 비어있거나 없으면: **"새 세션 시작. /plan으로 계획 수립 필요."**
+
+---
+
+# ⚡ AUTOMATED PIPELINE (모든 작업에 자동 적용)
+
+**명령을 받으면 아래 5단계를 묻지 않고 자동으로 실행한다. 단계를 건너뛰거나 허락을 구하지 않는다.**
+
+### STEP 1 — READ FIRST
+```
+1. Read: /Users/sjw/.claude/projects/-Users-sjw-ted-urssu-jmw-auto-engine/memory/MEMORY.md
+2. 관련 파일 탐색 → 기존 패턴 재사용 확인
+```
+
+### STEP 2 — PLAN (파일 수정 전 TodoWrite 생성)
+```
+모든 서브태스크를 TodoWrite로 목록화 → in_progress → completed 즉시 업데이트
+```
+
+### STEP 3 — EXECUTE + AUTO SELF-CHECK
+
+| 수정 파일 | 자동 점검 |
+|---|---|
+| `admin/src/app/*/page.tsx` | AdminLayout 래핑? 서버 컴포넌트? |
+| `admin/src/app/*/actions.ts` | 'use server' 디렉티브? revalidatePath? |
+| `admin/src/app/*.tsx` ('use client') | useTransition으로 서버 액션 호출? |
+| `admin/src/lib/queries/*.ts` | createServerSupabase()? non-fatal 오류? |
+| `admin/src/components/layout/Sidebar.tsx` | lucide-react import? navItems 배열? |
+| `odiga-api/lib/intent.ts` | SYSTEM_PROMPT 예시 케이스 포함? |
+| `odiga-api/api/recommend.ts` | parseErrors 오버라이드 후 필터링? |
+
+**스키마 제약**:
+- `locations` → `province` O / `attractions` → `province` X
+- `place_candidates` status: `pending | approved | rejected | consumed`
+- `generated_drafts` status: `draft | approved | published | rejected`
+- `daily_checklist` unique: `(task_type, date)`
+
+**Admin 디자인 시스템**:
+- Accent: `sky-500` (콘텐츠 엔진/todo) / `orange-500` (odiga 대시보드)
+- 카드: `shadow-sm rounded-xl border-gray-100 bg-white`
+- Recharts 컴포넌트는 'use client' 필수
+
+### STEP 4 — QUALITY (수정 완료 후 자동 실행)
+```bash
+cd /Users/sjw/ted.urssu/JWMAP/admin && npm run build
+```
+실패 시 → 즉시 원인 파악 후 자동 수정 → 재실행
+
+### STEP 5 — SHIP (작업 완료 후 자동 실행)
+```bash
+gh issue create → git checkout -b → git add → git commit → gh pr create → gh pr merge --delete-branch
+```
+- 이슈 번호를 커밋/PR body에 포함 (`#N`)
+- `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` 커밋 푸터 필수
+- JWMAP 레포: `cd /Users/sjw/ted.urssu/JWMAP/admin` 기준으로 작업
+
+---
+
 # JWMAP - 오늘 오디가?
 
 서울 맛집 큐레이션 웹 서비스. 개인적으로 방문하고 검증한 장소만 수록.

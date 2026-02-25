@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth:*)",
+      "Bash(gh issue:*)",
+      "Bash(gh pr:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/sjw/ted.urssu/scripts/context-injector-admin.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/sjw/ted.urssu/scripts/modification-logger.sh \"$CLAUDE_TOOL_INPUT_FILE_PATH\" 2>&1; bash /Users/sjw/ted.urssu/scripts/self-check-admin.sh \"$CLAUDE_TOOL_INPUT_FILE_PATH\" 2>&1 | head -30"
+          }
+        ]
+      }
+    ]
+  }
+}
