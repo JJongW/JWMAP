@@ -147,8 +147,10 @@ export function BrowseView({
               />
               {searchQuery && (
                 <button
+                  type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                  aria-label="검색 초기화"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-gray-500"
                 >
                   <X size={16} />
                 </button>
@@ -159,7 +161,10 @@ export function BrowseView({
           {/* ── 필터 (접힘 상태 기본, 높은 마찰) ── */}
           <div className="mb-4">
             <button
+              type="button"
               onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+              aria-expanded={isFilterExpanded}
+              aria-controls="browse-filter-section"
               className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-600"
             >
               <span>조건 변경</span>
@@ -170,7 +175,7 @@ export function BrowseView({
             </button>
 
             {isFilterExpanded && (
-              <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+              <div id="browse-filter-section" className="mt-3 rounded-xl border border-gray-100 bg-gray-50/50 p-4">
                 <FilterSection
                   selectedProvince={resolvedSelectedProvince}
                   onProvinceChange={resolvedOnProvinceChange}
@@ -216,6 +221,11 @@ export function BrowseView({
               onShowMore={onShowMore}
               onSelect={handleLocationSelect}
               selectedId={selectedLocation?.id}
+              emptyMessage={
+                searchQuery
+                  ? `'${searchQuery}'에 맞는 장소가 없어요. 검색어를 바꿔보세요.`
+                  : '조건에 맞는 장소가 없어요.'
+              }
             />
           </div>
         </div>
@@ -266,6 +276,7 @@ interface BrowseListProps {
   onShowMore: () => void;
   onSelect: (location: Location) => void;
   selectedId?: string;
+  emptyMessage?: string;
 }
 
 function BrowseList({
@@ -274,11 +285,12 @@ function BrowseList({
   onShowMore,
   onSelect,
   selectedId,
+  emptyMessage = '조건에 맞는 장소가 없어요.',
 }: BrowseListProps) {
   if (locations.length === 0) {
     return (
       <div className="py-12 text-center text-sm text-gray-400">
-        조건에 맞는 장소가 없습니다.
+        {emptyMessage}
       </div>
     );
   }

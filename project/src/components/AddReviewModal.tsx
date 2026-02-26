@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, CheckCircle, RefreshCw } from 'lucide-react';
 import type { Review, VisitType } from '../types/location';
 import { reviewApi } from '../utils/supabase';
@@ -35,6 +35,15 @@ export function AddReviewModal({
   const [confirmed, setConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // ESC 키로 모달 닫기
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) => {
@@ -97,8 +106,10 @@ export function AddReviewModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="text-lg font-bold text-gray-900">나도 다녀왔어요</h2>
           <button
+            type="button"
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
+            aria-label="닫기"
+            className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
           >
             <X size={20} className="text-gray-500" />
           </button>
@@ -215,7 +226,7 @@ export function AddReviewModal({
 
           {/* 에러 메시지 */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <div role="alert" className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
               <p className="text-sm text-red-600">{error}</p>
             </div>
           )}
@@ -230,8 +241,10 @@ export function AddReviewModal({
             취소
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
+            aria-disabled={isSubmitting}
             className="flex-1 py-3 bg-orange-500 text-white font-medium rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? '저장 중...' : '등록하기'}
