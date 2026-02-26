@@ -88,16 +88,20 @@ export async function verifyCoursePlacesExist(placeIds: string[]): Promise<Cours
     return { isValid: false, reason: 'no_place_ids', placeIds: [] };
   }
 
-  const { data, error } = await getSupabase()
-    .from('locations')
-    .select('id')
-    .in('id', placeIds);
+  const supabase = getSupabase();
+  const [locResult, attrResult] = await Promise.all([
+    supabase.from('locations').select('id').in('id', placeIds),
+    supabase.from('attractions').select('id').in('id', placeIds),
+  ]);
 
-  if (error) {
-    return { isValid: false, reason: `location_lookup_failed:${error.message}`, placeIds };
+  if (locResult.error) {
+    return { isValid: false, reason: `location_lookup_failed:${locResult.error.message}`, placeIds };
   }
 
-  const foundIds = new Set((data ?? []).map((row) => row.id as string));
+  const foundIds = new Set([
+    ...(locResult.data ?? []).map((row) => row.id as string),
+    ...(attrResult.data ?? []).map((row) => row.id as string),
+  ]);
   const missing = placeIds.filter((id) => !foundIds.has(id));
 
   if (missing.length > 0) {
