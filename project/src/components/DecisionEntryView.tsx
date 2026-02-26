@@ -81,6 +81,7 @@ export function DecisionEntryView({
   const [priorityFeature, setPriorityFeature] = useState<PriorityFeature | null>(null);
 
   const isComplete = companion !== null && timeSlot !== null && priorityFeature !== null;
+  const completedCount = [companion, timeSlot, priorityFeature].filter(Boolean).length;
 
   const handleDecide = useCallback(() => {
     if (!isComplete) return;
@@ -257,6 +258,19 @@ export function DecisionEntryView({
           >
             {modeText.cta}
           </button>
+          {/* 진행 dots: 3칸 기준 (동행·시간·조건) */}
+          <div className="flex items-center gap-1.5" role="status" aria-label={`${completedCount}/3 선택 완료`}>
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className={`h-1.5 w-1.5 rounded-full transition-colors duration-200 ${
+                  i < completedCount
+                    ? modeText.accent === 'violet' ? 'bg-violet-500' : 'bg-orange-400'
+                    : 'bg-gray-200'
+                }`}
+              />
+            ))}
+          </div>
           {!isComplete && (
             <p className="text-xs text-gray-400" role="status" aria-live="polite">
               {!companion ? '동행을 선택해주세요' : !timeSlot ? '시간대를 선택해주세요' : '우선 조건을 선택해주세요'}

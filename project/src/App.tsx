@@ -44,6 +44,9 @@ export default function App() {
   // 결과 없음 메시지 상태 (alert() 대체)
   const [noResultMessage, setNoResultMessage] = useState<string | null>(null);
 
+  // 초기 데이터 로딩 상태
+  const [isLoading, setIsLoading] = useState(true);
+
   /** Decision STEP1: 시/도별 세부지역. 전국구로 시/도 먼저 보여주고, 클릭 시 세부지역 펼침 */
   const availableProvincesWithDistricts: { province: Province; districts: string[] }[] = (() => {
     const regionSet = new Set(locations.map((l) => l.region).filter(Boolean));
@@ -242,11 +245,14 @@ export default function App() {
 
   // Data fetching
   const fetchLocations = useCallback(async () => {
+    setIsLoading(true);
     try {
       const data = await locationApi.getAll(contentMode);
       setLocations(data);
     } catch (error) {
       console.error('Error fetching locations:', error);
+    } finally {
+      setIsLoading(false);
     }
   }, [contentMode]);
 
@@ -474,8 +480,15 @@ export default function App() {
         </div>
       </div>
 
+      {/* ── 초기 로딩 ── */}
+      {isLoading && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-white" aria-label="로딩 중" role="status">
+          <div className={`h-8 w-8 animate-spin rounded-full border-2 border-gray-200 ${contentMode === 'space' ? 'border-t-violet-600' : 'border-t-orange-500'}`} />
+        </div>
+      )}
+
       {/* ── Decision Entry View (기본 진입 화면) ── */}
-      {uiMode === 'decision' && (
+      {!isLoading && uiMode === 'decision' && (
         <DecisionEntryView
           contentMode={contentMode}
           availableProvincesWithDistricts={availableProvincesWithDistricts}
@@ -486,7 +499,7 @@ export default function App() {
       )}
 
       {/* ── Decision Result View (결정 결과 화면) ── */}
-      {uiMode === 'result' && decisionResult && contentMode === 'food' && (
+      {!isLoading && uiMode === 'result' && decisionResult && contentMode === 'food' && (
         <DecisionResultView
           result={decisionResult}
           onRetry={handleRetryDecision}
@@ -497,7 +510,7 @@ export default function App() {
 
       {/* ── Browse Confirm (인터스티셜 가드) ── */}
       {/* 의도적 마찰: browse 진입 전에 한 번 더 확인. Decision 복귀를 유도. */}
-      {uiMode === 'browse-confirm' && (
+      {!isLoading && uiMode === 'browse-confirm' && (
         <BrowseConfirmView
           contentMode={contentMode}
           onBackToDecision={handleBackToDecision}
@@ -506,7 +519,7 @@ export default function App() {
       )}
 
       {/* ── Browse View (의도적으로 열등한 탐색 UX) ── */}
-      {uiMode === 'browse' && (
+      {!isLoading && uiMode === 'browse' && (
         <BrowseView
           contentMode={contentMode}
           displayedLocations={displayedLocations}
