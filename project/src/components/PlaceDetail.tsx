@@ -5,7 +5,7 @@ import { reviewApi, searchLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
-import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, CURATION_LEVELS } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
@@ -24,6 +24,44 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
   const [isAddReviewOpen, setIsAddReviewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [showCurationLegend, setShowCurationLegend] = useState(false);
+
+  const curationLevel = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+
+  /** 큐레이션 뱃지 + "?" 레전드 토글 버튼 */
+  const CurationBadge = (
+    <div className="relative">
+      <div className="flex items-center gap-1">
+        <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getCurationBadgeClass(curationLevel)}`}>
+          {getCurationLabel(curationLevel)}
+        </span>
+        <button
+          type="button"
+          onClick={() => setShowCurationLegend((v) => !v)}
+          aria-label="큐레이션 단계 설명 보기"
+          aria-expanded={showCurationLegend}
+          className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-xs text-gray-400 hover:bg-gray-200"
+        >
+          ?
+        </button>
+      </div>
+      {showCurationLegend && (
+        <div className="absolute right-0 top-9 z-20 w-52 rounded-xl border border-gray-100 bg-white p-3 shadow-lg">
+          <p className="mb-2 text-xs font-semibold text-gray-500">큐레이션 단계</p>
+          {CURATION_LEVELS.map((tier) => (
+            <div key={tier.level} className="flex items-center gap-2 py-0.5">
+              <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${tier.badgeClass}`}>
+                {tier.label}
+              </span>
+              <span className="text-xs text-gray-500">
+                {['가봤어요', '괜찮아요', '강추해요', '최애예요', '숨겨진 보석'][tier.level - 1]}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   // ESC 키로 모달 닫기
   useEffect(() => {
@@ -140,14 +178,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               <div className="flex items-start justify-between">
                 <h1 className="text-2xl font-bold text-accent">{location.name}</h1>
                 <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
-                  {(() => {
-                    const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
-                    return (
-                      <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getCurationBadgeClass(level)}`}>
-                        {getCurationLabel(level)}
-                      </span>
-                    );
-                  })()}
+                  {CurationBadge}
                   <PriceLevelBadge priceLevel={location.price_level} size="sm" />
                 </div>
               </div>
@@ -312,14 +343,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               <div className="flex items-start justify-between">
                 <h1 className="text-2xl font-bold text-accent">{location.name}</h1>
                 <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
-                  {(() => {
-                    const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
-                    return (
-                      <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getCurationBadgeClass(level)}`}>
-                        {getCurationLabel(level)}
-                      </span>
-                    );
-                  })()}
+                  {CurationBadge}
                   <PriceLevelBadge priceLevel={location.price_level} size="sm" />
                 </div>
               </div>
