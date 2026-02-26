@@ -41,6 +41,9 @@ export default function App() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // 결과 없음 메시지 상태 (alert() 대체)
+  const [noResultMessage, setNoResultMessage] = useState<string | null>(null);
+
   /** Decision STEP1: 시/도별 세부지역. 전국구로 시/도 먼저 보여주고, 클릭 시 세부지역 펼침 */
   const availableProvincesWithDistricts: { province: Province; districts: string[] }[] = (() => {
     const regionSet = new Set(locations.map((l) => l.region).filter(Boolean));
@@ -350,14 +353,14 @@ export default function App() {
       return;
     }
 
+    setNoResultMessage(null);
     const result = decideLocations(locations, companion, timeSlot, priorityFeature, region);
     if (result) {
       setDecisionResult(result);
       setUiMode('result');
     } else {
-      // 결과 없음: 사용자에게 알림 후 browse 모드로 전환
-      alert('조건에 맞는 장소가 아직 없어요. 직접 둘러볼까요?');
-      setUiMode('browse');
+      // 결과 없음: 인라인 메시지로 알림, decision 화면에 그대로 머묾
+      setNoResultMessage('조건에 맞는 장소가 아직 없어요. 필터를 바꾸거나 직접 둘러볼까요?');
     }
   }, [contentMode, locations]);
 
@@ -478,6 +481,7 @@ export default function App() {
           availableProvincesWithDistricts={availableProvincesWithDistricts}
           onDecide={handleDecide}
           onBrowse={handleSwitchToBrowse}
+          noResultMessage={noResultMessage}
         />
       )}
 

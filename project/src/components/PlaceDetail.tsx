@@ -25,6 +25,15 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
   const [copied, setCopied] = useState(false);
   const [imageError, setImageError] = useState(false);
 
+  // ESC 키로 모달 닫기
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // 리뷰 데이터 로드
   useEffect(() => {
     const loadReviews = async () => {
@@ -98,7 +107,8 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
         <div className="bg-white border-b border-base px-4 py-3 flex items-center justify-between flex-shrink-0">
           <button
             onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-base transition-colors"
+            aria-label="닫기"
+            className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-base transition-colors"
           >
             <X size={24} className="text-accent/80" />
           </button>
