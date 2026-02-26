@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MapPin, AlertTriangle, Sparkles, Route, Bot, BarChart2, CheckSquare } from 'lucide-react';
+import { MapPin, AlertTriangle, Sparkles, Route, Bot, BarChart2, CheckSquare, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { href: '/locations', label: '맛집/카페 관리', icon: MapPin },
   { href: '/attractions', label: '볼거리 관리', icon: Sparkles },
   { href: '/courses', label: '코스 관리', icon: Route },
+  { href: '/reviews', label: '리뷰 관리', icon: MessageSquare },
   { href: '/locations/incomplete', label: '데이터 품질', icon: AlertTriangle },
   { href: '/content-engine', label: '콘텐츠 엔진', icon: Bot },
   { href: '/todo', label: 'Daily Tasks', icon: CheckSquare },

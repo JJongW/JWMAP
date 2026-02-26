@@ -28,9 +28,9 @@ export const locationApi = {
     const columns = [
       'id', 'name', 'region', 'sub_region', 'category_main', 'category_sub',
       'lat', 'lon', 'rating', 'curation_level', 'imageUrl', 'tags', 'curator_visited',
-      'trust_score', 'popularity_score',
+      'popularity_score',
       'address', 'memo', 'short_desc', 'price_level', 'event_tags', 'content_type',
-      'naver_place_id', 'kakao_place_id', 'visit_date', 'created_at', 'last_verified_at',
+      'naver_place_id', 'kakao_place_id', 'visit_date', 'created_at',
     ].join(', ');
     let result = await supabase
       .from(searchView)
