@@ -32,6 +32,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     regenerate_count,
     parse_error_fields,
     user_feedbacks,
+    special_context,
+    noise_preference,
+    budget_sensitivity,
+    walking_preference,
   } = req.body || {};
 
   const query = sanitizeQuery(raw_query);
@@ -57,6 +61,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       user_feedbacks: Array.isArray(user_feedbacks)
         ? user_feedbacks.filter((f: unknown) => typeof f === 'string')
         : [],
+      special_context: typeof special_context === 'string' ? special_context : null,
+      noise_preference: typeof noise_preference === 'string' ? noise_preference : null,
+      budget_sensitivity: typeof budget_sensitivity === 'string' ? budget_sensitivity : null,
+      walking_preference: typeof walking_preference === 'string' ? walking_preference : null,
       created_at: new Date().toISOString(),
     };
 
