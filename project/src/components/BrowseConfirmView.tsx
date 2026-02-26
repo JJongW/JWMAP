@@ -59,10 +59,10 @@ export function BrowseConfirmView({
             다시 정해줘
           </button>
 
-          {/* Secondary: Browse 진입 (작고 muted) */}
+          {/* Secondary: Browse 진입 (작고 muted, 터치 타겟 44px 확보) */}
           <button
             onClick={onProceedToBrowse}
-            className="text-sm text-gray-400 transition-colors hover:text-gray-500"
+            className="min-h-[44px] px-4 text-sm text-gray-400 transition-colors hover:text-gray-500"
           >
             직접 둘러보기
           </button>

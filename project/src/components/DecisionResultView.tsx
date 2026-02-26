@@ -154,8 +154,10 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
   const activeTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 4);
 
   return (
-    <div
-      className="cursor-pointer overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md"
+    <button
+      type="button"
+      aria-label={`${location.name} 상세 보기`}
+      className="w-full cursor-pointer overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md text-left"
       onClick={() => onOpenDetail(location)}
     >
       {/* 이미지 */}
@@ -221,7 +223,7 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
           </div>
         )}
       </div>
-    </div>
+    </button>
   );
 }
 

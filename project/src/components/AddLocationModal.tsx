@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { useEffect } from 'react';
 import { CustomSelect } from './CustomSelect';
 import { ImageUpload } from './ImageUpload';
 import type { Province, CategoryMain, CategorySub, ContentMode } from '../types/location';
@@ -39,6 +40,15 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
     handleSubmit,
   } = useAddLocationForm({ existingLocations, onSave, onClose, contentMode });
 
+  // ESC 키로 모달 닫기
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const presetTags = contentMode === 'space'
     ? ['벚꽃', '야경', '전시', '포토스팟', '데이트', '산책', '실내', '비오는날', '주말코스', '혼자']
     : ['벚꽃', '데이트', '혼밥', '조용한 분위기', '웨이팅 적음', '가성비', '브런치', '야식', '예약 가능', '주차 가능'];
@@ -53,7 +63,8 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
           </h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
+            aria-label="닫기"
+            className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
           >
             <X size={20} className="text-gray-500" />
           </button>

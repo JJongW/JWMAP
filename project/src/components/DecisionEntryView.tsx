@@ -32,6 +32,8 @@ interface DecisionEntryViewProps {
   ) => void;
   /** "직접 둘러보기" 클릭 시 호출 → browse 모드로 전환 */
   onBrowse: () => void;
+  /** 결과 없음 알림 메시지 (alert() 대체 인라인 메시지) */
+  noResultMessage?: string | null;
 }
 
 // ─────────────────────────────────────────────
@@ -70,6 +72,7 @@ export function DecisionEntryView({
   availableProvincesWithDistricts,
   onDecide,
   onBrowse,
+  noResultMessage,
 }: DecisionEntryViewProps) {
   const [region, setRegion] = useState<string>(REGION_ANY_VALUE);
   const [expandedProvince, setExpandedProvince] = useState<Province | null>(null);
@@ -113,7 +116,7 @@ export function DecisionEntryView({
         step1: '어디로 나들이 갈래?',
         cta: '지금 바로 정해줘',
         browse: '직접 둘러보기',
-        accent: 'violet',
+        accent: 'violet' as const,
       };
     }
 
@@ -121,7 +124,7 @@ export function DecisionEntryView({
       step1: '어디서 먹고 싶어?',
       cta: '지금 바로 정해줘',
       browse: '직접 둘러보기',
-      accent: 'orange',
+      accent: 'orange' as const,
     };
   }, [contentMode]);
 
@@ -241,6 +244,7 @@ export function DecisionEntryView({
           <button
             onClick={handleDecide}
             disabled={!isComplete}
+            aria-disabled={!isComplete}
             className={`
               w-full rounded-2xl py-4 text-base font-semibold tracking-tight transition-all duration-200
               ${isComplete
@@ -253,9 +257,19 @@ export function DecisionEntryView({
           >
             {modeText.cta}
           </button>
+          {!isComplete && (
+            <p className="text-xs text-gray-400" role="status" aria-live="polite">
+              {!companion ? '동행을 선택해주세요' : !timeSlot ? '시간대를 선택해주세요' : '우선 조건을 선택해주세요'}
+            </p>
+          )}
+          {noResultMessage && (
+            <p className="w-full rounded-xl bg-amber-50 px-4 py-2.5 text-center text-xs text-amber-700" role="alert" aria-live="assertive">
+              {noResultMessage}
+            </p>
+          )}
           <button
             onClick={onBrowse}
-            className="text-sm text-gray-400 transition-colors hover:text-gray-600"
+            className="min-h-[44px] px-4 text-sm text-gray-400 transition-colors hover:text-gray-600"
           >
             {modeText.browse}
           </button>
@@ -317,7 +331,7 @@ function PillGroup<T extends string>({ options, accent, selected, onSelect }: Pi
             key={option.value}
             onClick={() => onSelect(option.value)}
             className={`
-              rounded-full border px-5 py-2.5 text-sm font-medium transition-all duration-150
+              rounded-full border px-5 py-3 text-sm font-medium transition-all duration-150
               ${isSelected
                 ? accent === 'violet'
                   ? 'border-violet-600 bg-violet-600 text-white'
