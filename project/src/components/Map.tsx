@@ -13,75 +13,75 @@ interface MapProps {
   onMapReady?: (map: kakao.maps.Map) => void;
 }
 
-const CATEGORY_MARKER_COLORS: Record<string, { fill: string; accent: string }> = {
-  '밥': { fill: '#2F6F5E', accent: '#D9F99D' },
-  '면': { fill: '#D97706', accent: '#FEF3C7' },
-  '국물': { fill: '#2563EB', accent: '#DBEAFE' },
-  '고기요리': { fill: '#B91C1C', accent: '#FEE2E2' },
-  '해산물': { fill: '#0E7490', accent: '#CFFAFE' },
-  '간편식': { fill: '#7C3AED', accent: '#EDE9FE' },
-  '양식·퓨전': { fill: '#BE185D', accent: '#FCE7F3' },
-  '디저트': { fill: '#DB2777', accent: '#FBCFE8' },
-  '카페': { fill: '#5B4636', accent: '#FED7AA' },
-  '술안주': { fill: '#111827', accent: '#FDE68A' },
-  '볼거리': { fill: '#6D28D9', accent: '#DDD6FE' },
-  '기본': { fill: '#374151', accent: '#E5E7EB' },
+const CATEGORY_MARKER_COLORS: Record<string, { fill: string; ring: string }> = {
+  '밥': { fill: '#25805F', ring: '#B7F7D8' },
+  '면': { fill: '#E66A2C', ring: '#FFD5B8' },
+  '국물': { fill: '#3478D7', ring: '#C8E0FF' },
+  '고기요리': { fill: '#D44545', ring: '#FFD0D0' },
+  '해산물': { fill: '#12859A', ring: '#BFEFF7' },
+  '간편식': { fill: '#6B5DD3', ring: '#DCD8FF' },
+  '양식·퓨전': { fill: '#CF5D2E', ring: '#FFD9C7' },
+  '디저트': { fill: '#D94F88', ring: '#FFD1E2' },
+  '카페': { fill: '#8A6246', ring: '#F2D5BD' },
+  '술안주': { fill: '#2F3340', ring: '#FFE59A' },
+  '볼거리': { fill: '#5F6FD9', ring: '#DCE1FF' },
+  '기본': { fill: '#52606D', ring: '#D9E2EC' },
 };
 
-const CATEGORY_MARKER_LABELS: Record<string, string> = {
-  '밥': '밥',
-  '면': '면',
-  '국물': '국',
-  '고기요리': '고',
-  '해산물': '해',
-  '간편식': '간',
-  '양식·퓨전': '양',
-  '디저트': '디',
-  '카페': '카',
-  '술안주': '술',
-  '볼거리': '봄',
-  '기본': '장',
+const CATEGORY_MARKER_ICONS: Record<string, string> = {
+  '밥': '<path d="M7 3v7"/><path d="M4 3v4a3 3 0 0 0 6 0V3"/><path d="M7 10v9"/><path d="M16 3v16"/><path d="M16 3c3 2 4 6 0 9"/>',
+  '면': '<path d="M5 11h14"/><path d="M7 11l1.2 7h7.6L17 11"/><path d="M8 6c2-2 6 2 8 0"/><path d="M8 3c2 2 6-2 8 0"/>',
+  '국물': '<path d="M5 10h14"/><path d="M7 10c0 4 2 7 5 7s5-3 5-7"/><path d="M9 5c-1 1-1 2 0 3"/><path d="M13 4c-1 1-1 2 0 3"/><path d="M17 5c-1 1-1 2 0 3"/>',
+  '고기요리': '<path d="M8 13c-2-2-2-5 0-7 2-2 5-2 7 0s2 5 0 7c-1.8 1.8-5.2 1.8-7 0Z"/><path d="M7 13l-3 3"/><path d="M4 16l2 2"/><circle cx="12" cy="9" r="2"/>',
+  '해산물': '<path d="M4 12c3-4 9-4 13 0-4 4-10 4-13 0Z"/><path d="M17 12l3-3v6l-3-3Z"/><circle cx="8" cy="12" r=".7" fill="#fff" stroke="none"/>',
+  '간편식': '<path d="M6 9h12"/><path d="M8 9l1 9h6l1-9"/><path d="M9 5h6l1 4H8l1-4Z"/><path d="M10 13h4"/>',
+  '양식·퓨전': '<path d="M5 13c1-4 4-7 7-7s6 3 7 7"/><path d="M5 13h14"/><path d="M8 13v3"/><path d="M12 13v3"/><path d="M16 13v3"/><circle cx="12" cy="9" r="1" fill="#fff" stroke="none"/>',
+  '디저트': '<path d="M7 9h10l-1 9H8L7 9Z"/><path d="M8 9c0-3 8-3 8 0"/><path d="M10 5c.5-1 1.5-1 2 0s1.5 1 2 0"/><path d="M9 13h6"/>',
+  '카페': '<path d="M6 8h10v5a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4V8Z"/><path d="M16 10h1a2 2 0 0 1 0 4h-1"/><path d="M8 4c-1 1-1 2 0 3"/><path d="M12 4c-1 1-1 2 0 3"/>',
+  '술안주': '<path d="M7 5h7v6a3.5 3.5 0 0 1-7 0V5Z"/><path d="M14 8h2a2 2 0 0 1 0 4h-2"/><path d="M10.5 14v4"/><path d="M8 18h5"/>',
+  '볼거리': '<path d="M4 12s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5Z"/><circle cx="12" cy="12" r="2.5"/>',
+  '기본': '<path d="M12 5v14"/><path d="M5 12h14"/><path d="M7 7h10v10H7z"/>',
 };
 
 const clusterStyles = [
   {
-    width: '42px',
-    height: '42px',
-    borderRadius: '21px',
-    background: 'linear-gradient(135deg, #111827 0%, #374151 100%)',
-    border: '2px solid rgba(255,255,255,0.94)',
-    boxShadow: '0 10px 24px rgba(17,24,39,0.24)',
-    color: '#FFFFFF',
+    width: '38px',
+    height: '38px',
+    borderRadius: '19px',
+    background: 'radial-gradient(circle at 50% 50%, #FFFFFF 0 51%, #F97316 53% 61%, rgba(249,115,22,0.18) 63% 100%)',
+    border: '2px solid #FFFFFF',
+    boxShadow: '0 8px 20px rgba(15,23,42,0.2)',
+    color: '#1F2937',
+    textAlign: 'center',
+    fontSize: '12px',
+    fontWeight: '900',
+    lineHeight: '34px',
+  },
+  {
+    width: '46px',
+    height: '46px',
+    borderRadius: '23px',
+    background: 'radial-gradient(circle at 50% 50%, #FFFFFF 0 49%, #25805F 51% 59%, rgba(37,128,95,0.18) 61% 100%)',
+    border: '2px solid #FFFFFF',
+    boxShadow: '0 10px 24px rgba(15,23,42,0.22)',
+    color: '#17231D',
     textAlign: 'center',
     fontSize: '13px',
-    fontWeight: '800',
-    lineHeight: '39px',
+    fontWeight: '900',
+    lineHeight: '42px',
   },
   {
-    width: '50px',
-    height: '50px',
-    borderRadius: '25px',
-    background: 'linear-gradient(135deg, #EA580C 0%, #111827 78%)',
-    border: '2px solid rgba(255,255,255,0.94)',
-    boxShadow: '0 14px 28px rgba(17,24,39,0.28)',
-    color: '#FFFFFF',
+    width: '54px',
+    height: '54px',
+    borderRadius: '27px',
+    background: 'radial-gradient(circle at 50% 50%, #FFFFFF 0 48%, #E66A2C 50% 57%, rgba(230,106,44,0.2) 59% 100%)',
+    border: '2px solid #FFFFFF',
+    boxShadow: '0 12px 28px rgba(15,23,42,0.24)',
+    color: '#1F2937',
     textAlign: 'center',
     fontSize: '14px',
-    fontWeight: '800',
-    lineHeight: '47px',
-  },
-  {
-    width: '58px',
-    height: '58px',
-    borderRadius: '29px',
-    background: 'linear-gradient(135deg, #F97316 0%, #111827 72%)',
-    border: '3px solid rgba(255,255,255,0.96)',
-    boxShadow: '0 16px 32px rgba(17,24,39,0.32)',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    fontSize: '15px',
     fontWeight: '900',
-    lineHeight: '53px',
+    lineHeight: '50px',
   },
 ];
 
@@ -103,25 +103,28 @@ function getCategoryMain(location: Location): string {
 
 function createMarkerSvg(categoryMain: string, isSelected: boolean): string {
   const colors = CATEGORY_MARKER_COLORS[categoryMain] ?? CATEGORY_MARKER_COLORS['기본'];
-  const label = CATEGORY_MARKER_LABELS[categoryMain] ?? CATEGORY_MARKER_LABELS['기본'];
-  const size = isSelected ? 48 : 40;
+  const icon = CATEGORY_MARKER_ICONS[categoryMain] ?? CATEGORY_MARKER_ICONS['기본'];
+  const size = isSelected ? 46 : 38;
   const center = size / 2;
-  const radius = isSelected ? 15 : 13;
-  const textY = isSelected ? 24.5 : 21.5;
-  const pointerTop = isSelected ? 33 : 27.5;
-  const pointerBottom = isSelected ? 45 : 37;
+  const radius = isSelected ? 17 : 14;
+  const pointerBottom = isSelected ? 44 : 36;
+  const iconOffset = isSelected ? 13 : 9;
+  const iconScale = isSelected ? 0.92 : 0.86;
 
   return `
     <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
       <defs>
-        <filter id="shadow" x="-40%" y="-30%" width="180%" height="190%">
-          <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#111827" flood-opacity="0.28"/>
+        <filter id="shadow" x="-45%" y="-35%" width="190%" height="200%">
+          <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.24"/>
         </filter>
       </defs>
-      <path d="M${center} ${pointerBottom} C${center - 3.8} ${pointerBottom - 5.2} ${center - radius} ${pointerTop} ${center - radius} ${center} A${radius} ${radius} 0 1 1 ${center + radius} ${center} C${center + radius} ${pointerTop} ${center + 3.8} ${pointerBottom - 5.2} ${center} ${pointerBottom}Z" fill="${colors.fill}" filter="url(#shadow)"/>
-      <circle cx="${center}" cy="${center}" r="${radius - 4}" fill="${colors.accent}" opacity="0.96"/>
-      <text x="${center}" y="${textY}" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="${isSelected ? 11 : 10}" font-weight="800" fill="${colors.fill}">${label}</text>
-      <circle cx="${center + radius - 2}" cy="${center - radius + 2}" r="${isSelected ? 4 : 3.5}" fill="#FFFFFF" opacity="0.92"/>
+      <path d="M${center} ${pointerBottom} C${center - 4.2} ${pointerBottom - 6.2} ${center - radius} ${center + 10} ${center - radius} ${center} A${radius} ${radius} 0 1 1 ${center + radius} ${center} C${center + radius} ${center + 10} ${center + 4.2} ${pointerBottom - 6.2} ${center} ${pointerBottom}Z" fill="${colors.ring}" opacity="0.96" filter="url(#shadow)"/>
+      <circle cx="${center}" cy="${center}" r="${radius - 2.5}" fill="${colors.fill}"/>
+      <circle cx="${center}" cy="${center}" r="${radius - 1.4}" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.88"/>
+      <g transform="translate(${iconOffset} ${iconOffset}) scale(${iconScale})" fill="none" stroke="#FFFFFF" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+        ${icon}
+      </g>
+      ${isSelected ? `<circle cx="${center}" cy="${center}" r="${radius + 2.5}" fill="none" stroke="#111827" stroke-width="2" opacity="0.9"/>` : ''}
     </svg>
   `;
 }
