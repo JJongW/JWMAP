@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { AddLocationModal } from './components/AddLocationModal';
 import { DecisionEntryView } from './components/DecisionEntryView';
 import { DecisionResultView } from './components/DecisionResultView';
-import { BrowseConfirmView } from './components/BrowseConfirmView';
 import { BrowseView } from './components/BrowseView';
 import type { Location, Province, CategoryMain, CategorySub, ContentMode } from './types/location';
 import {
@@ -28,9 +27,8 @@ export default function App() {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
 
   // UI Mode state
-  // 기본 시작 모드를 'decision'으로 설정 (의사결정 우선 UX)
-  // URL에 locationId 파라미터가 있으면 나중에 browse로 전환됨
-  const [uiMode, setUiMode] = useState<UiMode>('decision');
+  // 지도 탐색을 기본 진입으로 두고, 결정 플로우는 보조 기능으로 제공한다.
+  const [uiMode, setUiMode] = useState<UiMode>('browse');
 
   // Decision flow state
   const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
@@ -370,21 +368,12 @@ export default function App() {
     }
   }, [contentMode, locations]);
 
-  /**
-   * "직접 둘러보기" 클릭 → browse-confirm 인터스티셜로 이동
-   * browse로 곧바로 가지 않는다. 의도적 마찰(interstitial guard) 삽입.
-   */
   const handleSwitchToBrowse = useCallback(() => {
-    setUiMode('browse-confirm');
+    setUiMode('browse');
     setDecisionResult(null);
   }, []);
 
-  /** browse-confirm에서 "직접 둘러보기" 확정 → 실제 browse 진입 */
-  const handleConfirmBrowse = useCallback(() => {
-    setUiMode('browse');
-  }, []);
-
-  /** Decision 화면으로 복귀 (다시 고르기 / escape hatch) */
+  /** 지도 탐색 중 추천이 필요할 때 Decision 화면으로 이동 */
   const handleBackToDecision = useCallback(() => {
     setUiMode('decision');
     setDecisionResult(null);
@@ -419,7 +408,7 @@ export default function App() {
     fetchLocations();
     setFilters(DEFAULT_FILTER_STATE);
     setVisibleLocations(10);
-    setUiMode('decision');
+    setUiMode('browse');
     setDecisionResult(null);
   }, [contentMode, fetchLocations]);
 
@@ -508,17 +497,7 @@ export default function App() {
         />
       )}
 
-      {/* ── Browse Confirm (인터스티셜 가드) ── */}
-      {/* 의도적 마찰: browse 진입 전에 한 번 더 확인. Decision 복귀를 유도. */}
-      {!isLoading && uiMode === 'browse-confirm' && (
-        <BrowseConfirmView
-          contentMode={contentMode}
-          onBackToDecision={handleBackToDecision}
-          onProceedToBrowse={handleConfirmBrowse}
-        />
-      )}
-
-      {/* ── Browse View (의도적으로 열등한 탐색 UX) ── */}
+      {/* ── Browse View (기본 지도 탐색 UX) ── */}
       {!isLoading && uiMode === 'browse' && (
         <BrowseView
           contentMode={contentMode}

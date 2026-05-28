@@ -1,18 +1,9 @@
 /**
  * BrowseView.tsx
  *
- * "직접 둘러보기" 탐색 모드. 의도적으로 Decision 경로보다
- * 마찰이 높고, 감성이 차갑고, 정보가 제한적으로 설계되었다.
- *
- * 설계 원칙:
- * - 절대 "추천", "베스트", "인기", "Top" 등의 단어를 사용하지 않는다.
- * - 이미지, short_desc, tags는 리스트에서 표시하지 않는다.
- * - 지도는 기본 접힘 상태. 확인용이지 발견용이 아니다.
- * - 필터는 접혀 있고, 여러 단계를 거쳐야 작동한다 (높은 인지 부하).
- * - 화면 하단에 항상 "그냥 정해줄까?" Escape Hatch가 노출된다.
- *
- * 이 파일의 UX가 의도적으로 열등한 것은 버그가 아니다. 제품 전략이다.
- * "결정은 우리가 더 잘한다"를 체감하게 하는 대비(contrast)가 핵심이다.
+ * JWMAP의 기본 지도 탐색 화면.
+ * 지도와 장소 리스트를 먼저 보여주고, 추천/결정 플로우는 고르기 어려울 때
+ * 쓰는 보조 기능으로 제공한다.
  */
 
 import { ChevronDown, ChevronUp, MapPin, Search, X } from 'lucide-react';
@@ -76,8 +67,6 @@ export function BrowseView({
     resolvedGetDistrictCount,
     searchQuery,
     setSearchQuery,
-    isMapExpanded,
-    setIsMapExpanded,
     isFilterExpanded,
     setIsFilterExpanded,
     selectedLocation,
@@ -116,23 +105,21 @@ export function BrowseView({
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
-      {/* ── 스크롤 가능 메인 영역 ── */}
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(360px,440px)_1fr]">
+        <section className="flex min-h-0 flex-col border-r border-gray-100 bg-white">
+          <header className="border-b border-gray-100 px-5 pb-4 pt-12 md:px-6 md:pt-16">
+            <p className={`text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-500'}`}>
+              JWMAP
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">
+              어디 갈까?
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              {contentMode === 'space' ? '가보고 싶은 볼거리를 지도에서 편하게 찾아봐요.' : '좋아하는 맛집과 카페를 지도에서 편하게 찾아봐요.'}
+            </p>
+          </header>
 
-        {/* ── Header: 차갑고 중립적 ── */}
-        <header className="border-b border-gray-100 px-6 pb-4 pt-12 md:pt-16">
-          <h1 className={`text-lg font-semibold ${contentMode === 'space' ? 'text-violet-700' : 'text-orange-600'}`}>
-            직접 둘러보기
-          </h1>
-          <p className="mt-1 text-sm text-gray-400">
-            {contentMode === 'space' ? '조건에 맞는 볼거리 장소를 보여드릴게요' : '조건에 맞는 장소를 보여드릴게요'}
-          </p>
-        </header>
-
-        <div className="mx-auto w-full max-w-2xl px-4 py-4 md:px-6">
-
-          {/* ── 검색 (단순 텍스트 매칭, LLM 미사용) ── */}
-          <div className="mb-4">
+          <div className="shrink-0 space-y-3 border-b border-gray-100 px-4 py-4 md:px-5">
             <div className="relative">
               <Search
                 size={16}
@@ -142,8 +129,8 @@ export function BrowseView({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="이름, 지역, 카테고리로 검색"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50/50 py-2.5 pl-9 pr-9 text-sm text-gray-700 placeholder-gray-300 outline-none transition-colors focus:border-gray-300 focus:bg-white"
+                placeholder="장소, 지역, 카테고리 검색"
+                className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-3 pl-9 pr-9 text-sm text-gray-700 placeholder-gray-300 outline-none transition-colors focus:border-gray-300 focus:bg-white"
               />
               {searchQuery && (
                 <button
@@ -156,18 +143,15 @@ export function BrowseView({
                 </button>
               )}
             </div>
-          </div>
 
-          {/* ── 필터 (접힘 상태 기본, 높은 마찰) ── */}
-          <div className="mb-4">
             <button
               type="button"
               onClick={() => setIsFilterExpanded(!isFilterExpanded)}
               aria-expanded={isFilterExpanded}
               aria-controls="browse-filter-section"
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-600"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
             >
-              <span>조건 변경</span>
+              <span>필터</span>
               {isFilterExpanded
                 ? <ChevronUp size={14} />
                 : <ChevronDown size={14} />
@@ -175,7 +159,7 @@ export function BrowseView({
             </button>
 
             {isFilterExpanded && (
-              <div id="browse-filter-section" className="mt-3 rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+              <div id="browse-filter-section" className="max-h-[42vh] overflow-y-auto rounded-xl border border-gray-100 bg-gray-50/50 p-3">
                 <FilterSection
                   selectedProvince={resolvedSelectedProvince}
                   onProvinceChange={resolvedOnProvinceChange}
@@ -197,22 +181,11 @@ export function BrowseView({
             )}
           </div>
 
-          {/* ── 지도 (접힌 상태 기본) ── */}
-          <BrowseMapSection
-            isExpanded={isMapExpanded}
-            onToggle={() => setIsMapExpanded(!isMapExpanded)}
-            locations={searchFilteredLocations}
-            selectedLocation={selectedLocation}
-            onMarkerClick={handleMarkerClick}
-            onMapReady={onMapReady}
-          />
-
-          {/* ── 장소 리스트 (최소 정보만) ── */}
-          <div className="mt-4">
-            <p className="mb-3 text-xs text-gray-400">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-32 pt-4 md:px-5 lg:pb-28">
+            <p className="mb-3 text-xs font-medium text-gray-400">
               {searchQuery
                 ? `검색 결과 ${searchFilteredLocations.length}곳`
-                : `등록된 장소 ${searchFilteredLocations.length}곳`
+                : `장소 ${searchFilteredLocations.length}곳`
               }
             </p>
             <BrowseList
@@ -228,12 +201,17 @@ export function BrowseView({
               }
             />
           </div>
-        </div>
+        </section>
+
+        <BrowseMapSection
+          locations={searchFilteredLocations}
+          selectedLocation={selectedLocation}
+          onMarkerClick={handleMarkerClick}
+          onMapReady={onMapReady}
+        />
       </div>
 
-      {/* ── Persistent Escape Hatch (고정 하단 바) ── */}
-      {/* 항상 노출. Decision 복귀를 유도하는 "안전 밸브" */}
-      <EscapeHatch onBackToDecision={onBackToDecision} />
+      <RecommendationBar onBackToDecision={onBackToDecision} />
 
       {/* ── 모바일 상세 보기 (PlaceDetail 재사용) ── */}
       {detailLocation && isMobile && (
@@ -372,18 +350,10 @@ function BrowseList({
 }
 
 // ─────────────────────────────────────────────
-// BrowseMapSection: 접힘 가능한 지도
+// BrowseMapSection: 기본 지도 영역
 // ─────────────────────────────────────────────
 
-/**
- * 기본 접힘 상태. "지도 펼치기" 버튼으로 토글.
- * 지도는 확인 도구이지 발견 도구가 아니다.
- * → 강조/selected 스타일 최소화, 마커만 표시.
- */
-
 interface BrowseMapSectionProps {
-  isExpanded: boolean;
-  onToggle: () => void;
   locations: Location[];
   selectedLocation: Location | null;
   onMarkerClick: (location: Location) => void;
@@ -391,48 +361,33 @@ interface BrowseMapSectionProps {
 }
 
 function BrowseMapSection({
-  isExpanded,
-  onToggle,
   locations,
   selectedLocation,
   onMarkerClick,
   onMapReady,
 }: BrowseMapSectionProps) {
   return (
-    <div className="rounded-xl border border-gray-100">
-      {/* 토글 버튼 */}
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-xs text-gray-500 transition-colors hover:bg-gray-50"
-      >
+    <section className="order-first h-[42vh] min-h-[320px] border-b border-gray-100 bg-gray-50 lg:order-last lg:h-full lg:min-h-0 lg:border-b-0">
+      <div className="flex h-10 items-center justify-between border-b border-gray-100 bg-white/95 px-4 text-xs font-medium text-gray-500 backdrop-blur">
         <div className="flex items-center gap-1.5">
           <MapPin size={14} />
-          <span>지도 {isExpanded ? '접기' : '펼치기'}</span>
+          <span>지도</span>
         </div>
-        {isExpanded
-          ? <ChevronUp size={14} />
-          : <ChevronDown size={14} />
-        }
-      </button>
-
-      {/* 지도 본체 — 펼쳤을 때만 렌더링 */}
-      {isExpanded && (
-        <div className="h-64 w-full border-t border-gray-100 md:h-80">
-          <Map
-            locations={locations}
-            selectedLocation={selectedLocation}
-            onMarkerClick={onMarkerClick}
-            className="h-full w-full"
-            onMapReady={onMapReady}
-          />
-        </div>
-      )}
-    </div>
+        <span>{locations.length}곳 표시</span>
+      </div>
+      <Map
+        locations={locations}
+        selectedLocation={selectedLocation}
+        onMarkerClick={onMarkerClick}
+        className="h-[calc(100%-2.5rem)] w-full"
+        onMapReady={onMapReady}
+      />
+    </section>
   );
 }
 
 // ─────────────────────────────────────────────
-// EscapeHatch: 항상 보이는 Decision 복귀 유도
+// RecommendationBar: 추천 보조 기능 진입
 // ─────────────────────────────────────────────
 
 /**
@@ -441,22 +396,22 @@ function BrowseMapSection({
  * Browse에서 인지 부하를 느낀 사용자가 자연스럽게 Decision으로 돌아가게 한다.
  */
 
-interface EscapeHatchProps {
+interface RecommendationBarProps {
   onBackToDecision: () => void;
 }
 
-function EscapeHatch({ onBackToDecision }: EscapeHatchProps) {
+function RecommendationBar({ onBackToDecision }: RecommendationBarProps) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-100 bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-6 pb-8 pt-4 md:pb-5">
+      <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-5 pb-6 pt-3 md:pb-4">
         <p className="text-sm text-gray-400">
-          아직 고민 중이면
+          고르기 어렵다면
         </p>
         <button
           onClick={onBackToDecision}
           className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.98]"
         >
-          그냥 정해줄까?
+          추천 받아보기
         </button>
       </div>
     </div>

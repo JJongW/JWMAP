@@ -55,7 +55,8 @@ export function Map(props: MapProps) {
   const markersRef = useRef<kakao.maps.Marker[]>([]);
   const userLocationMarkerRef = useRef<kakao.maps.Marker | null>(null);
   const onMarkerClickRef = useRef(onMarkerClick);
-  const [isReady, setIsReady] = useState(false);
+  const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const isReady = mapStatus === 'ready';
 
   // 최신 콜백 유지
   onMarkerClickRef.current = onMarkerClick;
@@ -63,6 +64,14 @@ export function Map(props: MapProps) {
   // 지도 초기화
   useEffect(() => {
     if (!mapContainer.current) return;
+    setMapStatus('loading');
+
+    const failTimer = window.setTimeout(() => {
+      if (!mapRef.current) {
+        setMapStatus('failed');
+      }
+    }, 6000);
+
     if (typeof kakao === 'undefined' || !kakao.maps) {
       // SDK 로드 대기
       const timer = setInterval(() => {
@@ -71,8 +80,12 @@ export function Map(props: MapProps) {
           initMap();
         }
       }, 100);
-      setTimeout(() => clearInterval(timer), 5000);
-      return () => clearInterval(timer);
+      const waitTimer = window.setTimeout(() => clearInterval(timer), 5000);
+      return () => {
+        clearInterval(timer);
+        window.clearTimeout(waitTimer);
+        window.clearTimeout(failTimer);
+      };
     } else {
       initMap();
     }
@@ -86,7 +99,7 @@ export function Map(props: MapProps) {
           level: 5,
         };
         mapRef.current = new kakao.maps.Map(mapContainer.current, options);
-        setIsReady(true);
+        setMapStatus('ready');
         
         // 카카오맵 컨테이너의 z-index 조정 (사이드바를 가리지 않도록)
         if (mapContainer.current) {
@@ -123,10 +136,12 @@ export function Map(props: MapProps) {
         }
       } catch (e) {
         console.error('지도 초기화 오류:', e);
+        setMapStatus('failed');
       }
     }
 
     return () => {
+      window.clearTimeout(failTimer);
       // 마커 정리
       markersRef.current.forEach(m => m.setMap(null));
       markersRef.current = [];
@@ -135,7 +150,7 @@ export function Map(props: MapProps) {
         userLocationMarkerRef.current = null;
       }
       mapRef.current = null;
-      setIsReady(false);
+      setMapStatus('loading');
     };
   }, []);
 
@@ -252,10 +267,29 @@ export function Map(props: MapProps) {
   }, [isReady, selectedLocation]);
 
   return (
-    <div
-      ref={mapContainer}
-      className={`${className || "w-full h-[350px] sm:h-[450px] lg:h-[500px] bg-base rounded-2xl border border-base"} relative z-0`}
-      style={{ zIndex: 0 }}
-    />
+    <div className={`${className || "w-full h-[350px] sm:h-[450px] lg:h-[500px] bg-base rounded-2xl border border-base"} relative z-0 overflow-hidden`}>
+      <div
+        ref={mapContainer}
+        className="h-full w-full"
+        style={{ zIndex: 0 }}
+      />
+      {mapStatus !== 'ready' && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50 px-6 text-center">
+          {mapStatus === 'loading' ? (
+            <div>
+              <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-orange-400" />
+              <p className="mt-3 text-sm font-medium text-gray-500">지도를 불러오는 중이에요.</p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm font-semibold text-gray-700">지도를 불러오지 못했어요.</p>
+              <p className="mt-1 text-xs leading-relaxed text-gray-400">
+                장소 리스트로 계속 둘러볼 수 있어요. 잠시 후 새로고침하면 지도가 다시 시도됩니다.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

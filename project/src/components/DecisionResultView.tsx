@@ -8,7 +8,7 @@
  * 1. Primary Recommendation Card - "오늘은 여기." + 장소명 + 이유
  * 2. Secondary Options (최대 2개) - 차별화 포인트 한 줄씩
  * 3. Action Buttons - 네이버/카카오 지도 열기
- * 4. "다시 고르기" / "직접 둘러보기" 전환 버튼
+ * 4. "다시 고르기" / "지도로 보기" 전환 버튼
  * 
  * 지도/리뷰는 스크롤 아래 "자세히 보기" 이후에만 노출.
  */
@@ -26,7 +26,7 @@ interface DecisionResultViewProps {
   result: DecisionResult;
   /** "다시 고르기" 클릭 시 → decision 모드로 돌아감 */
   onRetry: () => void;
-  /** "직접 둘러보기" 클릭 시 → browse 모드 */
+  /** 지도 탐색으로 돌아가기 */
   onBrowse: () => void;
   /** 장소 상세 보기 (기존 PlaceDetail 연동) */
   onOpenDetail: (location: Location) => void;
@@ -44,7 +44,7 @@ export function DecisionResultView({
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-lg px-6 pb-32 pt-12 md:pt-20">
+        <div className="mx-auto w-full max-w-lg px-6 pb-44 pt-12 md:pb-40 md:pt-20">
 
           {/* ── 헤드라인 ── */}
           <p className="mb-2 text-sm font-medium tracking-widest text-gray-300">
@@ -130,7 +130,7 @@ export function DecisionResultView({
             onClick={onBrowse}
             className="text-sm text-gray-400 transition-colors hover:text-gray-600"
           >
-            직접 둘러보기
+            지도로 보기
           </button>
         </div>
       </div>

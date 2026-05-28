@@ -47,7 +47,6 @@ export function useBrowseViewController(params: UseBrowseViewControllerParams) {
   const resolvedGetDistrictCount = filterOptions?.getDistrictCount ?? getDistrictCount ?? (() => 0);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [detailLocation, setDetailLocation] = useState<Location | null>(null);
@@ -100,8 +99,6 @@ export function useBrowseViewController(params: UseBrowseViewControllerParams) {
     resolvedGetDistrictCount,
     searchQuery,
     setSearchQuery,
-    isMapExpanded,
-    setIsMapExpanded,
     isFilterExpanded,
     setIsFilterExpanded,
     selectedLocation,

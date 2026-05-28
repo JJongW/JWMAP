@@ -9,7 +9,7 @@
  * 2. STEP1 지역: 시/도(전국구) 먼저 표시 → 클릭 시 세부지역 펼침
  * 3. STEP2~4: 동행, 시간대, 우선조건
  * 4. CTA 버튼 - 모든 선택 완료 시 활성화
- * 5. "직접 둘러보기" 텍스트 버튼 - 기존 browse 모드 진입
+ * 5. "지도로 돌아가기" 텍스트 버튼 - 기본 지도 탐색으로 복귀
  *
  * 디자인 톤: calm, confident, minimal (Apple/Toss-like)
  */
@@ -30,7 +30,7 @@ interface DecisionEntryViewProps {
     timeSlot: TimeSlot,
     priorityFeature: PriorityFeature,
   ) => void;
-  /** "직접 둘러보기" 클릭 시 호출 → browse 모드로 전환 */
+  /** 지도 탐색으로 돌아갈 때 호출 */
   onBrowse: () => void;
   /** 결과 없음 알림 메시지 (alert() 대체 인라인 메시지) */
   noResultMessage?: string | null;
@@ -116,7 +116,7 @@ export function DecisionEntryView({
       return {
         step1: '어디로 나들이 갈래?',
         cta: '지금 바로 정해줘',
-        browse: '직접 둘러보기',
+        browse: '지도로 돌아가기',
         accent: 'violet' as const,
       };
     }
@@ -124,7 +124,7 @@ export function DecisionEntryView({
     return {
       step1: '어디서 먹고 싶어?',
       cta: '지금 바로 정해줘',
-      browse: '직접 둘러보기',
+      browse: '지도로 돌아가기',
       accent: 'orange' as const,
     };
   }, [contentMode]);
@@ -133,7 +133,7 @@ export function DecisionEntryView({
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
       {/* ── 스크롤 가능한 메인 콘텐츠 영역 ── */}
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-lg px-6 pb-32 pt-16 md:pt-24">
+        <div className="mx-auto w-full max-w-lg px-6 pb-44 pt-16 md:pb-40 md:pt-24">
 
           {/* ── Hero 텍스트 ── */}
           <div className="mb-12 md:mb-16">
@@ -141,8 +141,8 @@ export function DecisionEntryView({
               {contentMode === 'space' ? '오늘 뭐 보지?' : '오늘 오디가?'}
             </h1>
             <p className="mt-3 text-base leading-relaxed text-gray-500 md:text-lg">
-              지금 상황만 말해.<br />
-              내가 바로 갈 곳 정해줄게.
+              고르기 어려울 때만 살짝 도와줄게.<br />
+              몇 가지만 고르면 바로 추천해줄게.
             </p>
           </div>
 
