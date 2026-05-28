@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Location, CategoryMain, CategorySub } from '../types/location';
 import { CATEGORY_HIERARCHY } from '../types/location';
 
@@ -13,45 +13,141 @@ interface MapProps {
   onMapReady?: (map: kakao.maps.Map) => void;
 }
 
-// 카테고리 대분류별 마커 이미지 생성
-function createMarkerImage(categoryMain: string): kakao.maps.MarkerImage | null {
+const CATEGORY_MARKER_COLORS: Record<string, { fill: string; accent: string }> = {
+  '밥': { fill: '#2F6F5E', accent: '#D9F99D' },
+  '면': { fill: '#D97706', accent: '#FEF3C7' },
+  '국물': { fill: '#2563EB', accent: '#DBEAFE' },
+  '고기요리': { fill: '#B91C1C', accent: '#FEE2E2' },
+  '해산물': { fill: '#0E7490', accent: '#CFFAFE' },
+  '간편식': { fill: '#7C3AED', accent: '#EDE9FE' },
+  '양식·퓨전': { fill: '#BE185D', accent: '#FCE7F3' },
+  '디저트': { fill: '#DB2777', accent: '#FBCFE8' },
+  '카페': { fill: '#5B4636', accent: '#FED7AA' },
+  '술안주': { fill: '#111827', accent: '#FDE68A' },
+  '볼거리': { fill: '#6D28D9', accent: '#DDD6FE' },
+  '기본': { fill: '#374151', accent: '#E5E7EB' },
+};
+
+const CATEGORY_MARKER_LABELS: Record<string, string> = {
+  '밥': '밥',
+  '면': '면',
+  '국물': '국',
+  '고기요리': '고',
+  '해산물': '해',
+  '간편식': '간',
+  '양식·퓨전': '양',
+  '디저트': '디',
+  '카페': '카',
+  '술안주': '술',
+  '볼거리': '봄',
+  '기본': '장',
+};
+
+const clusterStyles = [
+  {
+    width: '42px',
+    height: '42px',
+    borderRadius: '21px',
+    background: 'linear-gradient(135deg, #111827 0%, #374151 100%)',
+    border: '2px solid rgba(255,255,255,0.94)',
+    boxShadow: '0 10px 24px rgba(17,24,39,0.24)',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    fontSize: '13px',
+    fontWeight: '800',
+    lineHeight: '39px',
+  },
+  {
+    width: '50px',
+    height: '50px',
+    borderRadius: '25px',
+    background: 'linear-gradient(135deg, #EA580C 0%, #111827 78%)',
+    border: '2px solid rgba(255,255,255,0.94)',
+    boxShadow: '0 14px 28px rgba(17,24,39,0.28)',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    fontSize: '14px',
+    fontWeight: '800',
+    lineHeight: '47px',
+  },
+  {
+    width: '58px',
+    height: '58px',
+    borderRadius: '29px',
+    background: 'linear-gradient(135deg, #F97316 0%, #111827 72%)',
+    border: '3px solid rgba(255,255,255,0.96)',
+    boxShadow: '0 16px 32px rgba(17,24,39,0.32)',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    fontSize: '15px',
+    fontWeight: '900',
+    lineHeight: '53px',
+  },
+];
+
+function getCategoryMain(location: Location): string {
+  if (location.categoryMain && location.categoryMain !== '전체') {
+    return location.categoryMain;
+  }
+
+  if (location.categorySub) {
+    for (const [main, subs] of Object.entries(CATEGORY_HIERARCHY) as [CategoryMain, CategorySub[]][]) {
+      if (main !== '전체' && subs.includes(location.categorySub)) {
+        return main;
+      }
+    }
+  }
+
+  return location.contentType === 'space' ? '볼거리' : '기본';
+}
+
+function createMarkerSvg(categoryMain: string, isSelected: boolean): string {
+  const colors = CATEGORY_MARKER_COLORS[categoryMain] ?? CATEGORY_MARKER_COLORS['기본'];
+  const label = CATEGORY_MARKER_LABELS[categoryMain] ?? CATEGORY_MARKER_LABELS['기본'];
+  const size = isSelected ? 48 : 40;
+  const center = size / 2;
+  const radius = isSelected ? 15 : 13;
+  const textY = isSelected ? 24.5 : 21.5;
+  const pointerTop = isSelected ? 33 : 27.5;
+  const pointerBottom = isSelected ? 45 : 37;
+
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <defs>
+        <filter id="shadow" x="-40%" y="-30%" width="180%" height="190%">
+          <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#111827" flood-opacity="0.28"/>
+        </filter>
+      </defs>
+      <path d="M${center} ${pointerBottom} C${center - 3.8} ${pointerBottom - 5.2} ${center - radius} ${pointerTop} ${center - radius} ${center} A${radius} ${radius} 0 1 1 ${center + radius} ${center} C${center + radius} ${pointerTop} ${center + 3.8} ${pointerBottom - 5.2} ${center} ${pointerBottom}Z" fill="${colors.fill}" filter="url(#shadow)"/>
+      <circle cx="${center}" cy="${center}" r="${radius - 4}" fill="${colors.accent}" opacity="0.96"/>
+      <text x="${center}" y="${textY}" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="${isSelected ? 11 : 10}" font-weight="800" fill="${colors.fill}">${label}</text>
+      <circle cx="${center + radius - 2}" cy="${center - radius + 2}" r="${isSelected ? 4 : 3.5}" fill="#FFFFFF" opacity="0.92"/>
+    </svg>
+  `;
+}
+
+function createMarkerImage(categoryMain: string, isSelected: boolean): kakao.maps.MarkerImage | null {
   if (typeof kakao === 'undefined' || !kakao.maps?.Size || !kakao.maps?.Point || !kakao.maps?.MarkerImage) {
     return null;
   }
 
-  const markerMap: Record<string, string> = {
-    '밥': '/rice_marker.svg',
-    '면': '/nooddle_marker.svg', // 파일명이 nooddle_marker.svg로 되어있음
-    '국물': '/bowl_marker.svg',
-    '고기요리': '/beef_marker.svg',
-    '해산물': '/fish_marker.svg',
-    '간편식': '/fast_marker.svg',
-    '양식·퓨전': '/sushi_marker.svg',
-    '디저트': '/desert_marker.svg',
-    '카페': '/cafe_marker.svg',
-    '술안주': '/beer_marker.svg',
-  };
-
-  const imageSrc = markerMap[categoryMain];
-
-  if (imageSrc) {
-    try {
-      // 마커 크기 축소 (64x69 -> 36x39, 더 작게 조정)
-      const imageSize = new kakao.maps.Size(36, 39);
-      const imageOption = { offset: new kakao.maps.Point(18, 39) };
-      return new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
-    } catch {
-      return null;
-    }
+  try {
+    const size = isSelected ? 48 : 40;
+    const svg = createMarkerSvg(categoryMain, isSelected);
+    const imageSrc = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+    const imageSize = new kakao.maps.Size(size, size);
+    const imageOption = { offset: new kakao.maps.Point(size / 2, size - 3) };
+    return new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
+  } catch {
+    return null;
   }
-
-  return null;
 }
 
 export function Map(props: MapProps) {
   const { locations = [], selectedLocation, onMarkerClick, className, userLocation, onMapReady } = props || {};
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<kakao.maps.Map | null>(null);
+  const clustererRef = useRef<kakao.maps.MarkerClusterer | null>(null);
   const markersRef = useRef<kakao.maps.Marker[]>([]);
   const userLocationMarkerRef = useRef<kakao.maps.Marker | null>(null);
   const onMarkerClickRef = useRef(onMarkerClick);
@@ -60,6 +156,12 @@ export function Map(props: MapProps) {
 
   // 최신 콜백 유지
   onMarkerClickRef.current = onMarkerClick;
+
+  const selectedLocationId = selectedLocation?.id ?? null;
+  const visibleLocations = useMemo(
+    () => locations.filter((location) => Number.isFinite(location.lat) && Number.isFinite(location.lon)),
+    [locations]
+  );
 
   // 지도 초기화
   useEffect(() => {
@@ -99,6 +201,16 @@ export function Map(props: MapProps) {
           level: 5,
         };
         mapRef.current = new kakao.maps.Map(mapContainer.current, options);
+        if (kakao.maps.MarkerClusterer) {
+          clustererRef.current = new kakao.maps.MarkerClusterer({
+            map: mapRef.current,
+            averageCenter: true,
+            minLevel: 6,
+            gridSize: 72,
+            disableClickZoom: false,
+            styles: clusterStyles,
+          });
+        }
         setMapStatus('ready');
         
         // 카카오맵 컨테이너의 z-index 조정 (사이드바를 가리지 않도록)
@@ -143,6 +255,8 @@ export function Map(props: MapProps) {
     return () => {
       window.clearTimeout(failTimer);
       // 마커 정리
+      clustererRef.current?.clear();
+      clustererRef.current = null;
       markersRef.current.forEach(m => m.setMap(null));
       markersRef.current = [];
       if (userLocationMarkerRef.current) {
@@ -161,39 +275,25 @@ export function Map(props: MapProps) {
     // 기존 마커 제거
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
+    clustererRef.current?.clear();
 
     // locations가 비어있으면 마커를 표시하지 않음
-    if (!locations || locations.length === 0) {
+    if (visibleLocations.length === 0) {
       return;
     }
 
     // 새 마커 생성
-    locations.forEach(location => {
+    visibleLocations.forEach(location => {
       try {
-        // categoryMain을 기준으로 마커 이미지 선택
-        // categoryMain이 없으면 categorySub로부터 역추론
-        let categoryMain = location.categoryMain;
-        if (!categoryMain && location.categorySub) {
-          // categorySub로부터 대분류 역추론
-          for (const [main, subs] of Object.entries(CATEGORY_HIERARCHY) as [CategoryMain, CategorySub[]][]) {
-            if (main !== '전체' && subs.includes(location.categorySub)) {
-              categoryMain = main;
-              break;
-            }
-          }
-        }
-        
-        const markerImage = createMarkerImage(categoryMain || '');
+        const isSelectedMarker = location.id === selectedLocationId;
+        const markerImage = createMarkerImage(getCategoryMain(location), isSelectedMarker);
         const marker = new kakao.maps.Marker({
           position: new kakao.maps.LatLng(location.lat, location.lon),
           title: location.name,
           image: markerImage || undefined,
         });
+        marker.setZIndex(isSelectedMarker ? 1000 : 10);
 
-        // 마커를 지도에 추가
-        marker.setMap(mapRef.current);
-
-        // 클릭 이벤트 리스너 추가
         kakao.maps.event.addListener(marker, 'click', () => {
           onMarkerClickRef.current(location);
         });
@@ -204,11 +304,17 @@ export function Map(props: MapProps) {
       }
     });
 
+    if (clustererRef.current) {
+      clustererRef.current.addMarkers(markersRef.current);
+    } else {
+      markersRef.current.forEach(m => m.setMap(mapRef.current));
+    }
+
     // 검색 결과가 여러 개일 때 지도 범위 조정
-    if (locations.length > 0 && mapRef.current) {
+    if (visibleLocations.length > 0 && mapRef.current) {
       try {
         const bounds = new kakao.maps.LatLngBounds();
-        locations.forEach(location => {
+        visibleLocations.forEach(location => {
           bounds.extend(new kakao.maps.LatLng(location.lat, location.lon));
         });
         mapRef.current.setBounds(bounds);
@@ -216,7 +322,7 @@ export function Map(props: MapProps) {
         console.error('지도 범위 조정 오류:', e);
       }
     }
-  }, [isReady, locations]);
+  }, [isReady, visibleLocations, selectedLocationId]);
 
   // 사용자 위치 마커 표시
   useEffect(() => {

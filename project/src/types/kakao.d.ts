@@ -49,6 +49,21 @@ declare namespace kakao.maps {
       image?: MarkerImage; // 마커 이미지 (선택)
       title?: string; // 마커 제목 (선택)
     }
+
+    class MarkerClusterer {
+      constructor(options: MarkerClustererOptions);
+      addMarkers(markers: Marker[]): void;
+      clear(): void;
+    }
+
+    interface MarkerClustererOptions {
+      map: Map;
+      averageCenter?: boolean;
+      minLevel?: number;
+      gridSize?: number;
+      disableClickZoom?: boolean;
+      styles?: Array<Record<string, string | number>>;
+    }
   
     // InfoWindow 클래스 정의
     class InfoWindow {
