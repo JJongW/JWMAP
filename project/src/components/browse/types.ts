@@ -21,6 +21,11 @@ export interface BrowseFilterOptions {
 export interface BrowseViewProps {
   contentMode?: ContentMode;
   displayedLocations: Location[];
+  isCuratedStart?: boolean;
+  totalLocationCount?: number;
+  hotRegions?: string[];
+  onSelectHotRegion?: (region: string) => void;
+  onShowAllPlaces?: () => void;
   filterState?: FilterState;
   filterControls?: BrowseFilterControls;
   filterOptions?: BrowseFilterOptions;

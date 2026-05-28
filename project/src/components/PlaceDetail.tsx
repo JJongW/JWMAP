@@ -6,6 +6,7 @@ import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
 import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, CURATION_LEVELS } from '../utils/curation';
+import { recordActivity, toggleSaved, toggleVisited, getSavedIds, getVisitedIds } from '../utils/activity';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
@@ -25,6 +26,8 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
   const [copied, setCopied] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [showCurationLegend, setShowCurationLegend] = useState(false);
+  const [isSaved, setIsSaved] = useState(() => getSavedIds().includes(location.id));
+  const [isVisited, setIsVisited] = useState(() => getVisitedIds().includes(location.id));
 
   const curationLevel = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
 
@@ -53,9 +56,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${tier.badgeClass}`}>
                 {tier.label}
               </span>
-              <span className="text-xs text-gray-500">
-                {['가봤어요', '괜찮아요', '강추해요', '최애예요', '숨겨진 보석'][tier.level - 1]}
-              </span>
+              <span className="text-xs text-gray-500">{tier.description}</span>
             </div>
           ))}
         </div>
@@ -89,6 +90,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
   const handleCopyAddress = async () => {
     try {
       await navigator.clipboard.writeText(location.address);
+      recordActivity('copy_address', location);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -98,11 +100,13 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
 
   // 카카오톡 공유
   const handleShareKakao = () => {
+    recordActivity('view_detail', location);
     shareToKakao(location);
   };
 
   // 네이버 지도 열기
   const handleOpenNaver = () => {
+    recordActivity('open_naver', location);
     if (searchId) searchLogApi.updateMapOpen(searchId, 'naver', location.id);
     const appName = encodeURIComponent(window.location.origin);
     const query = encodeURIComponent(location.name);
@@ -117,6 +121,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
 
   // 카카오맵 열기
   const handleOpenKakao = () => {
+    recordActivity('open_kakao', location);
     if (searchId) searchLogApi.updateMapOpen(searchId, 'kakao', location.id);
     const query = encodeURIComponent(location.name);
     const appLink = `kakaomap://search?q=${query}`;
@@ -129,6 +134,12 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
   };
 
   const visibleTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 10);
+
+  useEffect(() => {
+    recordActivity('view_detail', location);
+    setIsSaved(getSavedIds().includes(location.id));
+    setIsVisited(getVisitedIds().includes(location.id));
+  }, [location]);
 
   // 리뷰 추가 후 리프레시
   const handleReviewAdded = (newReview: Review) => {
@@ -209,6 +220,29 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               visitSlot={location.curator_visit_slot}
               disclosure={location.disclosure}
             />
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setIsSaved(toggleSaved(location))}
+                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  isSaved
+                    ? 'border-orange-200 bg-orange-50 text-orange-700'
+                    : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {isSaved ? '가보고 싶음 저장됨' : '가보고 싶음'}
+              </button>
+              <button
+                onClick={() => setIsVisited(toggleVisited(location))}
+                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  isVisited
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {isVisited ? '다녀옴 기록됨' : '다녀왔어요'}
+              </button>
+            </div>
 
             {/* 태그 */}
             {visibleTags.length > 0 && (
@@ -373,6 +407,29 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
               visitSlot={location.curator_visit_slot}
               disclosure={location.disclosure}
             />
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setIsSaved(toggleSaved(location))}
+                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  isSaved
+                    ? 'border-orange-200 bg-orange-50 text-orange-700'
+                    : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {isSaved ? '가보고 싶음 저장됨' : '가보고 싶음'}
+              </button>
+              <button
+                onClick={() => setIsVisited(toggleVisited(location))}
+                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  isVisited
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                {isVisited ? '다녀옴 기록됨' : '다녀왔어요'}
+              </button>
+            </div>
 
             {/* 태그 */}
             {visibleTags.length > 0 && (

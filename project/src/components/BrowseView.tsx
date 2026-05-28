@@ -6,7 +6,8 @@
  * 쓰는 보조 기능으로 제공한다.
  */
 
-import { ChevronDown, ChevronUp, MapPin, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Flame, MapPin, Search, X } from 'lucide-react';
+import { useState } from 'react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
@@ -15,6 +16,7 @@ import { useBrowseViewController } from '../hooks/useBrowseViewController';
 import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
 import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
+import { getSavedIds, getVisitedIds, recordActivity, toggleSaved, toggleVisited } from '../utils/activity';
 import type { Location } from '../types/location';
 import type { BrowseViewProps } from './browse/types';
 
@@ -25,6 +27,11 @@ import type { BrowseViewProps } from './browse/types';
 export function BrowseView({
   contentMode = 'food',
   displayedLocations,
+  isCuratedStart = false,
+  totalLocationCount,
+  hotRegions = [],
+  onSelectHotRegion,
+  onShowAllPlaces,
   filterState,
   filterControls,
   filterOptions,
@@ -115,7 +122,9 @@ export function BrowseView({
               어디 갈까?
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              {contentMode === 'space' ? '가보고 싶은 볼거리를 지도에서 편하게 찾아봐요.' : '좋아하는 맛집과 카페를 지도에서 편하게 찾아봐요.'}
+              {contentMode === 'space'
+                ? '직접 모아둔 볼거리 후보를 지도에서 가볍게 둘러봐요.'
+                : '직접 모아둔 검증 장소를 지도에서 가볍게 둘러봐요.'}
             </p>
           </header>
 
@@ -179,12 +188,53 @@ export function BrowseView({
                 />
               </div>
             )}
+
+            {isCuratedStart && (
+              <div className="rounded-2xl border border-orange-100 bg-orange-50/60 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-xs font-bold text-orange-700">
+                      <Flame size={14} />
+                      요즘 먼저 볼 만한 곳
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-orange-700/70">
+                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 반응과 큐레이션이 좋은 후보만 먼저 보여줘요.
+                    </p>
+                  </div>
+                  {onShowAllPlaces && (
+                    <button
+                      type="button"
+                      onClick={onShowAllPlaces}
+                      className="shrink-0 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-orange-700 shadow-sm"
+                    >
+                      전체 보기
+                    </button>
+                  )}
+                </div>
+                {hotRegions.length > 0 && (
+                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                    {hotRegions.map((region) => (
+                      <button
+                        key={region}
+                        type="button"
+                        onClick={() => onSelectHotRegion?.(region)}
+                        className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm"
+                      >
+                        {region}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-32 pt-4 md:px-5 lg:pb-28">
             <p className="mb-3 text-xs font-medium text-gray-400">
               {searchQuery
                 ? `검색 결과 ${searchFilteredLocations.length}곳`
+                : isCuratedStart
+                  ? `핫플레이스 후보 ${searchFilteredLocations.length}곳`
                 : `장소 ${searchFilteredLocations.length}곳`
               }
             </p>
@@ -434,14 +484,19 @@ interface DesktopDetailPanelProps {
 }
 
 function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
+  const [isSaved, setIsSaved] = useState(() => getSavedIds().includes(location.id));
+  const [isVisited, setIsVisited] = useState(() => getVisitedIds().includes(location.id));
+
   // 네이버 지도 열기 (PC: 새 탭)
   const handleOpenNaver = () => {
+    recordActivity('open_naver', location);
     const query = encodeURIComponent(location.name);
     window.open(`https://map.naver.com/v5/search/${query}`, '_blank');
   };
 
   // 카카오맵 열기 (PC: 새 탭)
   const handleOpenKakao = () => {
+    recordActivity('open_kakao', location);
     const query = encodeURIComponent(location.name);
     window.open(`https://map.kakao.com/link/search/${query}`, '_blank');
   };
@@ -497,6 +552,29 @@ function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
             );
           })()}
           <PriceLevelBadge priceLevel={location.price_level} size="sm" />
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setIsSaved(toggleSaved(location))}
+            className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+              isSaved
+                ? 'border-orange-200 bg-orange-50 text-orange-700'
+                : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            {isSaved ? '가보고 싶음 저장됨' : '가보고 싶음'}
+          </button>
+          <button
+            onClick={() => setIsVisited(toggleVisited(location))}
+            className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+              isVisited
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            {isVisited ? '다녀옴 기록됨' : '다녀왔어요'}
+          </button>
         </div>
 
         <p className="mt-4 text-sm text-gray-500">

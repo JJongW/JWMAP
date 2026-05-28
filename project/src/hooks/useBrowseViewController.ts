@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Location } from '../types/location';
 import type { BrowseViewProps } from '../components/browse/types';
+import { recordActivity } from '../utils/activity';
 
 interface UseBrowseViewControllerParams extends BrowseViewProps {
   isMobile: boolean;
@@ -72,11 +73,13 @@ export function useBrowseViewController(params: UseBrowseViewControllerParams) {
   }, [searchQuery, displayedLocations]);
 
   const handleLocationSelect = (location: Location) => {
+    recordActivity('list_click', location);
     setSelectedLocation(location);
     if (isMobile) setDetailLocation(location);
   };
 
   const handleMarkerClick = (location: Location) => {
+    recordActivity('marker_click', location);
     setSelectedLocation(location);
     if (isMobile) setDetailLocation(location);
   };

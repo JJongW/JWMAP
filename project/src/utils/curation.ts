@@ -10,6 +10,7 @@ export const isOwnerMode = import.meta.env.VITE_OWNER_MODE === 'true';
 export interface CurationTier {
   level: number;
   label: string;
+  description: string;
   color: string; // tailwind color name
   bgClass: string;
   textClass: string;
@@ -17,11 +18,11 @@ export interface CurationTier {
 }
 
 const CURATION_TIERS: CurationTier[] = [
-  { level: 1, label: '눈도장', color: 'slate', bgClass: 'bg-slate-100', textClass: 'text-slate-700', badgeClass: 'bg-slate-100 text-slate-700' },
-  { level: 2, label: '추천픽', color: 'blue', bgClass: 'bg-blue-100', textClass: 'text-blue-700', badgeClass: 'bg-blue-100 text-blue-700' },
-  { level: 3, label: '확신픽', color: 'violet', bgClass: 'bg-violet-100', textClass: 'text-violet-700', badgeClass: 'bg-violet-100 text-violet-700' },
-  { level: 4, label: '시그니처', color: 'amber', bgClass: 'bg-amber-100', textClass: 'text-amber-700', badgeClass: 'bg-amber-100 text-amber-700' },
-  { level: 5, label: '아카이브', color: 'rose', bgClass: 'bg-rose-100', textClass: 'text-rose-700', badgeClass: 'bg-rose-100 text-rose-700' },
+  { level: 1, label: '후보', description: '궁금해서 저장해둔 곳', color: 'slate', bgClass: 'bg-slate-100', textClass: 'text-slate-700', badgeClass: 'bg-slate-100 text-slate-700' },
+  { level: 2, label: '가볼만함', description: '조건이 맞으면 들러볼 만한 곳', color: 'sky', bgClass: 'bg-sky-100', textClass: 'text-sky-700', badgeClass: 'bg-sky-100 text-sky-700' },
+  { level: 3, label: '검증됨', description: '믿고 후보에 넣기 좋은 곳', color: 'emerald', bgClass: 'bg-emerald-100', textClass: 'text-emerald-700', badgeClass: 'bg-emerald-100 text-emerald-700' },
+  { level: 4, label: '강력추천', description: '먼저 봐도 좋은 우선 후보', color: 'orange', bgClass: 'bg-orange-100', textClass: 'text-orange-700', badgeClass: 'bg-orange-100 text-orange-700' },
+  { level: 5, label: '대표픽', description: '이 지도에서 특히 기억할 만한 곳', color: 'rose', bgClass: 'bg-rose-100', textClass: 'text-rose-700', badgeClass: 'bg-rose-100 text-rose-700' },
 ];
 
 /** 큐레이션 레벨에 해당하는 Tier 정보 반환 */
@@ -32,6 +33,11 @@ export function getCurationTier(level: number): CurationTier {
 /** 큐레이션 레벨 라벨 반환 */
 export function getCurationLabel(level: number): string {
   return getCurationTier(level).label;
+}
+
+/** 큐레이션 레벨 설명 반환 */
+export function getCurationDescription(level: number): string {
+  return getCurationTier(level).description;
 }
 
 /** 큐레이션 뱃지 CSS 클래스 반환 */
@@ -58,7 +64,7 @@ export function getPriceLevelDesc(level: number | null | undefined): string | nu
 
 /** 기존 rating 숫자를 큐레이션 레벨로 변환 (하위호환) */
 export function ratingToCurationLevel(rating: number): number {
-  if (rating >= 4) return 4;    // 원픽 → 시그니처
-  if (rating >= 2.5) return 2;  // 자주 방문 → 추천픽
-  return 1;                     // 모르겠음 → 눈도장
+  if (rating >= 4) return 4;    // 원픽 → 강력추천
+  if (rating >= 2.5) return 2;  // 자주 방문 → 가볼만함
+  return 1;                     // 모르겠음 → 후보
 }

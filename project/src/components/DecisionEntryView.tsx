@@ -52,12 +52,26 @@ const TIMESLOT_OPTIONS: { value: TimeSlot; label: string }[] = [
   { value: 'late', label: '늦은 밤' },
 ];
 
+const SPACE_TIMESLOT_OPTIONS: { value: TimeSlot; label: string }[] = [
+  { value: 'lunch', label: '가볍게' },
+  { value: 'dinner', label: '반나절' },
+  { value: 'late', label: '저녁에도' },
+];
+
 const PRIORITY_OPTIONS: { value: PriorityFeature; label: string }[] = [
   { value: 'quiet', label: '조용한 곳' },
   { value: 'wait_short', label: '줄 안 서는 곳' },
   { value: 'fast_serve', label: '빨리 나오는 곳' },
   { value: 'date_ok', label: '분위기 좋은 곳' },
   { value: 'solo_ok', label: '혼밥 눈치 안 보이는 곳' },
+];
+
+const SPACE_PRIORITY_OPTIONS: { value: PriorityFeature; label: string }[] = [
+  { value: 'quiet', label: '조용히 보기' },
+  { value: 'wait_short', label: '실내 위주' },
+  { value: 'fast_serve', label: '짧게 들르기' },
+  { value: 'date_ok', label: '사진 남기기' },
+  { value: 'solo_ok', label: '혼자 산책' },
 ];
 
 /** 지역 선택: '' = 상관없어요 (전체) */
@@ -115,6 +129,8 @@ export function DecisionEntryView({
     if (contentMode === 'space') {
       return {
         step1: '어디로 나들이 갈래?',
+        step3: '얼마나 머물래?',
+        step4: '어떤 시간이 좋아?',
         cta: '지금 바로 정해줘',
         browse: '지도로 돌아가기',
         accent: 'violet' as const,
@@ -123,6 +139,8 @@ export function DecisionEntryView({
 
     return {
       step1: '어디서 먹고 싶어?',
+      step3: '언제?',
+      step4: '가장 중요한 건?',
       cta: '지금 바로 정해줘',
       browse: '지도로 돌아가기',
       accent: 'orange' as const,
@@ -211,11 +229,11 @@ export function DecisionEntryView({
           {/* ── STEP 3: 시간대 ── */}
           <StepSection
             step={3}
-            label="언제?"
+            label={modeText.step3}
             isActive={companion !== null}
           >
             <PillGroup
-              options={TIMESLOT_OPTIONS}
+              options={contentMode === 'space' ? SPACE_TIMESLOT_OPTIONS : TIMESLOT_OPTIONS}
               accent={modeText.accent}
               selected={timeSlot}
               onSelect={setTimeSlot}
@@ -225,11 +243,11 @@ export function DecisionEntryView({
           {/* ── STEP 4: 우선 조건 ── */}
           <StepSection
             step={4}
-            label="가장 중요한 건?"
+            label={modeText.step4}
             isActive={companion !== null && timeSlot !== null}
           >
             <PillGroup
-              options={PRIORITY_OPTIONS}
+              options={contentMode === 'space' ? SPACE_PRIORITY_OPTIONS : PRIORITY_OPTIONS}
               accent={modeText.accent}
               selected={priorityFeature}
               onSelect={setPriorityFeature}
