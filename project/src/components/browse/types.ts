@@ -31,6 +31,7 @@ export interface BrowseViewProps {
   savedCount?: number;
   visitedCount?: number;
   revisitCount?: number;
+  myPlaceCount?: number;
   onSavedOnlyChange?: (enabled: boolean) => void;
   onSavedViewChange?: (view: SavedView) => void;
   onSavedStateChange?: () => void;

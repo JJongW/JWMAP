@@ -35,6 +35,7 @@ export function BrowseView({
   savedCount = 0,
   visitedCount = 0,
   revisitCount = 0,
+  myPlaceCount = savedCount,
   onSavedOnlyChange,
   onSavedViewChange,
   onSavedStateChange,
@@ -212,8 +213,8 @@ export function BrowseView({
                     : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                 }`}
               >
-                <Heart size={13} fill={savedOnly ? 'currentColor' : 'none'} />
-                <span>내 후보 {savedCount}</span>
+                <CheckCircle2 size={13} />
+                <span>내 장소 {myPlaceCount}</span>
               </button>
             </div>
 
@@ -405,6 +406,7 @@ export function BrowseView({
                   : '조건에 맞는 장소가 없어요.'
               }
               onSavedStateChange={onSavedStateChange}
+              savedView={savedOnly ? savedView : undefined}
             />
           </div>
         </section>
@@ -464,6 +466,7 @@ interface BrowseListProps {
   selectedId?: string;
   emptyMessage?: string;
   onSavedStateChange?: () => void;
+  savedView?: 'saved' | 'visited' | 'revisit';
 }
 
 function BrowseList({
@@ -474,9 +477,11 @@ function BrowseList({
   selectedId,
   emptyMessage = '조건에 맞는 장소가 없어요.',
   onSavedStateChange,
+  savedView,
 }: BrowseListProps) {
   const [, refreshSavedIds] = useState(0);
   const savedIds = new Set(getSavedIds());
+  const visitedIds = new Set(getVisitedIds());
 
   if (locations.length === 0) {
     return (
@@ -491,7 +496,9 @@ function BrowseList({
       {locations.slice(0, visibleCount).map((location) => {
         const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
         const isSaved = savedIds.has(location.id);
-        const reason = getRecommendationReason(location, level);
+        const isVisited = visitedIds.has(location.id);
+        const reason = getRecommendationReason(location, level, savedView);
+        const showsVisitState = savedView === 'visited' || savedView === 'revisit';
 
         return (
           <div
@@ -549,6 +556,12 @@ function BrowseList({
             </button>
 
             <div className="ml-1 flex shrink-0 flex-col items-end gap-1.5">
+              {showsVisitState && isVisited && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-bold text-emerald-700">
+                  <CheckCircle2 size={12} />
+                  다녀옴
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -557,13 +570,17 @@ function BrowseList({
                   onSavedStateChange?.();
                 }}
                 aria-label={isSaved ? `${location.name} 가보고 싶음 해제` : `${location.name} 가보고 싶음 저장`}
-                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
-                  isSaved
-                    ? 'border-orange-200 bg-orange-50 text-orange-600'
-                    : 'border-gray-200 bg-white text-gray-300 hover:text-orange-500'
+                className={`flex items-center justify-center rounded-full border transition-colors ${
+                  showsVisitState
+                    ? isSaved
+                      ? 'h-7 w-7 border-orange-100 bg-orange-50/70 text-orange-500'
+                      : 'h-7 w-7 border-transparent bg-transparent text-gray-300 hover:bg-gray-50 hover:text-orange-500'
+                    : isSaved
+                      ? 'h-8 w-8 border-orange-200 bg-orange-50 text-orange-600'
+                      : 'h-8 w-8 border-gray-200 bg-white text-gray-300 hover:text-orange-500'
                 }`}
               >
-                <Heart size={15} fill={isSaved ? 'currentColor' : 'none'} />
+                <Heart size={showsVisitState ? 13 : 15} fill={isSaved ? 'currentColor' : 'none'} />
               </button>
               <div className="flex items-center gap-1.5">
                 <span className={`rounded px-2 py-0.5 text-xs font-semibold ${getCurationBadgeClass(level)}`}>
@@ -660,8 +677,18 @@ function RecommendationBar({ onBackToDecision }: RecommendationBarProps) {
   );
 }
 
-function getRecommendationReason(location: Location, level: number): string {
-  const reasonParts: string[] = [getCurationDescription(level)];
+function getRecommendationReason(
+  location: Location,
+  level: number,
+  savedView?: 'saved' | 'visited' | 'revisit'
+): string {
+  const reasonParts: string[] = [
+    savedView === 'revisit'
+      ? '다시 보기 좋은 후보'
+      : savedView === 'visited'
+        ? '방문 기록 있음'
+        : getCurationDescription(level),
+  ];
   if (location.curator_visited !== false) reasonParts.push('직접 확인');
   if (location.short_desc || location.memo) reasonParts.push('메모 있음');
   if (location.tags?.[0]) reasonParts.push(`#${location.tags[0]}`);
@@ -781,33 +808,36 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
           <PriceLevelBadge priceLevel={location.price_level} size="sm" />
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            onClick={() => {
-              setIsSaved(toggleSaved(location));
-              onPlaceStateChange?.();
-            }}
-            className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
-              isSaved
-                ? 'border-orange-200 bg-orange-50 text-orange-700'
-                : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            {isSaved ? '가보고 싶음 저장됨' : '가보고 싶음'}
-          </button>
-          <button
-            onClick={() => {
-              setIsVisited(toggleVisited(location));
-              onPlaceStateChange?.();
-            }}
-            className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
-              isVisited
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-            }`}
-          >
-            {isVisited ? '다녀옴 기록됨' : '다녀왔어요'}
-          </button>
+        <div className="mt-4 space-y-2">
+          <p className="text-xs font-semibold text-gray-400">내 상태</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => {
+                setIsSaved(toggleSaved(location));
+                onPlaceStateChange?.();
+              }}
+              className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                isSaved
+                  ? 'border-orange-200 bg-orange-50 text-orange-700'
+                  : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              {isSaved ? '저장됨' : '가보고 싶음'}
+            </button>
+            <button
+              onClick={() => {
+                setIsVisited(toggleVisited(location));
+                onPlaceStateChange?.();
+              }}
+              className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                isVisited
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              {isVisited ? '다녀옴 기록됨' : '다녀왔어요'}
+            </button>
+          </div>
         </div>
 
         <p className="mt-4 text-sm text-gray-500">

@@ -219,6 +219,10 @@ export default function App() {
     () => locations.filter((location) => visitedLocationIds.has(location.id)).length,
     [locations, visitedLocationIds]
   );
+  const myPlaceCount = useMemo(
+    () => locations.filter((location) => savedLocationIds.has(location.id) || visitedLocationIds.has(location.id)).length,
+    [locations, savedLocationIds, visitedLocationIds]
+  );
 
   const revisitLocations = useMemo(() => {
     return filteredLocations
@@ -609,6 +613,7 @@ export default function App() {
           savedCount={savedLocationCount}
           visitedCount={visitedLocationCount}
           revisitCount={revisitLocations.length}
+          myPlaceCount={myPlaceCount}
           onSavedOnlyChange={(enabled) => {
             setShowSavedOnly(enabled);
             setShowFullMapStart(false);
