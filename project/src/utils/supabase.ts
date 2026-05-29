@@ -248,10 +248,15 @@ export interface SavedPlaceState {
   is_visited: boolean;
 }
 
+export interface SavedPlaceStateSyncResult {
+  rows: SavedPlaceState[];
+  didSync: boolean;
+}
+
 // 사용자 장소 상태 API
 // 로그인 전 단계에서는 anonymous session_id 기준으로 저장한다.
 export const savedPlaceApi = {
-  async getBySession(sessionId: string): Promise<SavedPlaceState[]> {
+  async getBySession(sessionId: string): Promise<SavedPlaceStateSyncResult> {
     try {
       const { data, error } = await supabase
         .from('user_place_states')
@@ -260,20 +265,23 @@ export const savedPlaceApi = {
 
       if (error) {
         if (error.message?.includes('schema cache') || error.code === '42P01') {
-          return [];
+          return { rows: [], didSync: false };
         }
         if (import.meta.env.DEV) console.warn('[savedPlaceApi] getBySession:', error);
-        return [];
+        return { rows: [], didSync: false };
       }
 
-      return ((data || []) as Record<string, unknown>[]).map((row) => ({
-        location_id: row.location_id as string,
-        content_type: (row.content_type || 'food') as ContentMode,
-        is_saved: Boolean(row.is_saved),
-        is_visited: Boolean(row.is_visited),
-      }));
+      return {
+        rows: ((data || []) as Record<string, unknown>[]).map((row) => ({
+          location_id: row.location_id as string,
+          content_type: (row.content_type || 'food') as ContentMode,
+          is_saved: Boolean(row.is_saved),
+          is_visited: Boolean(row.is_visited),
+        })),
+        didSync: true,
+      };
     } catch {
-      return [];
+      return { rows: [], didSync: false };
     }
   },
 
@@ -281,16 +289,16 @@ export const savedPlaceApi = {
     session_id: string;
     location_id: string;
     content_type: ContentMode;
-    is_saved?: boolean;
-    is_visited?: boolean;
+    is_saved: boolean;
+    is_visited: boolean;
   }): Promise<void> {
     try {
       const payload = {
         session_id: params.session_id,
         location_id: params.location_id,
         content_type: params.content_type,
-        ...(params.is_saved !== undefined ? { is_saved: params.is_saved } : {}),
-        ...(params.is_visited !== undefined ? { is_visited: params.is_visited } : {}),
+        is_saved: params.is_saved,
+        is_visited: params.is_visited,
         updated_at: new Date().toISOString(),
       };
 

@@ -100,8 +100,8 @@ export function getVisitedIds(): string[] {
 }
 
 export async function syncPlaceStateFromRemote(): Promise<void> {
-  const rows = await savedPlaceApi.getBySession(getSessionId());
-  if (rows.length === 0) return;
+  const { rows, didSync } = await savedPlaceApi.getBySession(getSessionId());
+  if (!didSync) return;
 
   writeJson(
     SAVED_KEY,
@@ -115,6 +115,7 @@ export async function syncPlaceStateFromRemote(): Promise<void> {
 
 export function toggleSaved(location: Location): boolean {
   const ids = new Set(getSavedIds());
+  const visitedIds = new Set(getVisitedIds());
   const willSave = !ids.has(location.id);
   if (willSave) ids.add(location.id);
   else ids.delete(location.id);
@@ -125,11 +126,13 @@ export function toggleSaved(location: Location): boolean {
     location_id: location.id,
     content_type: location.contentType || 'food',
     is_saved: willSave,
+    is_visited: visitedIds.has(location.id),
   });
   return willSave;
 }
 
 export function toggleVisited(location: Location): boolean {
+  const savedIds = new Set(getSavedIds());
   const ids = new Set(getVisitedIds());
   const willMark = !ids.has(location.id);
   if (willMark) ids.add(location.id);
@@ -140,6 +143,7 @@ export function toggleVisited(location: Location): boolean {
     session_id: getSessionId(),
     location_id: location.id,
     content_type: location.contentType || 'food',
+    is_saved: savedIds.has(location.id),
     is_visited: willMark,
   });
   return willMark;
