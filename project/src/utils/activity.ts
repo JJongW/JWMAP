@@ -1,9 +1,10 @@
 import type { Location } from '../types/location';
-import { clickLogApi, type ClickActionType } from './supabase';
+import { clickLogApi, savedPlaceApi, type ClickActionType } from './supabase';
 
 const ACTIVITY_KEY = 'jwmap.activity.v1';
 const SAVED_KEY = 'jwmap.saved.v1';
 const VISITED_KEY = 'jwmap.visited.v1';
+const SESSION_KEY = 'jwmap.session.v1';
 
 export type ActivityAction =
   | ClickActionType
@@ -35,6 +36,27 @@ function readJson<T>(key: string, fallback: T): T {
 function writeJson(key: string, value: unknown) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function readString(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(key);
+}
+
+function writeString(key: string, value: string) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(key, value);
+}
+
+export function getSessionId(): string {
+  const existing = readString(SESSION_KEY);
+  if (existing) return existing;
+
+  const sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `jwmap-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  writeString(SESSION_KEY, sessionId);
+  return sessionId;
 }
 
 export function recordActivity(action: ActivityAction, location?: Location, metadata?: Record<string, string>) {
@@ -77,6 +99,20 @@ export function getVisitedIds(): string[] {
   return readJson<string[]>(VISITED_KEY, []);
 }
 
+export async function syncPlaceStateFromRemote(): Promise<void> {
+  const rows = await savedPlaceApi.getBySession(getSessionId());
+  if (rows.length === 0) return;
+
+  writeJson(
+    SAVED_KEY,
+    rows.filter((row) => row.is_saved).map((row) => row.location_id)
+  );
+  writeJson(
+    VISITED_KEY,
+    rows.filter((row) => row.is_visited).map((row) => row.location_id)
+  );
+}
+
 export function toggleSaved(location: Location): boolean {
   const ids = new Set(getSavedIds());
   const willSave = !ids.has(location.id);
@@ -84,6 +120,12 @@ export function toggleSaved(location: Location): boolean {
   else ids.delete(location.id);
   writeJson(SAVED_KEY, [...ids]);
   recordActivity(willSave ? 'save_want' : 'unsave_want', location);
+  savedPlaceApi.upsertState({
+    session_id: getSessionId(),
+    location_id: location.id,
+    content_type: location.contentType || 'food',
+    is_saved: willSave,
+  });
   return willSave;
 }
 
@@ -94,5 +136,11 @@ export function toggleVisited(location: Location): boolean {
   else ids.delete(location.id);
   writeJson(VISITED_KEY, [...ids]);
   recordActivity(willMark ? 'mark_visited' : 'unmark_visited', location);
+  savedPlaceApi.upsertState({
+    session_id: getSessionId(),
+    location_id: location.id,
+    content_type: location.contentType || 'food',
+    is_visited: willMark,
+  });
   return willMark;
 }

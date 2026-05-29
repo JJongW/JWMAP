@@ -16,7 +16,7 @@ import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
-import { getActivityScore, recordActivity } from './utils/activity';
+import { getActivityScore, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 export default function App() {
@@ -458,6 +458,7 @@ export default function App() {
 
   // Load data on mount
   useEffect(() => {
+    syncPlaceStateFromRemote();
     fetchLocations();
     setFilters(DEFAULT_FILTER_STATE);
     setShowFullMapStart(false);

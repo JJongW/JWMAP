@@ -241,6 +241,75 @@ export const clickLogApi = {
   }
 };
 
+export interface SavedPlaceState {
+  location_id: string;
+  content_type: ContentMode;
+  is_saved: boolean;
+  is_visited: boolean;
+}
+
+// 사용자 장소 상태 API
+// 로그인 전 단계에서는 anonymous session_id 기준으로 저장한다.
+export const savedPlaceApi = {
+  async getBySession(sessionId: string): Promise<SavedPlaceState[]> {
+    try {
+      const { data, error } = await supabase
+        .from('user_place_states')
+        .select('location_id, content_type, is_saved, is_visited')
+        .eq('session_id', sessionId);
+
+      if (error) {
+        if (error.message?.includes('schema cache') || error.code === '42P01') {
+          return [];
+        }
+        if (import.meta.env.DEV) console.warn('[savedPlaceApi] getBySession:', error);
+        return [];
+      }
+
+      return ((data || []) as Record<string, unknown>[]).map((row) => ({
+        location_id: row.location_id as string,
+        content_type: (row.content_type || 'food') as ContentMode,
+        is_saved: Boolean(row.is_saved),
+        is_visited: Boolean(row.is_visited),
+      }));
+    } catch {
+      return [];
+    }
+  },
+
+  async upsertState(params: {
+    session_id: string;
+    location_id: string;
+    content_type: ContentMode;
+    is_saved?: boolean;
+    is_visited?: boolean;
+  }): Promise<void> {
+    try {
+      const payload = {
+        session_id: params.session_id,
+        location_id: params.location_id,
+        content_type: params.content_type,
+        ...(params.is_saved !== undefined ? { is_saved: params.is_saved } : {}),
+        ...(params.is_visited !== undefined ? { is_visited: params.is_visited } : {}),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('user_place_states')
+        .upsert(payload, { onConflict: 'session_id,location_id,content_type' });
+
+      if (error) {
+        if (error.message?.includes('schema cache') || error.code === '42P01') {
+          return;
+        }
+        if (import.meta.env.DEV) console.warn('[savedPlaceApi] upsertState:', error);
+      }
+    } catch {
+      // 저장 실패가 탐색 UX를 막지 않도록 무시한다.
+    }
+  },
+};
+
 // 리뷰 관련 API 함수들
 // 참고: reviews 테이블이 없으면 빈 데이터 반환 (기능 비활성화 상태)
 export const reviewApi = {
