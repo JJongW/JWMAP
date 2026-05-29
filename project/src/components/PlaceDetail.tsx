@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, MapPin, Copy, Check, Navigation, ExternalLink, Share2 } from 'lucide-react';
+import { X, MapPin, Copy, Check, Navigation, ExternalLink, Share2, Heart } from 'lucide-react';
 import type { Location, Review } from '../types/location';
 import { reviewApi, searchLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
@@ -228,13 +228,14 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
                   setIsSaved(toggleSaved(location));
                   onPlaceStateChange?.();
                 }}
-                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
                   isSaved
                     ? 'border-orange-200 bg-orange-50 text-orange-700'
                     : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                 }`}
               >
-                {isSaved ? '가보고 싶음 저장됨' : '가보고 싶음'}
+                <Heart size={15} fill={isSaved ? 'currentColor' : 'none'} />
+                {isSaved ? '가보고 싶음 저장됨' : '저장하기'}
               </button>
               <button
                 onClick={() => {
@@ -421,13 +422,14 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
                   setIsSaved(toggleSaved(location));
                   onPlaceStateChange?.();
                 }}
-                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
                   isSaved
                     ? 'border-orange-200 bg-orange-50 text-orange-700'
                     : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                 }`}
               >
-                {isSaved ? '가보고 싶음 저장됨' : '가보고 싶음'}
+                <Heart size={15} fill={isSaved ? 'currentColor' : 'none'} />
+                {isSaved ? '가보고 싶음 저장됨' : '저장하기'}
               </button>
               <button
                 onClick={() => {

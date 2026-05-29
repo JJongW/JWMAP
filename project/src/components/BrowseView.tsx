@@ -816,13 +816,14 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
                 setIsSaved(toggleSaved(location));
                 onPlaceStateChange?.();
               }}
-              className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
                 isSaved
                   ? 'border-orange-200 bg-orange-50 text-orange-700'
                   : 'border-gray-200 text-gray-500 hover:bg-gray-50'
               }`}
             >
-              {isSaved ? '저장됨' : '가보고 싶음'}
+              <Heart size={15} fill={isSaved ? 'currentColor' : 'none'} />
+              {isSaved ? '가보고 싶음 저장됨' : '저장하기'}
             </button>
             <button
               onClick={() => {
