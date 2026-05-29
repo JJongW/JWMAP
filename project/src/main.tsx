@@ -3,12 +3,29 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+type KakaoMapsWindow = Window & {
+  kakao?: {
+    maps?: {
+      LatLng?: unknown;
+      load?: (callback: () => void) => void;
+    };
+  };
+};
+
+function getKakaoMaps() {
+  return (window as KakaoMapsWindow).kakao?.maps;
+}
+
+function isKakaoMapsReady(): boolean {
+  return Boolean(getKakaoMaps()?.LatLng);
+}
+
 // Kakao Maps SDK 동적 로드
 function loadKakaoMapsSDK(): Promise<void> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     // 이미 로드 + 초기화되어 있으면 즉시 resolve
     // LatLng가 생성자인지 확인하여 SDK가 완전히 초기화됐는지 판단
-    if (typeof window !== 'undefined' && (window as any).kakao?.maps?.LatLng) {
+    if (typeof window !== 'undefined' && isKakaoMapsReady()) {
       resolve();
       return;
     }
@@ -26,14 +43,14 @@ function loadKakaoMapsSDK(): Promise<void> {
     if (existingScript) {
       // 스크립트가 있으면 SDK 완전 초기화를 기다림 (LatLng 생성자 유무로 판단)
       const checkInterval = setInterval(() => {
-        if (typeof window !== 'undefined' && (window as any).kakao?.maps?.LatLng) {
+        if (typeof window !== 'undefined' && isKakaoMapsReady()) {
           clearInterval(checkInterval);
           resolve();
         }
       }, 100);
       setTimeout(() => {
         clearInterval(checkInterval);
-        if (typeof window !== 'undefined' && (window as any).kakao?.maps?.LatLng) {
+        if (typeof window !== 'undefined' && isKakaoMapsReady()) {
           resolve();
         } else {
           console.warn('Kakao Maps SDK 로드 시간 초과. 지도 기능이 작동하지 않을 수 있습니다.');
@@ -51,8 +68,9 @@ function loadKakaoMapsSDK(): Promise<void> {
     script.async = true;
     script.onload = () => {
       // autoload=false이므로 kakao.maps.load()를 직접 호출해야 함
-      if (typeof window !== 'undefined' && (window as any).kakao?.maps?.load) {
-        (window as any).kakao.maps.load(() => {
+      const kakaoMaps = getKakaoMaps();
+      if (typeof window !== 'undefined' && kakaoMaps?.load) {
+        kakaoMaps.load(() => {
           resolve();
         });
       } else {
@@ -69,7 +87,7 @@ function loadKakaoMapsSDK(): Promise<void> {
     
     // 타임아웃 설정 (10초)
     setTimeout(() => {
-      if (typeof window !== 'undefined' && (window as any).kakao?.maps?.LatLng) {
+      if (typeof window !== 'undefined' && isKakaoMapsReady()) {
         resolve();
       } else {
         console.warn('Kakao Maps SDK 로드 시간 초과. 지도 기능이 작동하지 않을 수 있습니다.');

@@ -154,11 +154,13 @@ export function Map(props: MapProps) {
   const markersRef = useRef<kakao.maps.Marker[]>([]);
   const userLocationMarkerRef = useRef<kakao.maps.Marker | null>(null);
   const onMarkerClickRef = useRef(onMarkerClick);
+  const onMapReadyRef = useRef(onMapReady);
   const [mapStatus, setMapStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const isReady = mapStatus === 'ready';
 
   // 최신 콜백 유지
   onMarkerClickRef.current = onMarkerClick;
+  onMapReadyRef.current = onMapReady;
 
   const selectedLocationId = selectedLocation?.id ?? null;
   const visibleLocations = useMemo(
@@ -246,8 +248,8 @@ export function Map(props: MapProps) {
         }
         
         // 지도 준비 완료 시 콜백 호출
-        if (onMapReady && mapRef.current) {
-          onMapReady(mapRef.current);
+        if (onMapReadyRef.current && mapRef.current) {
+          onMapReadyRef.current(mapRef.current);
         }
       } catch (e) {
         console.error('지도 초기화 오류:', e);

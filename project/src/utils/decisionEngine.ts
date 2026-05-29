@@ -113,6 +113,13 @@ interface ScoredLocation {
   location: Location;
   score: number;
   matchedTags: string[];
+  companion: Companion;
+  timeSlot: TimeSlot;
+  priorityFeature: PriorityFeature;
+}
+
+function addMatchedTag(tags: string[], tag: string) {
+  if (!tags.includes(tag)) tags.push(tag);
 }
 
 function scoreLocation(
@@ -130,14 +137,14 @@ function scoreLocation(
   }
   if (priorityKeywords.length > 0) {
     score += 100; // 필수 조건 충족 가산점
-    matchedTags.push(priorityKeywords[0]);
+    addMatchedTag(matchedTags, priorityKeywords[0]);
   }
 
   // ── 보너스: Companion 태그 매칭 ──
   const companionKeywords = getCompanionTagKeywords(companion);
   if (hasTagKeyword(location, companionKeywords)) {
     score += 30;
-    matchedTags.push(companionKeywords[0]);
+    addMatchedTag(matchedTags, companionKeywords[0]);
   }
 
   // ── 보너스: TimeSlot 카테고리 가중치 ──
@@ -150,7 +157,7 @@ function scoreLocation(
   // ── 보너스: late_night 시간대 매칭 ──
   if (timeSlot === 'late' && hasTagKeyword(location, ['심야', '야식', '늦게'])) {
     score += 20;
-    matchedTags.push('심야');
+    addMatchedTag(matchedTags, '심야');
   }
 
   // ── 보너스: 추가 태그 호환성 ──
@@ -167,7 +174,7 @@ function scoreLocation(
   for (const keyword of bonusKeywords) {
     if (hasTagKeyword(location, [keyword]) && !matchedTags.includes(keyword)) {
       score += 5;
-      matchedTags.push(keyword);
+      addMatchedTag(matchedTags, keyword);
     }
   }
 
@@ -176,7 +183,7 @@ function scoreLocation(
   const rating = location.rating ?? 0;
   score += Math.round((rating / 5) * 20);
 
-  return { location, score, matchedTags };
+  return { location, score, matchedTags, companion, timeSlot, priorityFeature };
 }
 
 // ─────────────────────────────────────────────
@@ -252,26 +259,40 @@ export function decideLocations(
 
 /** 태그 키워드 → 사용자 친화적 텍스트 */
 const TAG_TEXT: Record<string, string> = {
-  혼밥: '혼자 와도 편하고',
-  데이트: '데이트하기 좋고',
-  모임: '여럿이 오기 좋고',
-  조용: '조용한 분위기에서',
-  심야: '늦은 시간에도 열려 있고',
-  벚꽃: '계절감이 좋아서',
-  산책: '걷기 좋은 동선이 있고',
-  야경: '야경이 매력적이고',
-  포토스팟: '사진 찍기 좋고',
+  혼밥: '부담이 적은',
+  데이트: '분위기가 맞는',
+  모임: '자리 구성이 여유로운',
+  조용: '차분한',
+  심야: '늦게까지 열려 있는',
+  벚꽃: '계절감이 살아 있는',
+  산책: '걷는 동선과 잘 맞는',
+  야경: '저녁 풍경이 좋은',
+  포토스팟: '사진 남기기 좋은',
 };
 
 const TIME_TEXT: Record<TimeSlot, string> = {
-  lunch: '점심시간',
-  dinner: '저녁시간',
-  late: '이 시간대',
+  lunch: '점심에',
+  dinner: '저녁에',
+  late: '늦은 시간에',
+};
+
+const COMPANION_REASON_TEXT: Record<Companion, string> = {
+  solo: '혼자',
+  pair: '둘이',
+  group: '여럿이',
+};
+
+const PRIORITY_REASON_TEXT: Partial<Record<PriorityFeature, string>> = {
+  quiet: '차분한 분위기를 우선할 때',
+  wait_short: '대기 부담을 줄이고 싶을 때',
+  fast_serve: '빠르게 정하고 싶을 때',
+  date_ok: '분위기를 중요하게 볼 때',
+  solo_ok: '혼자 편하게 가고 싶을 때',
 };
 
 function generateReason(
   scored: ScoredLocation,
-  _companion: Companion,
+  companion: Companion,
   timeSlot: TimeSlot,
 ): string {
   const loc = scored.location;
@@ -284,18 +305,20 @@ function generateReason(
   const featureTexts = scored.matchedTags
     .filter(key => TAG_TEXT[key])
     .map(key => TAG_TEXT[key])
+    .filter((text, index, array) => array.indexOf(text) === index)
     .slice(0, 2);
 
-  if (featureTexts.length >= 2) {
-    return `${featureTexts[0]}, ${TIME_TEXT[timeSlot]}에 ${featureTexts[1].replace('요', '')}요.`;
+  if (featureTexts.length > 0) {
+    return `${TIME_TEXT[timeSlot]} ${COMPANION_REASON_TEXT[companion]} 가기 좋은 ${featureTexts[0]} 후보예요.`;
   }
 
-  if (featureTexts.length === 1) {
-    return `${featureTexts[0]}, ${TIME_TEXT[timeSlot]}에 가기 딱 좋아요.`;
+  const priorityText = PRIORITY_REASON_TEXT[scored.priorityFeature];
+  if (priorityText) {
+    return `${priorityText} ${TIME_TEXT[timeSlot]} 비교해볼 만한 후보예요.`;
   }
 
   // fallback
-  return `${TIME_TEXT[timeSlot]}에 가기 좋은 곳이에요.`;
+  return `${TIME_TEXT[timeSlot]} ${COMPANION_REASON_TEXT[companion]} 가기 좋은 후보예요.`;
 }
 
 // ─────────────────────────────────────────────
@@ -352,5 +375,10 @@ export function getDifferentiator(
     return secondary.short_desc;
   }
 
-  return '이곳도 좋은 선택이에요';
+  const category = secondary.categorySub || secondary.categoryMain;
+  if (category && category !== '전체') {
+    return `${secondary.region}에서 함께 비교해볼 ${category} 후보예요`;
+  }
+
+  return `${secondary.region}에서 함께 비교해볼 후보예요`;
 }

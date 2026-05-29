@@ -16,9 +16,10 @@ interface PlaceDetailProps {
   onClose: () => void;
   isMobile?: boolean;
   searchId?: string | null;
+  onPlaceStateChange?: () => void;
 }
 
-export function PlaceDetail({ location, onClose, isMobile = false, searchId }: PlaceDetailProps) {
+export function PlaceDetail({ location, onClose, isMobile = false, searchId, onPlaceStateChange }: PlaceDetailProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewCount, setReviewCount] = useState(0);
   const [isReviewsExpanded, setIsReviewsExpanded] = useState(false);
@@ -223,7 +224,10 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
 
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => setIsSaved(toggleSaved(location))}
+                onClick={() => {
+                  setIsSaved(toggleSaved(location));
+                  onPlaceStateChange?.();
+                }}
                 className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
                   isSaved
                     ? 'border-orange-200 bg-orange-50 text-orange-700'
@@ -233,7 +237,10 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
                 {isSaved ? '가보고 싶음 저장됨' : '가보고 싶음'}
               </button>
               <button
-                onClick={() => setIsVisited(toggleVisited(location))}
+                onClick={() => {
+                  setIsVisited(toggleVisited(location));
+                  onPlaceStateChange?.();
+                }}
                 className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
                   isVisited
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -410,7 +417,10 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
 
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => setIsSaved(toggleSaved(location))}
+                onClick={() => {
+                  setIsSaved(toggleSaved(location));
+                  onPlaceStateChange?.();
+                }}
                 className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
                   isSaved
                     ? 'border-orange-200 bg-orange-50 text-orange-700'
@@ -420,7 +430,10 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId }: P
                 {isSaved ? '가보고 싶음 저장됨' : '가보고 싶음'}
               </button>
               <button
-                onClick={() => setIsVisited(toggleVisited(location))}
+                onClick={() => {
+                  setIsVisited(toggleVisited(location));
+                  onPlaceStateChange?.();
+                }}
                 className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
                   isVisited
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'

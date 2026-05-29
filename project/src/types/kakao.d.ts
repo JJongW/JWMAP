@@ -123,6 +123,32 @@ declare namespace kakao.maps {
           };
         }
       }
+
+      class Places {
+        keywordSearch(
+          keyword: string,
+          callback: (result: Places.Result[], status: Status) => void,
+          options?: Places.KeywordSearchOptions
+        ): void;
+      }
+
+      namespace Places {
+        interface Result {
+          id: string;
+          place_name: string;
+          address_name: string;
+          road_address_name?: string;
+          y: string;
+          x: string;
+          category_group_name?: string;
+          category_name: string;
+          phone?: string;
+        }
+
+        interface KeywordSearchOptions {
+          size?: number;
+        }
+      }
     }
   }
   

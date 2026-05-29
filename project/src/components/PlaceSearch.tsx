@@ -17,8 +17,6 @@ interface PlaceSearchProps {
   placeholder?: string;
 }
 
-declare const kakao: any;
-
 export function PlaceSearch({ onSelect, placeholder = '장소명으로 검색' }: PlaceSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PlaceResult[]>([]);
@@ -51,11 +49,11 @@ export function PlaceSearch({ onSelect, placeholder = '장소명으로 검색' }
     setIsSearching(true);
     const ps = new kakao.maps.services.Places();
 
-    ps.keywordSearch(keyword, (data: any[], status: string) => {
+    ps.keywordSearch(keyword, (data, status) => {
       setIsSearching(false);
 
       if (status === kakao.maps.services.Status.OK) {
-        const places: PlaceResult[] = data.slice(0, 8).map((place: any) => ({
+        const places: PlaceResult[] = data.slice(0, 8).map((place) => ({
           id: place.id,
           name: place.place_name,
           address: place.address_name,

@@ -1,4 +1,4 @@
-import { CheckCircle, Calendar, Clock, BadgeCheck } from 'lucide-react';
+import { CheckCircle, Calendar, Clock } from 'lucide-react';
 import type { DisclosureType } from '../types/location';
 
 interface ProofBarProps {

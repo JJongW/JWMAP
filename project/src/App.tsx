@@ -16,8 +16,9 @@ import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
-import { getActivityScore, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
+import { getActivityScore, getSavedIds, getVisitedIds, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import type { SavedView } from './components/browse/types';
 
 export default function App() {
   const [contentMode, setContentMode] = useState<ContentMode>('food');
@@ -37,6 +38,10 @@ export default function App() {
   // Pagination
   const [visibleLocations, setVisibleLocations] = useState<number>(10);
   const [showFullMapStart, setShowFullMapStart] = useState(false);
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [savedView, setSavedView] = useState<SavedView>('saved');
+  const [savedLocationIds, setSavedLocationIds] = useState<Set<string>>(() => new Set());
+  const [visitedLocationIds, setVisitedLocationIds] = useState<Set<string>>(() => new Set());
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -183,15 +188,8 @@ export default function App() {
     return matchesProvince && matchesDistrict && matchesCategory && matchesEvent;
   });
 
-  const isDefaultFilter =
-    selectedProvince === '전체' &&
-    selectedDistrict === '전체' &&
-    selectedCategoryMain === '전체' &&
-    selectedCategorySub === '전체' &&
-    !selectedEventTag;
-
-  const hotStartLocations = useMemo(() => {
-    return [...locations]
+  const getCuratedLocations = useCallback((source: Location[]) => {
+    return [...source]
       .sort((a, b) => {
         const aScore =
           (a.curation_level ?? 1) * 12 +
@@ -206,7 +204,44 @@ export default function App() {
         return bScore - aScore;
       })
       .slice(0, contentMode === 'space' ? 24 : 36);
-  }, [locations, contentMode]);
+  }, [contentMode]);
+
+  const refreshPlaceStateIds = useCallback(() => {
+    setSavedLocationIds(new Set(getSavedIds()));
+    setVisitedLocationIds(new Set(getVisitedIds()));
+  }, []);
+
+  const savedLocationCount = useMemo(
+    () => locations.filter((location) => savedLocationIds.has(location.id)).length,
+    [locations, savedLocationIds]
+  );
+  const visitedLocationCount = useMemo(
+    () => locations.filter((location) => visitedLocationIds.has(location.id)).length,
+    [locations, visitedLocationIds]
+  );
+
+  const revisitLocations = useMemo(() => {
+    return filteredLocations
+      .filter((location) => visitedLocationIds.has(location.id))
+      .sort((a, b) => {
+        const aScore =
+          (a.curation_level ?? 1) * 12 +
+          getActivityScore(a) * 8 +
+          (a.short_desc || a.memo ? 4 : 0) +
+          (a.imageUrl ? 3 : 0);
+        const bScore =
+          (b.curation_level ?? 1) * 12 +
+          getActivityScore(b) * 8 +
+          (b.short_desc || b.memo ? 4 : 0) +
+          (b.imageUrl ? 3 : 0);
+        return bScore - aScore;
+      });
+  }, [filteredLocations, visitedLocationIds]);
+
+  const curatedFilteredLocations = useMemo(
+    () => getCuratedLocations(filteredLocations),
+    [filteredLocations, getCuratedLocations]
+  );
 
   const hotRegions = useMemo(() => {
     const regionScores = new Map<string, number>();
@@ -220,8 +255,20 @@ export default function App() {
       .map(([region]) => region);
   }, [locations]);
 
-  // Displayed locations. 첫 진입은 전국 전체 대신 핫플레이스 후보로 좁힌다.
-  const displayedLocations = isDefaultFilter && !showFullMapStart ? hotStartLocations : filteredLocations;
+  // Displayed locations. 넓은 필터를 눌러도 바로 전체 목록으로 풀지 않고, 먼저 볼 후보를 유지한다.
+  const displayedLocations = showSavedOnly
+    ? savedView === 'revisit'
+      ? revisitLocations
+      : filteredLocations.filter((location) =>
+          savedView === 'visited'
+            ? visitedLocationIds.has(location.id)
+            : savedLocationIds.has(location.id)
+        )
+    : showFullMapStart
+      ? filteredLocations
+      : curatedFilteredLocations;
+
+  const isCuratedDisplay = !showSavedOnly && !showFullMapStart;
 
   // Count functions
   const getProvinceCount = (province: Province | '전체'): number => {
@@ -385,25 +432,11 @@ export default function App() {
     timeSlot: TimeSlot,
     priorityFeature: PriorityFeature,
   ) => {
-    if (contentMode === 'space') {
-      if (region) {
-        const inferredProvince = inferProvinceFromRegion(region);
-        setFilters((prev) => ({
-          ...prev,
-          selectedProvince: inferredProvince ?? '전체',
-          selectedDistrict: inferredProvince ? region : '전체',
-          selectedCategoryMain: '전체',
-          selectedCategorySub: '전체',
-          selectedEventTag: null,
-        }));
-      }
-      setDecisionResult(null);
-      setUiMode('browse');
-      return;
-    }
-
     setNoResultMessage(null);
-    const result = decideLocations(locations, companion, timeSlot, priorityFeature, region);
+    const result =
+      decideLocations(locations, companion, timeSlot, priorityFeature, region) ||
+      createFallbackDecisionResult(locations, contentMode, region);
+
     if (result) {
       setDecisionResult(result);
       setUiMode('result');
@@ -446,9 +479,16 @@ export default function App() {
   const handleShowAllPlaces = useCallback(() => {
     recordActivity('show_all_places', undefined, { contentType: contentMode });
     setFilters(DEFAULT_FILTER_STATE);
+    setShowSavedOnly(false);
     setShowFullMapStart(true);
     setVisibleLocations(50);
   }, [contentMode]);
+
+  const handleResetFilters = useCallback(() => {
+    setFilters(DEFAULT_FILTER_STATE);
+    setShowFullMapStart(false);
+    setVisibleLocations(10);
+  }, []);
 
   // 지도 인스턴스 저장 (Map 컴포넌트에서 호출)
   const mapRef = useRef<kakao.maps.Map | null>(null);
@@ -458,14 +498,15 @@ export default function App() {
 
   // Load data on mount
   useEffect(() => {
-    syncPlaceStateFromRemote();
+    syncPlaceStateFromRemote().finally(refreshPlaceStateIds);
     fetchLocations();
     setFilters(DEFAULT_FILTER_STATE);
     setShowFullMapStart(false);
+    setShowSavedOnly(false);
     setVisibleLocations(10);
     setUiMode('browse');
     setDecisionResult(null);
-  }, [contentMode, fetchLocations]);
+  }, [contentMode, fetchLocations, refreshPlaceStateIds]);
 
   // URL 쿼리 파라미터에서 locationId 확인
   // 딥링크 진입 시 decision 모드를 건너뛰고 바로 browse로 전환
@@ -545,9 +586,10 @@ export default function App() {
       )}
 
       {/* ── Decision Result View (결정 결과 화면) ── */}
-      {!isLoading && uiMode === 'result' && decisionResult && contentMode === 'food' && (
+      {!isLoading && uiMode === 'result' && decisionResult && (
         <DecisionResultView
           result={decisionResult}
+          contentMode={contentMode}
           onRetry={handleRetryDecision}
           onBrowse={handleSwitchToBrowse}
           onOpenDetail={handleDecisionOpenDetail}
@@ -560,11 +602,24 @@ export default function App() {
           contentMode={contentMode}
           onContentModeChange={setContentMode}
           displayedLocations={displayedLocations}
-          isCuratedStart={isDefaultFilter && !showFullMapStart}
+          isCuratedStart={isCuratedDisplay}
           totalLocationCount={filteredLocations.length}
+          savedOnly={showSavedOnly}
+          savedView={savedView}
+          savedCount={savedLocationCount}
+          visitedCount={visitedLocationCount}
+          revisitCount={revisitLocations.length}
+          onSavedOnlyChange={(enabled) => {
+            setShowSavedOnly(enabled);
+            setShowFullMapStart(false);
+            setVisibleLocations(10);
+          }}
+          onSavedViewChange={setSavedView}
+          onSavedStateChange={refreshPlaceStateIds}
           hotRegions={hotRegions}
           onSelectHotRegion={(region) => handleDistrictChange(region)}
           onShowAllPlaces={handleShowAllPlaces}
+          onResetFilters={handleResetFilters}
           filterState={filters}
           filterControls={{
             onProvinceChange: handleProvinceChange,
@@ -606,4 +661,49 @@ export default function App() {
       <SpeedInsights />
     </div>
   );
+}
+
+function createFallbackDecisionResult(
+  locations: Location[],
+  contentMode: ContentMode,
+  region?: string | null,
+): DecisionResult | null {
+  const candidates =
+    region && region.trim()
+      ? (PROVINCES as readonly string[]).includes(region)
+        ? locations.filter((loc) => inferProvinceFromRegion(loc.region) === region || loc.province === region)
+        : locations.filter((loc) => loc.region === region)
+      : locations;
+
+  const top = [...candidates]
+    .sort((a, b) => {
+      const aScore =
+        (a.curation_level ?? 1) * 12 +
+        getActivityScore(a) * 8 +
+        (a.short_desc || a.memo ? 3 : 0) +
+        (a.imageUrl ? 2 : 0);
+      const bScore =
+        (b.curation_level ?? 1) * 12 +
+        getActivityScore(b) * 8 +
+        (b.short_desc || b.memo ? 3 : 0) +
+        (b.imageUrl ? 2 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 3);
+
+  if (top.length === 0) return null;
+
+  const reasons = new Map<string, string>();
+  top.forEach((location, index) => {
+    const prefix = contentMode === 'space'
+      ? ['오늘 먼저 보기 좋은 후보예요.', '동선에 같이 넣기 좋은 곳이에요.', '가볍게 비교해볼 만한 선택지예요.']
+      : ['오늘 먼저 먹어볼 만한 후보예요.', '같이 비교해볼 만한 곳이에요.', '부담 없이 후보에 넣기 좋아요.'];
+    reasons.set(location.id, location.short_desc || location.memo || prefix[index] || prefix[0]);
+  });
+
+  return {
+    primary: top[0],
+    secondary: top.slice(1),
+    reasons,
+  };
 }

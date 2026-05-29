@@ -15,7 +15,7 @@
 
 import { useState } from 'react';
 import { MapPin, ChevronDown, Navigation } from 'lucide-react';
-import type { Location } from '../types/location';
+import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
 import { getDifferentiator } from '../utils/decisionEngine';
 import { getCardImageUrl } from '../utils/image';
@@ -24,6 +24,7 @@ import { PriceLevelBadge } from './PriceLevelBadge';
 
 interface DecisionResultViewProps {
   result: DecisionResult;
+  contentMode?: ContentMode;
   /** "다시 고르기" 클릭 시 → decision 모드로 돌아감 */
   onRetry: () => void;
   /** 지도 탐색으로 돌아가기 */
@@ -34,12 +35,14 @@ interface DecisionResultViewProps {
 
 export function DecisionResultView({
   result,
+  contentMode = 'food',
   onRetry,
   onBrowse,
   onOpenDetail,
 }: DecisionResultViewProps) {
   const { primary, secondary, reasons } = result;
   const [showMore, setShowMore] = useState(false);
+  const copy = getResultCopy(contentMode);
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
@@ -48,10 +51,10 @@ export function DecisionResultView({
 
           {/* ── 헤드라인 ── */}
           <p className="mb-2 text-sm font-medium tracking-widest text-gray-300">
-            PICK
+            {copy.eyebrow}
           </p>
           <h1 className="mb-10 text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">
-            오늘은 여기.
+            {copy.title}
           </h1>
 
           {/* ── 1순위 추천 카드 ── */}
@@ -65,7 +68,7 @@ export function DecisionResultView({
           {secondary.length > 0 && (
             <div className="mt-6">
               <p className="mb-3 text-xs font-medium tracking-widest text-gray-300">
-                OTHER OPTIONS
+                {copy.secondaryLabel}
               </p>
               <div className="flex flex-col gap-3">
                 {secondary.map((loc) => (
@@ -124,18 +127,38 @@ export function DecisionResultView({
             onClick={onRetry}
             className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400"
           >
-            다시 고르기
+            {copy.retryLabel}
           </button>
           <button
             onClick={onBrowse}
             className="text-sm text-gray-400 transition-colors hover:text-gray-600"
           >
-            지도로 보기
+            {copy.browseLabel}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+function getResultCopy(contentMode: ContentMode) {
+  if (contentMode === 'space') {
+    return {
+      eyebrow: 'PLACE PICK',
+      title: '오늘은 이곳.',
+      secondaryLabel: '함께 볼 후보',
+      retryLabel: '다시 고르기',
+      browseLabel: '지도로 보기',
+    };
+  }
+
+  return {
+    eyebrow: 'FOOD PICK',
+    title: '오늘은 여기.',
+    secondaryLabel: '함께 먹을 후보',
+    retryLabel: '다시 고르기',
+    browseLabel: '지도로 보기',
+  };
 }
 
 // ─────────────────────────────────────────────

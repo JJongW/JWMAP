@@ -30,9 +30,18 @@ export function BrowseView({
   displayedLocations,
   isCuratedStart = false,
   totalLocationCount,
+  savedOnly = false,
+  savedView = 'saved',
+  savedCount = 0,
+  visitedCount = 0,
+  revisitCount = 0,
+  onSavedOnlyChange,
+  onSavedViewChange,
+  onSavedStateChange,
   hotRegions = [],
   onSelectHotRegion,
   onShowAllPlaces,
+  onResetFilters,
   filterState,
   filterControls,
   filterOptions,
@@ -178,6 +187,65 @@ export function BrowseView({
               )}
             </div>
 
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              <button
+                type="button"
+                onClick={() => onSavedOnlyChange?.(false)}
+                aria-pressed={!savedOnly}
+                className={`shrink-0 rounded-full border px-3 py-2 text-xs font-bold transition-colors ${
+                  !savedOnly
+                    ? contentMode === 'space'
+                      ? 'border-violet-200 bg-violet-50 text-violet-700'
+                      : 'border-orange-200 bg-orange-50 text-orange-700'
+                    : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                먼저 볼 곳
+              </button>
+              <button
+                type="button"
+                onClick={() => onSavedOnlyChange?.(true)}
+                aria-pressed={savedOnly}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-bold transition-colors ${
+                  savedOnly
+                    ? 'border-rose-200 bg-rose-50 text-rose-700'
+                    : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <Heart size={13} fill={savedOnly ? 'currentColor' : 'none'} />
+                <span>내 후보 {savedCount}</span>
+              </button>
+            </div>
+
+            {savedOnly && (
+              <div className="space-y-2">
+                <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+                  {[
+                    { value: 'saved' as const, label: '가보고 싶음', count: savedCount },
+                    { value: 'visited' as const, label: '다녀온 곳', count: visitedCount },
+                    { value: 'revisit' as const, label: '다시 갈 곳', count: revisitCount },
+                  ].map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => onSavedViewChange?.(item.value)}
+                      aria-pressed={savedView === item.value}
+                      className={`min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
+                        savedView === item.value
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      {item.label} {item.count}
+                    </button>
+                  ))}
+                </div>
+                <p className="rounded-xl bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-500">
+                  {getSavedViewGuide(savedView)}
+                </p>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => setIsFilterExpanded(!isFilterExpanded)}
@@ -192,8 +260,37 @@ export function BrowseView({
               }
             </button>
 
+            {isFilterExpanded && isMobile && (
+              <button
+                type="button"
+                aria-label="필터 닫기"
+                onClick={() => setIsFilterExpanded(false)}
+                className="fixed inset-0 z-[65] bg-black/20"
+              />
+            )}
+
             {isFilterExpanded && (
-              <div id="browse-filter-section" className="max-h-[42vh] overflow-y-auto rounded-xl border border-gray-100 bg-gray-50/50 p-3">
+              <div
+                id="browse-filter-section"
+                className={
+                  isMobile
+                    ? 'fixed inset-x-0 bottom-0 z-[70] max-h-[72vh] overflow-y-auto rounded-t-3xl border border-gray-100 bg-white p-4 pb-24 shadow-2xl'
+                    : 'max-h-[42vh] overflow-y-auto rounded-xl border border-gray-100 bg-gray-50/50 p-3'
+                }
+              >
+                {isMobile && (
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-sm font-bold text-gray-800">필터</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsFilterExpanded(false)}
+                      className="rounded-full border border-gray-200 p-2 text-gray-400"
+                      aria-label="필터 닫기"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
                 <FilterSection
                   selectedProvince={resolvedSelectedProvince}
                   onProvinceChange={resolvedOnProvinceChange}
@@ -211,10 +308,32 @@ export function BrowseView({
                   availableCategorySubs={resolvedAvailableCategorySubs}
                   getCategorySubCount={resolvedGetCategorySubCount}
                 />
+                {isMobile && (
+                  <div className="fixed inset-x-0 bottom-0 z-[75] border-t border-gray-100 bg-white/95 px-4 pb-6 pt-3 backdrop-blur">
+                    <div className="mx-auto flex max-w-lg items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={onResetFilters}
+                        className="min-h-[44px] rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-500"
+                      >
+                        초기화
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsFilterExpanded(false)}
+                        className={`min-h-[44px] flex-1 rounded-xl px-4 text-sm font-bold text-white ${
+                          contentMode === 'space' ? 'bg-violet-600' : 'bg-gray-900'
+                        }`}
+                      >
+                        {displayedLocations.length}곳 보기
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {isCuratedStart && (
+            {isCuratedStart && !savedOnly && (
               <div className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-4 shadow-[0_10px_28px_rgba(251,146,60,0.08)]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -223,10 +342,10 @@ export function BrowseView({
                       요즘 먼저 볼 만한 곳
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-orange-700/70">
-                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 강력추천, 자세한 메모, 저장 반응이 있는 후보를 먼저 보여줘요.
+                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 대표픽, 자세한 메모, 내 반응이 있는 후보를 먼저 보여줘요.
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {['강력추천 우선', '메모 있는 곳', '내 반응 반영'].map((label) => (
+                      {['대표픽 우선', '메모 있는 곳', '내 반응 반영'].map((label) => (
                         <span key={label} className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-orange-700 shadow-sm">
                           {label}
                         </span>
@@ -265,8 +384,10 @@ export function BrowseView({
             <p className="mb-3 text-xs font-medium text-gray-400">
               {searchQuery
                 ? `검색 결과 ${searchFilteredLocations.length}곳`
-                : isCuratedStart
-                  ? `핫플레이스 후보 ${searchFilteredLocations.length}곳`
+                : savedOnly
+                  ? getSavedViewCountLabel(savedView, searchFilteredLocations.length)
+                  : isCuratedStart
+                    ? `먼저 볼 후보 ${searchFilteredLocations.length}곳`
                 : `장소 ${searchFilteredLocations.length}곳`
               }
             </p>
@@ -277,10 +398,13 @@ export function BrowseView({
               onSelect={handleLocationSelect}
               selectedId={selectedLocation?.id}
               emptyMessage={
-                searchQuery
+                savedOnly
+                  ? getSavedViewEmptyMessage(savedView)
+                  : searchQuery
                   ? `'${searchQuery}'에 맞는 장소가 없어요. 검색어를 바꿔보세요.`
                   : '조건에 맞는 장소가 없어요.'
               }
+              onSavedStateChange={onSavedStateChange}
             />
           </div>
         </section>
@@ -301,6 +425,7 @@ export function BrowseView({
           location={detailLocation}
           onClose={() => setDetailLocation(null)}
           isMobile={true}
+          onPlaceStateChange={onSavedStateChange}
         />
       )}
 
@@ -309,6 +434,7 @@ export function BrowseView({
         <DesktopDetailPanel
           location={selectedLocation}
           onClose={() => setSelectedLocation(null)}
+          onPlaceStateChange={onSavedStateChange}
         />
       )}
     </div>
@@ -337,6 +463,7 @@ interface BrowseListProps {
   onSelect: (location: Location) => void;
   selectedId?: string;
   emptyMessage?: string;
+  onSavedStateChange?: () => void;
 }
 
 function BrowseList({
@@ -346,8 +473,10 @@ function BrowseList({
   onSelect,
   selectedId,
   emptyMessage = '조건에 맞는 장소가 없어요.',
+  onSavedStateChange,
 }: BrowseListProps) {
-  const [savedIds, setSavedIds] = useState(() => new Set(getSavedIds()));
+  const [, refreshSavedIds] = useState(0);
+  const savedIds = new Set(getSavedIds());
 
   if (locations.length === 0) {
     return (
@@ -424,7 +553,8 @@ function BrowseList({
                 type="button"
                 onClick={() => {
                   toggleSaved(location);
-                  setSavedIds(new Set(getSavedIds()));
+                  refreshSavedIds((version) => version + 1);
+                  onSavedStateChange?.();
                 }}
                 aria-label={isSaved ? `${location.name} 가보고 싶음 해제` : `${location.name} 가보고 싶음 저장`}
                 className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
@@ -538,6 +668,32 @@ function getRecommendationReason(location: Location, level: number): string {
   return reasonParts.slice(0, 3).join(' · ');
 }
 
+function getSavedViewGuide(view: 'saved' | 'visited' | 'revisit'): string {
+  if (view === 'revisit') {
+    return '다녀온 곳 중 다시 꺼내볼 만한 후보를 먼저 보여줘요.';
+  }
+  if (view === 'visited') {
+    return '다녀온 곳은 다음에 다시 갈 후보를 고를 때 기준점이 돼요.';
+  }
+  return '가보고 싶은 곳만 모아두면 나중에 3곳으로 더 쉽게 줄일 수 있어요.';
+}
+
+function getSavedViewCountLabel(view: 'saved' | 'visited' | 'revisit', count: number): string {
+  if (view === 'revisit') return `다시 갈 곳 ${count}곳`;
+  if (view === 'visited') return `다녀온 곳 ${count}곳`;
+  return `가보고 싶은 곳 ${count}곳`;
+}
+
+function getSavedViewEmptyMessage(view: 'saved' | 'visited' | 'revisit'): string {
+  if (view === 'revisit') {
+    return '아직 다시 갈 기준이 없어요. 다녀온 장소를 기록하면 여기서 다시 볼 수 있어요.';
+  }
+  if (view === 'visited') {
+    return '아직 다녀온 장소가 없어요. 상세에서 다녀왔어요를 눌러 기록해보세요.';
+  }
+  return '아직 저장한 후보가 없어요. 마음에 드는 장소의 하트를 눌러보세요.';
+}
+
 // ─────────────────────────────────────────────
 // DesktopDetailPanel: 데스크톱 상세 보기 패널
 // ─────────────────────────────────────────────
@@ -551,9 +707,10 @@ function getRecommendationReason(location: Location, level: number): string {
 interface DesktopDetailPanelProps {
   location: Location;
   onClose: () => void;
+  onPlaceStateChange?: () => void;
 }
 
-function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
+function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDetailPanelProps) {
   const [isSaved, setIsSaved] = useState(() => getSavedIds().includes(location.id));
   const [isVisited, setIsVisited] = useState(() => getVisitedIds().includes(location.id));
 
@@ -626,7 +783,10 @@ function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button
-            onClick={() => setIsSaved(toggleSaved(location))}
+            onClick={() => {
+              setIsSaved(toggleSaved(location));
+              onPlaceStateChange?.();
+            }}
             className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
               isSaved
                 ? 'border-orange-200 bg-orange-50 text-orange-700'
@@ -636,7 +796,10 @@ function DesktopDetailPanel({ location, onClose }: DesktopDetailPanelProps) {
             {isSaved ? '가보고 싶음 저장됨' : '가보고 싶음'}
           </button>
           <button
-            onClick={() => setIsVisited(toggleVisited(location))}
+            onClick={() => {
+              setIsVisited(toggleVisited(location));
+              onPlaceStateChange?.();
+            }}
             className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
               isVisited
                 ? 'border-emerald-200 bg-emerald-50 text-emerald-700'

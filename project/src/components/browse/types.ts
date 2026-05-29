@@ -1,6 +1,8 @@
 import type { CategoryMain, CategorySub, ContentMode, Location, Province } from '../../types/location';
 import type { FilterState } from '../../types/filter';
 
+export type SavedView = 'saved' | 'visited' | 'revisit';
+
 export interface BrowseFilterControls {
   onProvinceChange: (province: Province | '전체') => void;
   onDistrictChange: (district: string | '전체') => void;
@@ -24,9 +26,18 @@ export interface BrowseViewProps {
   displayedLocations: Location[];
   isCuratedStart?: boolean;
   totalLocationCount?: number;
+  savedOnly?: boolean;
+  savedView?: SavedView;
+  savedCount?: number;
+  visitedCount?: number;
+  revisitCount?: number;
+  onSavedOnlyChange?: (enabled: boolean) => void;
+  onSavedViewChange?: (view: SavedView) => void;
+  onSavedStateChange?: () => void;
   hotRegions?: string[];
   onSelectHotRegion?: (region: string) => void;
   onShowAllPlaces?: () => void;
+  onResetFilters?: () => void;
   filterState?: FilterState;
   filterControls?: BrowseFilterControls;
   filterOptions?: BrowseFilterOptions;
