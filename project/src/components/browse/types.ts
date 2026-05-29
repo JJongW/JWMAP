@@ -20,6 +20,7 @@ export interface BrowseFilterOptions {
 
 export interface BrowseViewProps {
   contentMode?: ContentMode;
+  onContentModeChange?: (mode: ContentMode) => void;
   displayedLocations: Location[];
   isCuratedStart?: boolean;
   totalLocationCount?: number;

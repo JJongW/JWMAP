@@ -6,7 +6,7 @@
  * 쓰는 보조 기능으로 제공한다.
  */
 
-import { ChevronDown, ChevronUp, Flame, MapPin, Search, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Heart, MapPin, Search, Sparkles, X } from 'lucide-react';
 import { useState } from 'react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
@@ -14,7 +14,7 @@ import { PlaceDetail } from './PlaceDetail';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useBrowseViewController } from '../hooks/useBrowseViewController';
 import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
-import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
+import { getCurationLabel, getCurationBadgeClass, getCurationDescription, ratingToCurationLevel } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { getSavedIds, getVisitedIds, recordActivity, toggleSaved, toggleVisited } from '../utils/activity';
 import type { Location } from '../types/location';
@@ -26,6 +26,7 @@ import type { BrowseViewProps } from './browse/types';
 
 export function BrowseView({
   contentMode = 'food',
+  onContentModeChange,
   displayedLocations,
   isCuratedStart = false,
   totalLocationCount,
@@ -115,17 +116,41 @@ export function BrowseView({
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(360px,440px)_1fr]">
         <section className="flex min-h-0 flex-col border-r border-gray-100 bg-white">
           <header className="border-b border-gray-100 px-5 pb-4 pt-12 md:px-6 md:pt-16">
-            <p className={`text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-500'}`}>
-              JWMAP
-            </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">
-              어디 갈까?
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              {contentMode === 'space'
-                ? '직접 모아둔 볼거리 후보를 지도에서 가볍게 둘러봐요.'
-                : '직접 모아둔 검증 장소를 지도에서 가볍게 둘러봐요.'}
-            </p>
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className={`text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-500'}`}>
+                  JWMAP
+                </p>
+                <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">
+                  어디 갈까?
+                </h1>
+                <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                  {contentMode === 'space'
+                    ? '직접 모아둔 볼거리 후보를 지도에서 가볍게 둘러봐요.'
+                    : '직접 모아둔 검증 장소를 지도에서 가볍게 둘러봐요.'}
+                </p>
+              </div>
+              {onContentModeChange && (
+                <div className="shrink-0 rounded-xl border border-gray-200 bg-gray-50 p-1">
+                  {(['food', 'space'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => onContentModeChange(mode)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                        contentMode === mode
+                          ? mode === 'space'
+                            ? 'bg-violet-600 text-white shadow-sm'
+                            : 'bg-orange-500 text-white shadow-sm'
+                          : 'text-gray-500 hover:bg-white'
+                      }`}
+                    >
+                      {mode === 'space' ? '볼거리' : '맛집'}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </header>
 
           <div className="shrink-0 space-y-3 border-b border-gray-100 px-4 py-4 md:px-5">
@@ -190,16 +215,23 @@ export function BrowseView({
             )}
 
             {isCuratedStart && (
-              <div className="rounded-2xl border border-orange-100 bg-orange-50/60 p-3">
+              <div className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-4 shadow-[0_10px_28px_rgba(251,146,60,0.08)]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="flex items-center gap-1.5 text-xs font-bold text-orange-700">
-                      <Flame size={14} />
+                      <Sparkles size={14} />
                       요즘 먼저 볼 만한 곳
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-orange-700/70">
-                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 반응과 큐레이션이 좋은 후보만 먼저 보여줘요.
+                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 강력추천, 자세한 메모, 저장 반응이 있는 후보를 먼저 보여줘요.
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {['강력추천 우선', '메모 있는 곳', '내 반응 반영'].map((label) => (
+                        <span key={label} className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-orange-700 shadow-sm">
+                          {label}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   {onShowAllPlaces && (
                     <button
@@ -218,7 +250,7 @@ export function BrowseView({
                         key={region}
                         type="button"
                         onClick={() => onSelectHotRegion?.(region)}
-                        className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm"
+                        className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm transition-colors hover:text-orange-700"
                       >
                         {region}
                       </button>
@@ -315,6 +347,8 @@ function BrowseList({
   selectedId,
   emptyMessage = '조건에 맞는 장소가 없어요.',
 }: BrowseListProps) {
+  const [savedIds, setSavedIds] = useState(() => new Set(getSavedIds()));
+
   if (locations.length === 0) {
     return (
       <div className="py-12 text-center text-sm text-gray-400">
@@ -325,64 +359,92 @@ function BrowseList({
 
   return (
     <div className="divide-y divide-gray-100">
-      {locations.slice(0, visibleCount).map((location) => (
-        <button
-          key={location.id}
-          onClick={() => onSelect(location)}
-          className={`flex w-full items-center gap-3 px-1 py-3 text-left transition-colors ${
-            selectedId === location.id
-              ? 'bg-gray-50'
-              : 'hover:bg-gray-50'
-          }`}
-        >
-          {/* 좌측: 작은 정사각형 썸네일 */}
-          <div className="w-10 h-10 shrink-0 rounded-lg bg-gray-100 overflow-hidden">
-            {location.imageUrl ? (
-              <img
-                src={getThumbnailUrl(location.imageUrl)}
-                alt={location.name}
-                className="w-full h-full object-cover"
-                loading="lazy"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <MapPin size={16} className="text-gray-300" />
-              </div>
-            )}
-          </div>
-          {/* 중앙: 이름, 지역, 카테고리 */}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-gray-700">
-              {location.name}
-            </p>
-            <p className="mt-0.5 text-xs text-gray-400">
-              {location.region}
-              {(location.categorySub || location.categoryMain) && (
-                <span>
-                  {' · '}
-                  {location.categorySub || location.categoryMain}
-                </span>
-              )}
-            </p>
-          </div>
+      {locations.slice(0, visibleCount).map((location) => {
+        const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+        const isSaved = savedIds.has(location.id);
+        const reason = getRecommendationReason(location, level);
 
-          {/* 우측: 큐레이션 뱃지 + 가격대 */}
-          <div className="ml-3 flex shrink-0 items-center gap-1.5">
-            {(() => {
-              const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
-              return (
-                <span className={`px-2 py-0.5 text-xs font-medium rounded ${getCurationBadgeClass(level)}`}>
+        return (
+          <div
+            key={location.id}
+            className={`flex w-full items-center gap-3 px-1 py-3 transition-colors ${
+              selectedId === location.id
+                ? 'bg-gray-50'
+                : 'hover:bg-gray-50'
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => onSelect(location)}
+              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            >
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                {location.imageUrl ? (
+                  <img
+                    src={getThumbnailUrl(location.imageUrl)}
+                    alt={location.name}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <MapPin size={16} className="text-gray-300" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate text-sm font-semibold text-gray-800">
+                    {location.name}
+                  </p>
+                  {location.curator_visited !== false && (
+                    <CheckCircle2 size={13} className="shrink-0 text-emerald-500" />
+                  )}
+                </div>
+                <p className="mt-0.5 truncate text-xs text-gray-400">
+                  {location.region}
+                  {(location.categorySub || location.categoryMain) && (
+                    <span>
+                      {' · '}
+                      {location.categorySub || location.categoryMain}
+                    </span>
+                  )}
+                </p>
+                <p className="mt-1 truncate text-xs font-medium text-gray-500">
+                  {reason}
+                </p>
+              </div>
+            </button>
+
+            <div className="ml-1 flex shrink-0 flex-col items-end gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  toggleSaved(location);
+                  setSavedIds(new Set(getSavedIds()));
+                }}
+                aria-label={isSaved ? `${location.name} 가보고 싶음 해제` : `${location.name} 가보고 싶음 저장`}
+                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
+                  isSaved
+                    ? 'border-orange-200 bg-orange-50 text-orange-600'
+                    : 'border-gray-200 bg-white text-gray-300 hover:text-orange-500'
+                }`}
+              >
+                <Heart size={15} fill={isSaved ? 'currentColor' : 'none'} />
+              </button>
+              <div className="flex items-center gap-1.5">
+                <span className={`rounded px-2 py-0.5 text-xs font-semibold ${getCurationBadgeClass(level)}`}>
                   {getCurationLabel(level)}
                 </span>
-              );
-            })()}
-            <PriceLevelBadge priceLevel={location.price_level} size="xs" />
+                <PriceLevelBadge priceLevel={location.price_level} size="xs" />
+              </div>
+            </div>
           </div>
-        </button>
-      ))}
+        );
+      })}
 
       {/* 더 보기 */}
       {visibleCount < locations.length && (
@@ -454,18 +516,26 @@ function RecommendationBar({ onBackToDecision }: RecommendationBarProps) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-100 bg-white/95 backdrop-blur-sm">
       <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-5 pb-6 pt-3 md:pb-4">
-        <p className="text-sm text-gray-400">
-          고르기 어렵다면
+        <p className="text-sm font-medium text-gray-500">
+          후보가 많다면
         </p>
         <button
           onClick={onBackToDecision}
           className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.98]"
         >
-          추천 받아보기
+          3곳만 추려보기
         </button>
       </div>
     </div>
   );
+}
+
+function getRecommendationReason(location: Location, level: number): string {
+  const reasonParts: string[] = [getCurationDescription(level)];
+  if (location.curator_visited !== false) reasonParts.push('직접 확인');
+  if (location.short_desc || location.memo) reasonParts.push('메모 있음');
+  if (location.tags?.[0]) reasonParts.push(`#${location.tags[0]}`);
+  return reasonParts.slice(0, 3).join(' · ');
 }
 
 // ─────────────────────────────────────────────

@@ -498,6 +498,7 @@ export default function App() {
       role="application"
       aria-label="JWMAP 큐레이션"
     >
+      {uiMode !== 'browse' && (
       <div className="fixed right-4 top-4 z-[60] rounded-xl border border-gray-200 bg-white/95 p-1 shadow-sm backdrop-blur">
         <div className="flex items-center gap-1">
           <button
@@ -522,6 +523,7 @@ export default function App() {
           </button>
         </div>
       </div>
+      )}
 
       {/* ── 초기 로딩 ── */}
       {isLoading && (
@@ -555,6 +557,7 @@ export default function App() {
       {!isLoading && uiMode === 'browse' && (
         <BrowseView
           contentMode={contentMode}
+          onContentModeChange={setContentMode}
           displayedLocations={displayedLocations}
           isCuratedStart={isDefaultFilter && !showFullMapStart}
           totalLocationCount={filteredLocations.length}
