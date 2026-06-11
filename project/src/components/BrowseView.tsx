@@ -637,7 +637,8 @@ function BrowseList({
                   refreshSavedIds((version) => version + 1);
                   onSavedStateChange?.();
                 }}
-                aria-label={isSaved ? `${location.name} 가보고 싶음 해제` : `${location.name} 가보고 싶음 저장`}
+                aria-label={isSaved ? `${location.name} 저장 해제` : `${location.name} 저장하기`}
+                title={isSaved ? '저장 해제' : '저장하기'}
                 className={`flex items-center justify-center rounded-full border transition-colors ${
                   showsVisitState
                     ? isSaved
