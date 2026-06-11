@@ -831,6 +831,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
                 setIsSaved(toggleSaved(location));
                 onPlaceStateChange?.();
               }}
+              aria-label={isSaved ? `${location.name} 저장 해제` : `${location.name} 저장하기`}
               className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
                 isSaved
                   ? 'border-orange-200 bg-orange-50 text-orange-700'
@@ -845,12 +846,14 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
                 setIsVisited(toggleVisited(location));
                 onPlaceStateChange?.();
               }}
-              className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+              aria-label={isVisited ? `${location.name} 방문 기록 해제` : `${location.name} 다녀왔어요`}
+              className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
                 isVisited
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                   : 'border-gray-200 text-gray-500 hover:bg-gray-50'
               }`}
             >
+              <CheckCircle2 size={15} />
               {isVisited ? '방문 기록 해제' : '다녀왔어요'}
             </button>
           </div>
