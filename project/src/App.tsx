@@ -498,12 +498,12 @@ export default function App() {
     const confirmed = window.confirm('저장한 곳과 다녀온 곳 기록을 모두 비울까요?');
     if (!confirmed) return false;
 
-    clearPlaceStates().finally(() => {
+    return clearPlaceStates().then((didSyncRemote) => {
       refreshPlaceStateIds();
       setSavedView('saved');
       setVisibleLocations(10);
+      return didSyncRemote;
     });
-    return true;
   }, [refreshPlaceStateIds]);
 
   // 지도 인스턴스 저장 (Map 컴포넌트에서 호출)

@@ -121,6 +121,32 @@ export function BrowseView({
     onMapReady,
     isMobile,
   });
+  const [clearPlaceStateFeedback, setClearPlaceStateFeedback] = useState('');
+  const [isClearingPlaceState, setIsClearingPlaceState] = useState(false);
+
+  const handleClearPlaceState = async () => {
+    if (isClearingPlaceState) return;
+    if (!onClearPlaceState) return;
+
+    const clearResult = onClearPlaceState();
+    if (clearResult === false) return;
+
+    setSelectedLocation(null);
+    setDetailLocation(null);
+    setIsClearingPlaceState(true);
+    setClearPlaceStateFeedback('');
+
+    const didSyncRemote = clearResult instanceof Promise
+      ? await clearResult
+      : clearResult ?? true;
+
+    setIsClearingPlaceState(false);
+    setClearPlaceStateFeedback(
+      didSyncRemote
+        ? '내 장소를 비웠어요.'
+        : '브라우저 기록은 비웠어요. 서버 동기화는 확인이 필요해요.'
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
@@ -248,16 +274,17 @@ export function BrowseView({
                 {myPlaceCount > 0 && (
                   <button
                     type="button"
-                    onClick={() => {
-                      const didClear = onClearPlaceState?.();
-                      if (didClear === false) return;
-                      setSelectedLocation(null);
-                      setDetailLocation(null);
-                    }}
-                    className="text-xs font-semibold text-gray-400 transition-colors hover:text-rose-600"
+                    onClick={handleClearPlaceState}
+                    disabled={isClearingPlaceState}
+                    className="text-xs font-semibold text-gray-400 transition-colors hover:text-rose-600 disabled:cursor-wait disabled:text-gray-300"
                   >
-                    내 장소 비우기
+                    {isClearingPlaceState ? '비우는 중...' : '내 장소 비우기'}
                   </button>
+                )}
+                {clearPlaceStateFeedback && (
+                  <p className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500" role="status" aria-live="polite">
+                    {clearPlaceStateFeedback}
+                  </p>
                 )}
               </div>
             )}
