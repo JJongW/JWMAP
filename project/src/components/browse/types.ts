@@ -35,6 +35,7 @@ export interface BrowseViewProps {
   onSavedOnlyChange?: (enabled: boolean) => void;
   onSavedViewChange?: (view: SavedView) => void;
   onSavedStateChange?: () => void;
+  onClearPlaceState?: () => boolean;
   hotRegions?: string[];
   onSelectHotRegion?: (region: string) => void;
   onShowAllPlaces?: () => void;

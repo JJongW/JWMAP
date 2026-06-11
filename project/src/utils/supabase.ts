@@ -316,6 +316,31 @@ export const savedPlaceApi = {
       // 저장 실패가 탐색 UX를 막지 않도록 무시한다.
     }
   },
+
+  async clearBySession(sessionId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('user_place_states')
+        .update({
+          is_saved: false,
+          is_visited: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('session_id', sessionId);
+
+      if (error) {
+        if (error.message?.includes('schema cache') || error.code === '42P01') {
+          return false;
+        }
+        if (import.meta.env.DEV) console.warn('[savedPlaceApi] clearBySession:', error);
+        return false;
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  },
 };
 
 // 리뷰 관련 API 함수들

@@ -39,6 +39,7 @@ export function BrowseView({
   onSavedOnlyChange,
   onSavedViewChange,
   onSavedStateChange,
+  onClearPlaceState,
   hotRegions = [],
   onSelectHotRegion,
   onShowAllPlaces,
@@ -244,6 +245,20 @@ export function BrowseView({
                 <p className="rounded-xl bg-gray-50 px-3 py-2 text-xs leading-relaxed text-gray-500">
                   {getSavedViewGuide(savedView)}
                 </p>
+                {myPlaceCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const didClear = onClearPlaceState?.();
+                      if (didClear === false) return;
+                      setSelectedLocation(null);
+                      setDetailLocation(null);
+                    }}
+                    className="text-xs font-semibold text-gray-400 transition-colors hover:text-rose-600"
+                  >
+                    내 장소 비우기
+                  </button>
+                )}
               </div>
             )}
 

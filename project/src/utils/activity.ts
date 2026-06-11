@@ -12,6 +12,7 @@ export type ActivityAction =
   | 'unsave_want'
   | 'mark_visited'
   | 'unmark_visited'
+  | 'clear_place_states'
   | 'recommend_start'
   | 'hot_region_click'
   | 'show_all_places';
@@ -147,4 +148,11 @@ export function toggleVisited(location: Location): boolean {
     is_visited: willMark,
   });
   return willMark;
+}
+
+export async function clearPlaceStates(): Promise<boolean> {
+  writeJson(SAVED_KEY, []);
+  writeJson(VISITED_KEY, []);
+  recordActivity('clear_place_states');
+  return savedPlaceApi.clearBySession(getSessionId());
 }

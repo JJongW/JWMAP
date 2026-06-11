@@ -16,7 +16,7 @@ import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
-import { getActivityScore, getSavedIds, getVisitedIds, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
+import { clearPlaceStates, getActivityScore, getSavedIds, getVisitedIds, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import type { SavedView } from './components/browse/types';
 
@@ -494,6 +494,18 @@ export default function App() {
     setVisibleLocations(10);
   }, []);
 
+  const handleClearPlaceState = useCallback(() => {
+    const confirmed = window.confirm('저장한 곳과 다녀온 곳 기록을 모두 비울까요?');
+    if (!confirmed) return false;
+
+    clearPlaceStates().finally(() => {
+      refreshPlaceStateIds();
+      setSavedView('saved');
+      setVisibleLocations(10);
+    });
+    return true;
+  }, [refreshPlaceStateIds]);
+
   // 지도 인스턴스 저장 (Map 컴포넌트에서 호출)
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const handleMapReady = (map: kakao.maps.Map) => {
@@ -621,6 +633,7 @@ export default function App() {
           }}
           onSavedViewChange={setSavedView}
           onSavedStateChange={refreshPlaceStateIds}
+          onClearPlaceState={handleClearPlaceState}
           hotRegions={hotRegions}
           onSelectHotRegion={(region) => handleDistrictChange(region)}
           onShowAllPlaces={handleShowAllPlaces}
