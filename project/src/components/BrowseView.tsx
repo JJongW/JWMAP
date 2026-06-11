@@ -764,6 +764,12 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
     }
   }, []);
 
+  useEffect(() => {
+    setIsSaved(getSavedIds().includes(location.id));
+    setIsVisited(getVisitedIds().includes(location.id));
+    setStateFeedback('');
+  }, [location.id]);
+
   // 네이버 지도 열기 (PC: 새 탭)
   const handleOpenNaver = () => {
     recordActivity('open_naver', location);
