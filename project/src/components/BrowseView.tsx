@@ -7,7 +7,7 @@
  */
 
 import { CheckCircle2, ChevronDown, ChevronUp, Heart, MapPin, Search, Sparkles, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
@@ -755,6 +755,14 @@ interface DesktopDetailPanelProps {
 function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDetailPanelProps) {
   const [isSaved, setIsSaved] = useState(() => getSavedIds().includes(location.id));
   const [isVisited, setIsVisited] = useState(() => getVisitedIds().includes(location.id));
+  const [stateFeedback, setStateFeedback] = useState('');
+  const stateFeedbackTimerRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (stateFeedbackTimerRef.current) {
+      window.clearTimeout(stateFeedbackTimerRef.current);
+    }
+  }, []);
 
   // 네이버 지도 열기 (PC: 새 탭)
   const handleOpenNaver = () => {
@@ -768,6 +776,28 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
     recordActivity('open_kakao', location);
     const query = encodeURIComponent(location.name);
     window.open(`https://map.kakao.com/link/search/${query}`, '_blank');
+  };
+  const showStateFeedback = (message: string) => {
+    setStateFeedback(message);
+    if (stateFeedbackTimerRef.current) {
+      window.clearTimeout(stateFeedbackTimerRef.current);
+    }
+    stateFeedbackTimerRef.current = window.setTimeout(() => {
+      setStateFeedback('');
+      stateFeedbackTimerRef.current = null;
+    }, 1800);
+  };
+  const handleToggleSaved = () => {
+    const nextSaved = toggleSaved(location);
+    setIsSaved(nextSaved);
+    onPlaceStateChange?.();
+    showStateFeedback(nextSaved ? '저장했어요. 내 장소에서 볼 수 있어요.' : '저장을 해제했어요.');
+  };
+  const handleToggleVisited = () => {
+    const nextVisited = toggleVisited(location);
+    setIsVisited(nextVisited);
+    onPlaceStateChange?.();
+    showStateFeedback(nextVisited ? '다녀온 곳으로 기록했어요.' : '방문 기록을 해제했어요.');
   };
   const previewText = location.short_desc || location.memo;
 
@@ -827,10 +857,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
           <p className="text-xs font-semibold text-gray-400">내 상태</p>
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => {
-                setIsSaved(toggleSaved(location));
-                onPlaceStateChange?.();
-              }}
+              onClick={handleToggleSaved}
               aria-label={isSaved ? `${location.name} 저장 해제` : `${location.name} 저장하기`}
               className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
                 isSaved
@@ -842,10 +869,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
               {isSaved ? '저장 해제' : '저장하기'}
             </button>
             <button
-              onClick={() => {
-                setIsVisited(toggleVisited(location));
-                onPlaceStateChange?.();
-              }}
+              onClick={handleToggleVisited}
               aria-label={isVisited ? `${location.name} 방문 기록 해제` : `${location.name} 다녀왔어요`}
               className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
                 isVisited
@@ -857,6 +881,11 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
               {isVisited ? '방문 기록 해제' : '다녀왔어요'}
             </button>
           </div>
+          {stateFeedback && (
+            <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500" role="status" aria-live="polite">
+              {stateFeedback}
+            </p>
+          )}
         </div>
 
         <p className="mt-4 text-sm text-gray-500">

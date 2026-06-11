@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, MapPin, Copy, Check, Navigation, ExternalLink, Share2, Heart, CheckCircle2 } from 'lucide-react';
 import type { Location, Review } from '../types/location';
 import { reviewApi, searchLogApi } from '../utils/supabase';
@@ -29,6 +29,8 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
   const [showCurationLegend, setShowCurationLegend] = useState(false);
   const [isSaved, setIsSaved] = useState(() => getSavedIds().includes(location.id));
   const [isVisited, setIsVisited] = useState(() => getVisitedIds().includes(location.id));
+  const [stateFeedback, setStateFeedback] = useState('');
+  const stateFeedbackTimerRef = useRef<number | null>(null);
 
   const curationLevel = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
 
@@ -74,6 +76,12 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
+  useEffect(() => () => {
+    if (stateFeedbackTimerRef.current) {
+      window.clearTimeout(stateFeedbackTimerRef.current);
+    }
+  }, []);
+
   // 리뷰 데이터 로드
   useEffect(() => {
     const loadReviews = async () => {
@@ -103,6 +111,31 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
   const handleShareKakao = () => {
     recordActivity('view_detail', location);
     shareToKakao(location);
+  };
+
+  const showStateFeedback = (message: string) => {
+    setStateFeedback(message);
+    if (stateFeedbackTimerRef.current) {
+      window.clearTimeout(stateFeedbackTimerRef.current);
+    }
+    stateFeedbackTimerRef.current = window.setTimeout(() => {
+      setStateFeedback('');
+      stateFeedbackTimerRef.current = null;
+    }, 1800);
+  };
+
+  const handleToggleSaved = () => {
+    const nextSaved = toggleSaved(location);
+    setIsSaved(nextSaved);
+    onPlaceStateChange?.();
+    showStateFeedback(nextSaved ? '저장했어요. 내 장소에서 볼 수 있어요.' : '저장을 해제했어요.');
+  };
+
+  const handleToggleVisited = () => {
+    const nextVisited = toggleVisited(location);
+    setIsVisited(nextVisited);
+    onPlaceStateChange?.();
+    showStateFeedback(nextVisited ? '다녀온 곳으로 기록했어요.' : '방문 기록을 해제했어요.');
   };
 
   // 네이버 지도 열기
@@ -224,10 +257,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
 
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => {
-                  setIsSaved(toggleSaved(location));
-                  onPlaceStateChange?.();
-                }}
+                onClick={handleToggleSaved}
                 aria-label={isSaved ? `${location.name} 저장 해제` : `${location.name} 저장하기`}
                 className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
                   isSaved
@@ -239,10 +269,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
                 {isSaved ? '저장 해제' : '저장하기'}
               </button>
               <button
-                onClick={() => {
-                  setIsVisited(toggleVisited(location));
-                  onPlaceStateChange?.();
-                }}
+                onClick={handleToggleVisited}
                 aria-label={isVisited ? `${location.name} 방문 기록 해제` : `${location.name} 다녀왔어요`}
                 className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
                   isVisited
@@ -254,6 +281,11 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
                 {isVisited ? '방문 기록 해제' : '다녀왔어요'}
               </button>
             </div>
+            {stateFeedback && (
+              <p className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500" role="status" aria-live="polite">
+                {stateFeedback}
+              </p>
+            )}
 
             {/* 태그 */}
             {visibleTags.length > 0 && (
@@ -421,10 +453,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
 
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => {
-                  setIsSaved(toggleSaved(location));
-                  onPlaceStateChange?.();
-                }}
+                onClick={handleToggleSaved}
                 aria-label={isSaved ? `${location.name} 저장 해제` : `${location.name} 저장하기`}
                 className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
                   isSaved
@@ -436,10 +465,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
                 {isSaved ? '저장 해제' : '저장하기'}
               </button>
               <button
-                onClick={() => {
-                  setIsVisited(toggleVisited(location));
-                  onPlaceStateChange?.();
-                }}
+                onClick={handleToggleVisited}
                 aria-label={isVisited ? `${location.name} 방문 기록 해제` : `${location.name} 다녀왔어요`}
                 className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
                   isVisited
@@ -451,6 +477,11 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
                 {isVisited ? '방문 기록 해제' : '다녀왔어요'}
               </button>
             </div>
+            {stateFeedback && (
+              <p className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500" role="status" aria-live="polite">
+                {stateFeedback}
+              </p>
+            )}
 
             {/* 태그 */}
             {visibleTags.length > 0 && (
