@@ -838,7 +838,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
               }`}
             >
               <Heart size={15} fill={isSaved ? 'currentColor' : 'none'} />
-              {isSaved ? '가보고 싶음 저장됨' : '저장하기'}
+              {isSaved ? '저장 해제' : '저장하기'}
             </button>
             <button
               onClick={() => {
@@ -851,7 +851,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
                   : 'border-gray-200 text-gray-500 hover:bg-gray-50'
               }`}
             >
-              {isVisited ? '다녀옴 기록됨' : '다녀왔어요'}
+              {isVisited ? '방문 기록 해제' : '다녀왔어요'}
             </button>
           </div>
         </div>
