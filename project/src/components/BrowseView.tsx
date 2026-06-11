@@ -441,11 +441,21 @@ export function BrowseView({
               onSelect={handleLocationSelect}
               selectedId={selectedLocation?.id}
               emptyMessage={
-                savedOnly
+                savedOnly && myPlaceCount === 0
+                  ? '아직 내 장소가 없어요. 마음에 드는 곳은 저장하고, 다녀온 곳은 기록해보세요.'
+                  : savedOnly
                   ? getSavedViewEmptyMessage(savedView)
                   : searchQuery
                   ? `'${searchQuery}'에 맞는 장소가 없어요. 검색어를 바꿔보세요.`
                   : '조건에 맞는 장소가 없어요.'
+              }
+              emptyAction={
+                savedOnly && myPlaceCount === 0
+                  ? {
+                      label: '먼저 볼 곳 보기',
+                      onClick: () => onSavedOnlyChange?.(false),
+                    }
+                  : undefined
               }
               onSavedStateChange={onSavedStateChange}
               savedView={savedOnly ? savedView : undefined}
@@ -507,6 +517,10 @@ interface BrowseListProps {
   onSelect: (location: Location) => void;
   selectedId?: string;
   emptyMessage?: string;
+  emptyAction?: {
+    label: string;
+    onClick: () => void;
+  };
   onSavedStateChange?: () => void;
   savedView?: 'saved' | 'visited' | 'revisit';
 }
@@ -518,6 +532,7 @@ function BrowseList({
   onSelect,
   selectedId,
   emptyMessage = '조건에 맞는 장소가 없어요.',
+  emptyAction,
   onSavedStateChange,
   savedView,
 }: BrowseListProps) {
@@ -527,8 +542,19 @@ function BrowseList({
 
   if (locations.length === 0) {
     return (
-      <div className="py-12 text-center text-sm text-gray-400">
-        {emptyMessage}
+      <div className="rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-10 text-center">
+        <p className="text-sm leading-relaxed text-gray-500">
+          {emptyMessage}
+        </p>
+        {emptyAction && (
+          <button
+            type="button"
+            onClick={emptyAction.onClick}
+            className="mt-4 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
+          >
+            {emptyAction.label}
+          </button>
+        )}
       </div>
     );
   }
