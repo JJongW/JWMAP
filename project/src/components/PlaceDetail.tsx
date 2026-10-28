@@ -128,7 +128,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
     const nextSaved = toggleSaved(location);
     setIsSaved(nextSaved);
     onPlaceStateChange?.();
-    showStateFeedback(nextSaved ? '저장했어요. 내 장소에서 볼 수 있어요.' : '저장을 해제했어요.');
+    showStateFeedback(nextSaved ? '저장했어요. 저장한 곳에서 볼 수 있어요.' : '저장을 해제했어요.');
   };
 
   const handleToggleVisited = () => {

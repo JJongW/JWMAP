@@ -143,7 +143,7 @@ export function BrowseView({
     setIsClearingPlaceState(false);
     setClearPlaceStateFeedback(
       didSyncRemote
-        ? '내 장소를 비웠어요.'
+        ? '저장한 곳을 비웠어요.'
         : '브라우저 기록은 비웠어요. 서버 동기화는 확인이 필요해요.'
     );
   };
@@ -158,13 +158,11 @@ export function BrowseView({
                 <p className={`text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-500'}`}>
                   JWMAP
                 </p>
-                <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">
-                  어디 갈까?
+                <h1 className="mt-1 text-xl font-bold tracking-tight text-gray-900 md:text-2xl">
+                  추천해달라는 말, 이제 여기서 볼 수 있어요.
                 </h1>
                 <p className="mt-1 text-sm leading-relaxed text-gray-500">
-                  {contentMode === 'space'
-                    ? '직접 모아둔 볼거리 후보를 지도에서 가볍게 둘러봐요.'
-                    : '직접 모아둔 검증 장소를 지도에서 가볍게 둘러봐요.'}
+                  제가 직접 다녀온 곳과 솔직한 메모를 모았어요.
                 </p>
               </div>
               {onContentModeChange && (
@@ -241,7 +239,7 @@ export function BrowseView({
                 }`}
               >
                 <CheckCircle2 size={13} />
-                <span>내 장소 {myPlaceCount}</span>
+                <span>저장한 곳 {myPlaceCount}</span>
               </button>
             </div>
 
@@ -278,7 +276,7 @@ export function BrowseView({
                     disabled={isClearingPlaceState}
                     className="text-xs font-semibold text-gray-400 transition-colors hover:text-rose-600 disabled:cursor-wait disabled:text-gray-300"
                   >
-                    {isClearingPlaceState ? '비우는 중...' : '내 장소 비우기'}
+                    {isClearingPlaceState ? '비우는 중...' : '저장한 곳 비우기'}
                   </button>
                 )}
                 {clearPlaceStateFeedback && (
@@ -385,10 +383,10 @@ export function BrowseView({
                       요즘 먼저 볼 만한 곳
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-orange-700/70">
-                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 대표픽, 자세한 메모, 내 반응이 있는 후보를 먼저 보여줘요.
+                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 대표픽과 제 메모가 있는 곳을 먼저 보여줘요.
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      {['대표픽 우선', '메모 있는 곳', '내 반응 반영'].map((label) => (
+                      {['대표픽 우선', '메모 있는 곳'].map((label) => (
                         <span key={label} className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-orange-700 shadow-sm">
                           {label}
                         </span>
@@ -442,7 +440,7 @@ export function BrowseView({
               selectedId={selectedLocation?.id}
               emptyMessage={
                 savedOnly && myPlaceCount === 0
-                  ? '아직 내 장소가 없어요. 마음에 드는 곳은 저장하고, 다녀온 곳은 기록해보세요.'
+                  ? '아직 저장한 곳이 없어요. 마음에 드는 곳은 저장하고, 다녀온 곳은 기록해보세요.'
                   : savedOnly
                   ? getSavedViewEmptyMessage(savedView)
                   : searchQuery
@@ -500,14 +498,11 @@ export function BrowseView({
 // ─────────────────────────────────────────────
 
 /**
- * 기존 LocationList의 "card" variant와 달리:
- * - 이미지 없음
- * - short_desc 없음
+ * 기존 LocationList의 "card" variant보다 가볍게:
+ * - 썸네일, 이름·동네, 큐레이터 추천 이유 한 줄(short_desc 또는 메모 첫 줄)
  * - tags, event tags 없음
- * - 큐레이터 톤 없음
  *
- * 이유: Browse 경로는 "나열"이지 "추천"이 아니다.
- * 이 제한은 의도적이며, 사용자에게 Decision 경로의 가치를 체감시킨다.
+ * 메모 자체가 카드의 주인공이다. 메모가 없을 때만 큐레이션 설명으로 대신한다.
  */
 
 interface BrowseListProps {
@@ -565,6 +560,7 @@ function BrowseList({
         const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
         const isSaved = savedIds.has(location.id);
         const isVisited = visitedIds.has(location.id);
+        const curatorNote = getCuratorNote(location);
         const reason = getRecommendationReason(location, level, savedView);
         const showsVisitState = savedView === 'visited' || savedView === 'revisit';
 
@@ -617,9 +613,15 @@ function BrowseList({
                     </span>
                   )}
                 </p>
-                <p className="mt-1 truncate text-xs font-medium text-gray-500">
-                  {reason}
-                </p>
+                {curatorNote ? (
+                  <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-gray-700">
+                    {curatorNote}
+                  </p>
+                ) : (
+                  <p className="mt-1 truncate text-xs font-medium text-gray-500">
+                    {reason}
+                  </p>
+                )}
               </div>
             </button>
 
@@ -759,9 +761,14 @@ function getRecommendationReason(
         : getCurationDescription(level),
   ];
   if (location.curator_visited !== false) reasonParts.push('직접 확인');
-  if (location.short_desc || location.memo) reasonParts.push('메모 있음');
   if (location.tags?.[0]) reasonParts.push(`#${location.tags[0]}`);
   return reasonParts.slice(0, 3).join(' · ');
+}
+
+/** 카드에 보여줄 큐레이터 추천 이유 한 줄: short_desc 우선, 없으면 메모 첫 줄 */
+function getCuratorNote(location: Location): string {
+  if (location.short_desc?.trim()) return location.short_desc.trim();
+  return location.memo?.split('\n').map((line) => line.trim()).find(Boolean) ?? '';
 }
 
 function getSavedViewGuide(view: 'saved' | 'visited' | 'revisit'): string {
@@ -851,7 +858,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
     const nextSaved = toggleSaved(location);
     setIsSaved(nextSaved);
     onPlaceStateChange?.();
-    showStateFeedback(nextSaved ? '저장했어요. 내 장소에서 볼 수 있어요.' : '저장을 해제했어요.');
+    showStateFeedback(nextSaved ? '저장했어요. 저장한 곳에서 볼 수 있어요.' : '저장을 해제했어요.');
   };
   const handleToggleVisited = () => {
     const nextVisited = toggleVisited(location);
