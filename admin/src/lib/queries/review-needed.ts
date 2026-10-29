@@ -79,18 +79,22 @@ export async function getReviewNeeded(
       .map((p) => ({ id: p.id, name: p.name, note: p.recommendations.find((r) => r.status === 'draft')?.body ?? null })),
     no_photo: visited.filter((p) => !p.image_url).map((p) => ({ id: p.id, name: p.name, note: p.region })),
     no_location: places.filter((p) => p.lat == null).map((p) => ({ id: p.id, name: p.name, note: p.region })),
-    untyped: (untyped.data ?? []).map((r) => ({
+    // 검토 뷰는 숨긴 장소도 센다. 화면에는 보이는 장소만
+    untyped: (untyped.data ?? []).filter((r) => byId.has(r.id)).map((r) => ({
       id: r.id,
       name: r.name,
       note: [r.category_main, r.category_sub].filter(Boolean).join(' · ') || '등록 분류 없음',
     })),
-    duplicates: (duplicates.data ?? []).map((r) => ({
-      id: r.place_ids[0],
-      name: (r.place_ids as string[]).map((id) => byId.get(id)?.name ?? id.slice(0, 8)).join(' / '),
-      note: r.matched_by === 'kakao_place_id' ? `카카오 ID ${r.key}` : `이름·주소 ${r.key}`,
-      ids: r.place_ids,
-    })),
-    fact_conflicts: (conflicts.data ?? []).map((r) => ({
+    duplicates: (duplicates.data ?? [])
+      .map((r) => ({ ...r, visible: (r.place_ids as string[]).filter((id) => byId.has(id)) }))
+      .filter((r) => r.visible.length > 1)
+      .map((r) => ({
+        id: r.visible[0],
+        name: r.visible.map((id) => byId.get(id)?.name ?? id.slice(0, 8)).join(' / '),
+        note: r.matched_by === 'kakao_place_id' ? `카카오 ID ${r.key}` : `이름·주소 ${r.key}`,
+        ids: r.visible,
+      })),
+    fact_conflicts: (conflicts.data ?? []).filter((r) => byId.has(r.place_id)).map((r) => ({
       id: r.place_id,
       name: byId.get(r.place_id)?.name ?? r.place_id,
       note: `${r.field}: ${(r.values as unknown[]).map((v) => JSON.stringify(v)).join(' vs ')}`,
