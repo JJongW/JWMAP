@@ -6,3 +6,6 @@ dist/
 *.log
 .DS_Store
 .claude/context/CHANGE_LOG.md
+
+# DB 개편: 카카오맵 저장 장소 등 개인 수집 데이터 (git에 올리지 않음)
+data/kakao-saved/
