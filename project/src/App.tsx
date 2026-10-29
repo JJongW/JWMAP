@@ -3,6 +3,8 @@ import { AddLocationModal } from './components/AddLocationModal';
 import { DecisionEntryView } from './components/DecisionEntryView';
 import { DecisionResultView } from './components/DecisionResultView';
 import { BrowseView } from './components/BrowseView';
+import { PlaceDetail } from './components/PlaceDetail';
+import { useBreakpoint } from './hooks/useBreakpoint';
 import type { Location, Province, CategoryMain, CategorySub, ContentMode } from './types/location';
 import {
   REGION_HIERARCHY,
@@ -35,6 +37,9 @@ export default function App() {
 
   // Decision flow state
   const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
+  /** 추천 결과 화면 위에 연 장소 상세. 닫으면 같은 결과 화면(조건 그대로)으로 돌아간다 */
+  const [resultDetail, setResultDetail] = useState<Location | null>(null);
+  const { isMobile } = useBreakpoint();
 
   // Pagination
   const [visibleLocations, setVisibleLocations] = useState<number>(10);
@@ -472,12 +477,32 @@ export default function App() {
     setDecisionResult(null);
   }, []);
 
-  /** result 화면에서 장소 상세 보기 → browse 모드로 전환 */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleDecisionOpenDetail = useCallback((_location: Location) => {
-    // 장소 상세를 보려면 browse 모드로 진입 (인터스티셜 스킵)
-    setUiMode('browse');
+  /** result 화면에서 장소 상세 보기 → 결과 화면 위에 해당 장소 상세를 연다 */
+  const handleDecisionOpenDetail = useCallback((location: Location) => {
+    recordActivity('list_click', location);
+    setResultDetail(location);
+    // 브라우저 뒤로가기가 결과 화면이 아니라 상세만 닫도록 기록을 하나 쌓는다
+    window.history.pushState({ resultDetailId: location.id }, '');
   }, []);
+
+  const handleCloseResultDetail = useCallback(() => {
+    if ((window.history.state as { resultDetailId?: string } | null)?.resultDetailId) {
+      window.history.back(); // popstate에서 닫힌다
+    } else {
+      setResultDetail(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => setResultDetail(null);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // 결과 화면을 떠나면 열려 있던 상세도 정리한다
+  useEffect(() => {
+    if (uiMode !== 'result') setResultDetail(null);
+  }, [uiMode]);
 
   // Pagination
   const handleShowMore = () => {
@@ -613,6 +638,16 @@ export default function App() {
           onRetry={handleRetryDecision}
           onBrowse={handleSwitchToBrowse}
           onOpenDetail={handleDecisionOpenDetail}
+        />
+      )}
+
+      {!isLoading && uiMode === 'result' && resultDetail && (
+        <PlaceDetail
+          key={resultDetail.id}
+          location={resultDetail}
+          onClose={handleCloseResultDetail}
+          isMobile={isMobile}
+          onPlaceStateChange={refreshPlaceStateIds}
         />
       )}
 

@@ -10,11 +10,11 @@
  * 3. Action Buttons - 네이버/카카오 지도 열기
  * 4. "다시 고르기" / "지도로 보기" 전환 버튼
  * 
- * 지도/리뷰는 스크롤 아래 "자세히 보기" 이후에만 노출.
+ * 카드 탭과 "자세히 보기"는 모두 같은 장소 상세(PlaceDetail)를 연다.
  */
 
 import { useState } from 'react';
-import { MapPin, ChevronDown, Navigation } from 'lucide-react';
+import { MapPin, ChevronRight, Navigation } from 'lucide-react';
 import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
 import { getDifferentiator } from '../utils/decisionEngine';
@@ -22,7 +22,6 @@ import { getCardImageUrl } from '../utils/image';
 import {
   getCurationLabel,
   getCurationBadgeClass,
-  getCuratorReason,
   getVisitStatusLabel,
   isCuratorVisited,
   ratingToCurationLevel,
@@ -48,7 +47,6 @@ export function DecisionResultView({
   onOpenDetail,
 }: DecisionResultViewProps) {
   const { primary, secondary, reasons } = result;
-  const [showMore, setShowMore] = useState(false);
   const copy = getResultCopy(contentMode);
 
   return (
@@ -104,24 +102,16 @@ export function DecisionResultView({
             />
           </div>
 
-          {/* ── 자세히 보기 접기/펼치기 ── */}
+          {/* ── 자세히 보기: 카드 탭과 같은 장소 상세를 연다 ── */}
           <div className="mt-10 border-t border-gray-100 pt-6">
             <button
-              onClick={() => setShowMore(!showMore)}
-              className="flex w-full items-center justify-center gap-1 text-sm text-gray-400 transition-colors hover:text-gray-600"
+              type="button"
+              onClick={() => onOpenDetail(primary)}
+              className="flex w-full items-center justify-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
             >
-              <span>{showMore ? '접기' : '자세히 보기'}</span>
-              <ChevronDown
-                size={16}
-                className={`transition-transform duration-200 ${showMore ? 'rotate-180' : ''}`}
-              />
+              <span>{primary.name} 자세히 보기</span>
+              <ChevronRight size={16} />
             </button>
-
-            {showMore && (
-              <div className="mt-6">
-                <DetailPreview location={primary} onOpenDetail={onOpenDetail} />
-              </div>
-            )}
           </div>
 
         </div>
@@ -342,58 +332,6 @@ function MapButton({ label, onClick, variant }: MapButtonProps) {
       <Navigation size={15} />
       <span>{label}</span>
     </button>
-  );
-}
-
-// ─────────────────────────────────────────────
-// DetailPreview: 자세히 보기 (접힌 영역)
-// ─────────────────────────────────────────────
-
-interface DetailPreviewProps {
-  location: Location;
-  onOpenDetail: (location: Location) => void;
-}
-
-function DetailPreview({ location, onOpenDetail }: DetailPreviewProps) {
-  const previewTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 6);
-  const curatorReason = getCuratorReason(location);
-
-  return (
-    <div className="space-y-4">
-      {/* 추천 이유: 운영자 한 줄만 */}
-      {curatorReason && (
-        <p className="text-sm leading-relaxed text-gray-700">
-          {curatorReason}
-        </p>
-      )}
-
-      {/* 방문 정보 */}
-      <div className="flex items-start gap-2 text-sm text-gray-500">
-        <MapPin size={14} className="mt-0.5 shrink-0" />
-        <span>{location.address}</span>
-      </div>
-
-      {previewTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {previewTags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600"
-            >
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* 전체 상세 보기 버튼 */}
-      <button
-        onClick={() => onOpenDetail(location)}
-        className="w-full rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400"
-      >
-        전체 정보 보기
-      </button>
-    </div>
   );
 }
 
