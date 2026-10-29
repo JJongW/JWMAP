@@ -24,6 +24,8 @@ export interface BrowseViewProps {
   contentMode?: ContentMode;
   onContentModeChange?: (mode: ContentMode) => void;
   displayedLocations: Location[];
+  /** 검색 대상: 현재 지역·카테고리 필터만 적용한 전체 장소. 없으면 displayedLocations에서 찾는다 */
+  searchableLocations?: Location[];
   isCuratedStart?: boolean;
   totalLocationCount?: number;
   savedOnly?: boolean;

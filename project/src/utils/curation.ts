@@ -87,7 +87,7 @@ export function ratingToCurationLevel(rating: number): number {
 // 운영자 추천 이유 / 방문 정보 분리
 // ─────────────────────────────────────────────
 
-type CuratorFields = Pick<Location, 'short_desc' | 'memo' | 'curator_visited'> & { address?: string };
+type CuratorFields = Partial<Pick<Location, 'short_desc' | 'memo' | 'curator_visited' | 'address'>>;
 
 const PROVINCE_PREFIX = /^(서울|경기|인천|부산|대구|대전|광주|울산|세종|강원|충북|충남|충청|전북|전남|전라|경북|경남|경상|제주)\S*\s/;
 

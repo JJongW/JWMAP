@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Location } from '../types/location';
 import type { BrowseViewProps } from '../components/browse/types';
 import { recordActivity } from '../utils/activity';
+import { searchLocations } from '../utils/placeSearch';
 
 interface UseBrowseViewControllerParams extends BrowseViewProps {
   isMobile: boolean;
@@ -10,6 +11,8 @@ interface UseBrowseViewControllerParams extends BrowseViewProps {
 export function useBrowseViewController(params: UseBrowseViewControllerParams) {
   const {
     displayedLocations,
+    searchableLocations,
+    savedOnly = false,
     filterState,
     filterControls,
     filterOptions,
@@ -52,25 +55,21 @@ export function useBrowseViewController(params: UseBrowseViewControllerParams) {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [detailLocation, setDetailLocation] = useState<Location | null>(null);
 
-  const searchFilteredLocations = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return displayedLocations;
-
-    return displayedLocations.filter((loc) => {
-      const name = loc.name.toLowerCase();
-      const region = loc.region.toLowerCase();
-      const catMain = (loc.categoryMain || '').toLowerCase();
-      const catSub = (loc.categorySub || '').toLowerCase();
-      const address = (loc.address || '').toLowerCase();
-      return (
-        name.includes(q) ||
-        region.includes(q) ||
-        catMain.includes(q) ||
-        catSub.includes(q) ||
-        address.includes(q)
-      );
-    });
-  }, [searchQuery, displayedLocations]);
+  // 검색은 '먼저 볼 곳' 몇 곳이 아니라 현재 필터의 전체 장소에서 한다.
+  // 저장한 곳 탭에서는 그 목록 안에서만 찾는다.
+  const isSearching = searchQuery.trim().length > 0;
+  const searchSource = isSearching && !savedOnly
+    ? searchableLocations ?? displayedLocations
+    : displayedLocations;
+  const searchFilteredLocations = useMemo(
+    () => searchLocations(searchSource, searchQuery),
+    [searchQuery, searchSource]
+  );
+  const hasActiveFilter =
+    resolvedSelectedProvince !== '전체' ||
+    resolvedSelectedDistrict !== '전체' ||
+    resolvedSelectedCategoryMain !== '전체' ||
+    resolvedSelectedCategorySub !== '전체';
 
   const handleLocationSelect = (location: Location) => {
     recordActivity('list_click', location);
@@ -102,6 +101,9 @@ export function useBrowseViewController(params: UseBrowseViewControllerParams) {
     resolvedGetDistrictCount,
     searchQuery,
     setSearchQuery,
+    isSearching,
+    searchSourceCount: searchSource.length,
+    hasActiveFilter,
     isFilterExpanded,
     setIsFilterExpanded,
     selectedLocation,

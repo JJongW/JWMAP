@@ -38,6 +38,7 @@ export function BrowseView({
   contentMode = 'food',
   onContentModeChange,
   displayedLocations,
+  searchableLocations,
   isCuratedStart = false,
   totalLocationCount,
   savedOnly = false,
@@ -96,6 +97,9 @@ export function BrowseView({
     resolvedGetDistrictCount,
     searchQuery,
     setSearchQuery,
+    isSearching,
+    searchSourceCount,
+    hasActiveFilter,
     isFilterExpanded,
     setIsFilterExpanded,
     selectedLocation,
@@ -107,6 +111,8 @@ export function BrowseView({
     handleMarkerClick,
   } = useBrowseViewController({
     displayedLocations,
+    searchableLocations,
+    savedOnly,
     filterState,
     filterControls,
     filterOptions,
@@ -131,6 +137,12 @@ export function BrowseView({
     onMapReady,
     isMobile,
   });
+  const searchScopeLabel =
+    resolvedSelectedDistrict !== '전체'
+      ? resolvedSelectedDistrict
+      : resolvedSelectedProvince !== '전체'
+        ? resolvedSelectedProvince
+        : '전체';
   // 모바일은 목록을 기본으로 보여주고, 지도는 전체 화면으로 전환해서 본다.
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
   const showsList = !isMobile || mobileView === 'list';
@@ -430,8 +442,10 @@ export function BrowseView({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-3 md:px-5">
             <p className="mb-3 text-xs font-medium text-gray-400">
-              {searchQuery
-                ? `검색 결과 ${searchFilteredLocations.length}곳`
+              {isSearching
+                ? savedOnly
+                  ? `저장한 곳에서 찾은 결과 ${searchFilteredLocations.length}곳`
+                  : `${searchScopeLabel} ${searchSourceCount}곳에서 찾은 결과 ${searchFilteredLocations.length}곳`
                 : savedOnly
                   ? getSavedViewCountLabel(savedView, searchFilteredLocations.length)
                   : isCuratedStart
@@ -450,16 +464,24 @@ export function BrowseView({
                   ? '아직 저장한 곳이 없어요. 마음에 드는 곳은 저장하고, 다녀온 곳은 기록해보세요.'
                   : savedOnly
                   ? getSavedViewEmptyMessage(savedView)
-                  : searchQuery
-                  ? `'${searchQuery}'에 맞는 장소가 없어요. 검색어를 바꿔보세요.`
+                  : isSearching
+                  ? `${searchScopeLabel}에서 '${searchQuery.trim()}'에 맞는 장소를 찾지 못했어요.`
                   : '조건에 맞는 장소가 없어요.'
               }
-              emptyAction={
+              emptyActions={
                 savedOnly && myPlaceCount === 0
-                  ? {
-                      label: '먼저 볼 곳 보기',
-                      onClick: () => onSavedOnlyChange?.(false),
-                    }
+                  ? [{ label: '먼저 볼 곳 보기', onClick: () => onSavedOnlyChange?.(false) }]
+                  : isSearching
+                  ? [
+                      ...(savedOnly
+                        ? [{ label: '전체 장소에서 찾기', onClick: () => onSavedOnlyChange?.(false) }]
+                        : hasActiveFilter
+                        ? [{ label: '전체 장소에서 찾기', onClick: () => onResetFilters?.() }]
+                        : []),
+                      { label: '검색어 지우기', onClick: () => setSearchQuery(''), secondary: true },
+                    ]
+                  : hasActiveFilter
+                  ? [{ label: '조건 초기화', onClick: () => onResetFilters?.() }]
                   : undefined
               }
               onSavedStateChange={onSavedStateChange}
@@ -527,10 +549,11 @@ interface BrowseListProps {
   onSelect: (location: Location) => void;
   selectedId?: string;
   emptyMessage?: string;
-  emptyAction?: {
+  emptyActions?: {
     label: string;
     onClick: () => void;
-  };
+    secondary?: boolean;
+  }[];
   onSavedStateChange?: () => void;
   savedView?: 'saved' | 'visited' | 'revisit';
 }
@@ -542,7 +565,7 @@ function BrowseList({
   onSelect,
   selectedId,
   emptyMessage = '조건에 맞는 장소가 없어요.',
-  emptyAction,
+  emptyActions,
   onSavedStateChange,
   savedView,
 }: BrowseListProps) {
@@ -556,14 +579,23 @@ function BrowseList({
         <p className="text-sm leading-relaxed text-gray-500">
           {emptyMessage}
         </p>
-        {emptyAction && (
-          <button
-            type="button"
-            onClick={emptyAction.onClick}
-            className="mt-4 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
-          >
-            {emptyAction.label}
-          </button>
+        {emptyActions && emptyActions.length > 0 && (
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {emptyActions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                onClick={action.onClick}
+                className={
+                  action.secondary
+                    ? 'rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50'
+                    : 'rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800'
+                }
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     );

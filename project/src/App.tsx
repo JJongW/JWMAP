@@ -622,6 +622,7 @@ export default function App() {
           contentMode={contentMode}
           onContentModeChange={setContentMode}
           displayedLocations={displayedLocations}
+          searchableLocations={filteredLocations}
           isCuratedStart={isCuratedDisplay}
           totalLocationCount={filteredLocations.length}
           savedOnly={showSavedOnly}
