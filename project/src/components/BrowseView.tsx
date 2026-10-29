@@ -6,7 +6,7 @@
  * 쓰는 보조 기능으로 제공한다.
  */
 
-import { CheckCircle2, ChevronDown, ChevronUp, Heart, MapPin, Search, Sparkles, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Heart, List, Map as MapIcon, MapPin, Search, Sparkles, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
@@ -121,6 +121,10 @@ export function BrowseView({
     onMapReady,
     isMobile,
   });
+  // 모바일은 목록을 기본으로 보여주고, 지도는 전체 화면으로 전환해서 본다.
+  const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
+  const showsList = !isMobile || mobileView === 'list';
+  const showsMap = !isMobile || mobileView === 'map';
   const [clearPlaceStateFeedback, setClearPlaceStateFeedback] = useState('');
   const [isClearingPlaceState, setIsClearingPlaceState] = useState(false);
 
@@ -151,17 +155,18 @@ export function BrowseView({
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(360px,440px)_1fr]">
-        <section className="flex min-h-0 flex-col border-r border-gray-100 bg-white">
-          <header className="border-b border-gray-100 px-5 pb-4 pt-12 md:px-6 md:pt-16">
+        {showsList && (
+        <section className="flex min-h-0 flex-1 flex-col border-r border-gray-100 bg-white lg:flex-none">
+          <header className="shrink-0 border-b border-gray-100 px-4 pb-3 pt-4 md:px-6 lg:pt-6">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className={`text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-500'}`}>
                   JWMAP
                 </p>
-                <h1 className="mt-1 text-xl font-bold tracking-tight text-gray-900 md:text-2xl">
+                <h1 className="mt-1 text-base font-bold tracking-tight text-gray-900 md:text-xl">
                   추천해달라는 말, 이제 여기서 볼 수 있어요.
                 </h1>
-                <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                <p className="mt-0.5 text-xs leading-relaxed text-gray-500 md:text-sm">
                   제가 직접 다녀온 곳과 솔직한 메모를 모았어요.
                 </p>
               </div>
@@ -188,7 +193,7 @@ export function BrowseView({
             </div>
           </header>
 
-          <div className="shrink-0 space-y-3 border-b border-gray-100 px-4 py-4 md:px-5">
+          <div className="shrink-0 space-y-2.5 border-b border-gray-100 px-4 py-3 md:px-5">
             <div className="relative">
               <Search
                 size={16}
@@ -241,6 +246,19 @@ export function BrowseView({
                 <CheckCircle2 size={13} />
                 <span>저장한 곳 {myPlaceCount}</span>
               </button>
+              <button
+                type="button"
+                onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+                aria-expanded={isFilterExpanded}
+                aria-controls="browse-filter-section"
+                className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
+              >
+                <span>필터</span>
+                {isFilterExpanded
+                  ? <ChevronUp size={14} />
+                  : <ChevronDown size={14} />
+                }
+              </button>
             </div>
 
             {savedOnly && (
@@ -286,20 +304,6 @@ export function BrowseView({
                 )}
               </div>
             )}
-
-            <button
-              type="button"
-              onClick={() => setIsFilterExpanded(!isFilterExpanded)}
-              aria-expanded={isFilterExpanded}
-              aria-controls="browse-filter-section"
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
-            >
-              <span>필터</span>
-              {isFilterExpanded
-                ? <ChevronUp size={14} />
-                : <ChevronDown size={14} />
-              }
-            </button>
 
             {isFilterExpanded && isMobile && (
               <button
@@ -375,23 +379,16 @@ export function BrowseView({
             )}
 
             {isCuratedStart && !savedOnly && (
-              <div className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-4 shadow-[0_10px_28px_rgba(251,146,60,0.08)]">
+              <div className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white px-3 py-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="flex items-center gap-1.5 text-xs font-bold text-orange-700">
                       <Sparkles size={14} />
                       요즘 먼저 볼 만한 곳
                     </p>
-                    <p className="mt-1 text-xs leading-relaxed text-orange-700/70">
-                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 대표픽과 제 메모가 있는 곳을 먼저 보여줘요.
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-orange-700/70">
+                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 대표픽과 제 메모가 있는 곳부터 보여줘요.
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {['대표픽 우선', '메모 있는 곳'].map((label) => (
-                        <span key={label} className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-orange-700 shadow-sm">
-                          {label}
-                        </span>
-                      ))}
-                    </div>
                   </div>
                   {onShowAllPlaces && (
                     <button
@@ -404,7 +401,7 @@ export function BrowseView({
                   )}
                 </div>
                 {hotRegions.length > 0 && (
-                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  <div className="mt-2 flex gap-2 overflow-x-auto">
                     {hotRegions.map((region) => (
                       <button
                         key={region}
@@ -421,7 +418,7 @@ export function BrowseView({
             )}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-32 pt-4 md:px-5 lg:pb-28">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-3 md:px-5">
             <p className="mb-3 text-xs font-medium text-gray-400">
               {searchQuery
                 ? `검색 결과 ${searchFilteredLocations.length}곳`
@@ -460,16 +457,23 @@ export function BrowseView({
             />
           </div>
         </section>
+        )}
 
-        <BrowseMapSection
-          locations={searchFilteredLocations}
-          selectedLocation={selectedLocation}
-          onMarkerClick={handleMarkerClick}
-          onMapReady={onMapReady}
-        />
+        {showsMap && (
+          <BrowseMapSection
+            locations={searchFilteredLocations}
+            selectedLocation={selectedLocation}
+            onMarkerClick={handleMarkerClick}
+            onMapReady={onMapReady}
+          />
+        )}
       </div>
 
-      <RecommendationBar onBackToDecision={onBackToDecision} />
+      <RecommendationBar
+        onBackToDecision={onBackToDecision}
+        mobileView={isMobile ? mobileView : undefined}
+        onMobileViewChange={setMobileView}
+      />
 
       {/* ── 모바일 상세 보기 (PlaceDetail 재사용) ── */}
       {detailLocation && isMobile && (
@@ -697,7 +701,7 @@ function BrowseMapSection({
   onMapReady,
 }: BrowseMapSectionProps) {
   return (
-    <section className="order-first h-[42vh] min-h-[320px] border-b border-gray-100 bg-gray-50 lg:order-last lg:h-full lg:min-h-0 lg:border-b-0">
+    <section className="min-h-0 flex-1 bg-gray-50 lg:h-full">
       <div className="flex h-10 items-center justify-between border-b border-gray-100 bg-white/95 px-4 text-xs font-medium text-gray-500 backdrop-blur">
         <div className="flex items-center gap-1.5">
           <MapPin size={14} />
@@ -721,25 +725,40 @@ function BrowseMapSection({
 // ─────────────────────────────────────────────
 
 /**
- * 화면 하단에 고정된 CTA 바.
+ * 화면 하단 CTA 바. 목록을 덮지 않도록 fixed가 아니라 레이아웃 흐름 안에 둔다.
  * 이것은 광고가 아니라 "안도의 밸브(relief valve)"다.
  * Browse에서 인지 부하를 느낀 사용자가 자연스럽게 Decision으로 돌아가게 한다.
+ * 모바일에서는 같은 바에 목록/지도 전환 버튼을 함께 둔다.
  */
 
 interface RecommendationBarProps {
   onBackToDecision: () => void;
+  /** 모바일일 때만 전달. 없으면 전환 버튼을 숨긴다. */
+  mobileView?: 'list' | 'map';
+  onMobileViewChange?: (view: 'list' | 'map') => void;
 }
 
-function RecommendationBar({ onBackToDecision }: RecommendationBarProps) {
+function RecommendationBar({ onBackToDecision, mobileView, onMobileViewChange }: RecommendationBarProps) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-100 bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-5 pb-6 pt-3 md:pb-4">
-        <p className="text-sm font-medium text-gray-500">
-          후보가 많다면
-        </p>
+    <div className="shrink-0 border-t border-gray-100 bg-white/95 backdrop-blur-sm">
+      <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        {mobileView ? (
+          <button
+            type="button"
+            onClick={() => onMobileViewChange?.(mobileView === 'list' ? 'map' : 'list')}
+            className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700"
+          >
+            {mobileView === 'list' ? <MapIcon size={16} /> : <List size={16} />}
+            {mobileView === 'list' ? '지도 보기' : '목록 보기'}
+          </button>
+        ) : (
+          <p className="text-sm font-medium text-gray-500">
+            후보가 많다면
+          </p>
+        )}
         <button
           onClick={onBackToDecision}
-          className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.98]"
+          className="min-h-[44px] rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.98]"
         >
           3곳만 추려보기
         </button>
