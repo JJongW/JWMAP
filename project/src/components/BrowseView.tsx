@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
+import { IntentInput } from './browse/IntentInput';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useBrowseViewController } from '../hooks/useBrowseViewController';
 import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
@@ -77,6 +78,9 @@ export function BrowseView({
   onShowMore,
   onBackToDecision,
   onMapReady,
+  regionOptions = [],
+  onRecommendText,
+  onQuickStart,
 }: BrowseViewProps) {
   const { isMobile } = useBreakpoint();
   const {
@@ -216,6 +220,15 @@ export function BrowseView({
           </header>
 
           <div className="shrink-0 space-y-2.5 border-b border-gray-100 px-4 py-3 md:px-5">
+            {onRecommendText && onQuickStart && (
+              <IntentInput
+                contentMode={contentMode}
+                regionOptions={regionOptions}
+                onSubmitText={onRecommendText}
+                onQuickStart={onQuickStart}
+                onContentModeChange={onContentModeChange}
+              />
+            )}
             <div className="relative">
               <Search
                 size={16}
@@ -225,7 +238,7 @@ export function BrowseView({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="장소, 지역, 카테고리 검색"
+                placeholder="가게 이름이나 지역으로 찾기"
                 className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-3 pl-9 pr-9 text-sm text-gray-700 placeholder-gray-300 outline-none transition-colors focus:border-gray-300 focus:bg-white"
               />
               {searchQuery && (

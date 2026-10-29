@@ -18,6 +18,8 @@ import { MapPin, ChevronRight, Navigation } from 'lucide-react';
 import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
 import { getDifferentiator } from '../utils/decisionEngine';
+import type { IntentConditions } from '../utils/intentChips';
+import { ConditionChips } from './ConditionChips';
 import { getCardImageUrl } from '../utils/image';
 import {
   getCurationLabel,
@@ -29,7 +31,14 @@ import {
 import { PriceLevelBadge } from './PriceLevelBadge';
 
 interface DecisionResultViewProps {
-  result: DecisionResult;
+  /** null이면 조건에 맞는 곳이 없다는 안내와 칩만 보여준다 */
+  result: DecisionResult | null;
+  /** 지금 추천에 쓴 조건. 칩을 고치면 바로 다시 추천한다 */
+  conditions: IntentConditions;
+  onConditionsChange: (next: IntentConditions) => void;
+  regionOptions: string[];
+  /** 문장에서 조건을 못 읽었을 때 등 결과 위 안내 */
+  notice?: string | null;
   contentMode?: ContentMode;
   /** "다시 고르기" 클릭 시 → decision 모드로 돌아감 */
   onRetry: () => void;
@@ -41,12 +50,15 @@ interface DecisionResultViewProps {
 
 export function DecisionResultView({
   result,
+  conditions,
+  onConditionsChange,
+  regionOptions,
+  notice,
   contentMode = 'food',
   onRetry,
   onBrowse,
   onOpenDetail,
 }: DecisionResultViewProps) {
-  const { primary, secondary, reasons } = result;
   const copy = getResultCopy(contentMode);
 
   return (
@@ -58,61 +70,32 @@ export function DecisionResultView({
           <p className="mb-2 text-sm font-medium tracking-widest text-gray-300">
             {copy.eyebrow}
           </p>
-          <h1 className="mb-10 text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">
-            {copy.title}
+          <h1 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">
+            {result ? copy.title : '조건에 맞는 곳이 아직 없어요.'}
           </h1>
 
-          {/* ── 1순위 추천 카드 ── */}
-          <PrimaryCard
-            location={primary}
-            reason={reasons.get(primary.id) || ''}
-            onOpenDetail={onOpenDetail}
-          />
-
-          {/* ── 보조 추천 (2~3순위) ── */}
-          {secondary.length > 0 && (
-            <div className="mt-6">
-              <p className="mb-3 text-xs font-medium tracking-widest text-gray-300">
-                {copy.secondaryLabel}
+          {/* ── 추천 조건 칩: 고치면 바로 다시 추천 ── */}
+          <div className="mb-8">
+            <ConditionChips
+              conditions={conditions}
+              onChange={onConditionsChange}
+              regionOptions={regionOptions}
+              showKind={contentMode === 'food'}
+            />
+            {notice && (
+              <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800" role="status">
+                {notice}
               </p>
-              <div className="flex flex-col gap-3">
-                {secondary.map((loc) => (
-                  <SecondaryCard
-                    key={loc.id}
-                    location={loc}
-                    differentiator={getDifferentiator(loc, primary)}
-                    onOpenDetail={onOpenDetail}
-                  />
-                ))}
-              </div>
-            </div>
+            )}
+          </div>
+
+          {result ? (
+            <ResultCards result={result} copy={copy} onOpenDetail={onOpenDetail} />
+          ) : (
+            <p className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-8 text-center text-sm leading-relaxed text-gray-500">
+              칩의 ×를 눌러 조건을 하나 빼거나, 다른 값으로 바꿔보세요.
+            </p>
           )}
-
-          {/* ── 지도 열기 버튼 (1순위 기준) ── */}
-          <div className="mt-8 flex gap-3">
-            <MapButton
-              label="네이버 지도"
-              onClick={() => openNaver(primary)}
-              variant="primary"
-            />
-            <MapButton
-              label="카카오맵"
-              onClick={() => openKakao(primary)}
-              variant="secondary"
-            />
-          </div>
-
-          {/* ── 자세히 보기: 카드 탭과 같은 장소 상세를 연다 ── */}
-          <div className="mt-10 border-t border-gray-100 pt-6">
-            <button
-              type="button"
-              onClick={() => onOpenDetail(primary)}
-              className="flex w-full items-center justify-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
-            >
-              <span>{primary.name} 자세히 보기</span>
-              <ChevronRight size={16} />
-            </button>
-          </div>
 
         </div>
       </div>
@@ -135,6 +118,76 @@ export function DecisionResultView({
         </div>
       </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ResultCards: 1순위 + 보조 추천 + 지도 열기
+// ─────────────────────────────────────────────
+
+interface ResultCardsProps {
+  result: DecisionResult;
+  copy: ReturnType<typeof getResultCopy>;
+  onOpenDetail: (location: Location) => void;
+}
+
+function ResultCards({ result, copy, onOpenDetail }: ResultCardsProps) {
+  const { primary, secondary, reasons } = result;
+
+  return (
+    <>
+      {/* ── 1순위 추천 카드 ── */}
+      <PrimaryCard
+        location={primary}
+        reason={reasons.get(primary.id) || ''}
+        onOpenDetail={onOpenDetail}
+      />
+
+      {/* ── 보조 추천 (2~3순위) ── */}
+      {secondary.length > 0 && (
+        <div className="mt-6">
+          <p className="mb-3 text-xs font-medium tracking-widest text-gray-300">
+            {copy.secondaryLabel}
+          </p>
+          <div className="flex flex-col gap-3">
+            {secondary.map((loc) => (
+              <SecondaryCard
+                key={loc.id}
+                location={loc}
+                differentiator={getDifferentiator(loc, primary)}
+                onOpenDetail={onOpenDetail}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 지도 열기 버튼 (1순위 기준) ── */}
+      <div className="mt-8 flex gap-3">
+        <MapButton
+          label="네이버 지도"
+          onClick={() => openNaver(primary)}
+          variant="primary"
+        />
+        <MapButton
+          label="카카오맵"
+          onClick={() => openKakao(primary)}
+          variant="secondary"
+        />
+      </div>
+
+      {/* ── 자세히 보기: 카드 탭과 같은 장소 상세를 연다 ── */}
+      <div className="mt-10 border-t border-gray-100 pt-6">
+        <button
+          type="button"
+          onClick={() => onOpenDetail(primary)}
+          className="flex w-full items-center justify-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
+        >
+          <span>{primary.name} 자세히 보기</span>
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </>
   );
 }
 

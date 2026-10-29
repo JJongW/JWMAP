@@ -18,6 +18,7 @@ import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { getCuratorReason, isCuratorVisited } from './utils/curation';
+import { EMPTY_CONDITIONS, resolveIntent, type IntentConditions } from './utils/intentChips';
 import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
 import { clearPlaceStates, getActivityScore, getSavedIds, getVisitedIds, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -52,8 +53,10 @@ export default function App() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 결과 없음 메시지 상태 (alert() 대체)
-  const [noResultMessage, setNoResultMessage] = useState<string | null>(null);
+  // 추천 조건: 입력 문장·빠른 시작·질문형 화면이 같은 조건을 공유하고, 결과 화면 칩에서 고친다
+  const [conditions, setConditions] = useState<IntentConditions>(EMPTY_CONDITIONS);
+  /** 문장에서 조건을 하나도 못 읽었을 때 결과 화면에서 안내한다 */
+  const [intentNotice, setIntentNotice] = useState<string | null>(null);
 
   // 초기 데이터 로딩 상태
   const [isLoading, setIsLoading] = useState(true);
@@ -256,6 +259,15 @@ export default function App() {
     [filteredLocations, getCuratedLocations]
   );
 
+  /** 지역 칩·문장 해석용: 장소가 많은 지역 순 */
+  const regionOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    locations.forEach((location) => {
+      if (location.region) counts.set(location.region, (counts.get(location.region) ?? 0) + 1);
+    });
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([region]) => region);
+  }, [locations]);
+
   const hotRegions = useMemo(() => {
     const regionScores = new Map<string, number>();
     locations.forEach((location) => {
@@ -438,6 +450,16 @@ export default function App() {
   // Decision Flow 핸들러
   // ─────────────────────────────────────────────
 
+  /**
+   * 조건으로 결정 엔진을 돌리고 결과 화면으로 간다.
+   * 맞는 곳이 없으면 조건을 무시한 대체 결과 대신, 결과 화면에서 칩을 빼보도록 안내한다.
+   */
+  const runDecision = useCallback((next: IntentConditions) => {
+    setConditions(next);
+    setDecisionResult(decideLocations(locations, next));
+    setUiMode('result');
+  }, [locations]);
+
   /** 4단계 선택 완료(지역·동행·시간·우선조건) → 결정 엔진 실행 → result 모드 전환 */
   const handleDecide = useCallback((
     region: string | null,
@@ -445,19 +467,34 @@ export default function App() {
     timeSlot: TimeSlot,
     priorityFeature: PriorityFeature,
   ) => {
-    setNoResultMessage(null);
-    const result =
-      decideLocations(locations, companion, timeSlot, priorityFeature, region) ||
-      createFallbackDecisionResult(locations, contentMode, region);
+    setIntentNotice(null);
+    runDecision({ ...EMPTY_CONDITIONS, region, companion, timeSlot, priority: priorityFeature });
+  }, [runDecision]);
 
-    if (result) {
-      setDecisionResult(result);
-      setUiMode('result');
-    } else {
-      // 결과 없음: 인라인 메시지로 알림, decision 화면에 그대로 머묾
-      setNoResultMessage('조건에 맞는 장소가 아직 없어요. 필터를 바꾸거나 직접 둘러볼까요?');
-    }
-  }, [contentMode, locations]);
+  /** 첫 화면 "오늘 어디 갈까요?" 입력 → 조건 칩으로 해석 → 추천 */
+  const handleRecommendText = useCallback(async (text: string) => {
+    recordActivity('recommend_start', undefined, { contentType: contentMode });
+    const { conditions: parsed, source } = await resolveIntent(text, regionOptions);
+    setIntentNotice(
+      text.trim() && source === 'none'
+        ? '문장에서 조건을 찾지 못했어요. 아래 칩으로 직접 골라주세요.'
+        : null
+    );
+    runDecision(parsed);
+  }, [contentMode, regionOptions, runDecision]);
+
+  /** 입력 없이 지역·밥집·카페로 바로 시작 */
+  const handleQuickStart = useCallback((partial: Partial<IntentConditions>) => {
+    recordActivity('recommend_start', undefined, { contentType: contentMode });
+    setIntentNotice(null);
+    runDecision({ ...EMPTY_CONDITIONS, ...partial });
+  }, [contentMode, runDecision]);
+
+  /** 결과 화면에서 칩을 고치면 바로 다시 추천 */
+  const handleConditionsChange = useCallback((next: IntentConditions) => {
+    setIntentNotice(null);
+    runDecision(next);
+  }, [runDecision]);
 
   const handleSwitchToBrowse = useCallback(() => {
     setUiMode('browse');
@@ -626,14 +663,17 @@ export default function App() {
           availableProvincesWithDistricts={availableProvincesWithDistricts}
           onDecide={handleDecide}
           onBrowse={handleSwitchToBrowse}
-          noResultMessage={noResultMessage}
         />
       )}
 
       {/* ── Decision Result View (결정 결과 화면) ── */}
-      {!isLoading && uiMode === 'result' && decisionResult && (
+      {!isLoading && uiMode === 'result' && (
         <DecisionResultView
           result={decisionResult}
+          conditions={conditions}
+          onConditionsChange={handleConditionsChange}
+          regionOptions={regionOptions.slice(0, 20)}
+          notice={intentNotice}
           contentMode={contentMode}
           onRetry={handleRetryDecision}
           onBrowse={handleSwitchToBrowse}
@@ -698,6 +738,9 @@ export default function App() {
           onShowMore={handleShowMore}
           onBackToDecision={handleBackToDecision}
           onMapReady={handleMapReady}
+          regionOptions={regionOptions.slice(0, 20)}
+          onRecommendText={handleRecommendText}
+          onQuickStart={handleQuickStart}
         />
       )}
 
@@ -719,49 +762,4 @@ export default function App() {
       <SpeedInsights />
     </div>
   );
-}
-
-function createFallbackDecisionResult(
-  locations: Location[],
-  contentMode: ContentMode,
-  region?: string | null,
-): DecisionResult | null {
-  const candidates =
-    region && region.trim()
-      ? (PROVINCES as readonly string[]).includes(region)
-        ? locations.filter((loc) => inferProvinceFromRegion(loc.region) === region || loc.province === region)
-        : locations.filter((loc) => loc.region === region)
-      : locations;
-
-  const top = [...candidates]
-    .sort((a, b) => {
-      const aScore =
-        (a.curation_level ?? 1) * 12 +
-        getActivityScore(a) * 8 +
-        (getCuratorReason(a) ? 3 : 0) +
-        (a.imageUrl ? 2 : 0);
-      const bScore =
-        (b.curation_level ?? 1) * 12 +
-        getActivityScore(b) * 8 +
-        (getCuratorReason(b) ? 3 : 0) +
-        (b.imageUrl ? 2 : 0);
-      return bScore - aScore;
-    })
-    .slice(0, 3);
-
-  if (top.length === 0) return null;
-
-  const reasons = new Map<string, string>();
-  top.forEach((location, index) => {
-    const prefix = contentMode === 'space'
-      ? ['오늘 먼저 보기 좋은 후보예요.', '동선에 같이 넣기 좋은 곳이에요.', '가볍게 비교해볼 만한 선택지예요.']
-      : ['오늘 먼저 먹어볼 만한 후보예요.', '같이 비교해볼 만한 곳이에요.', '부담 없이 후보에 넣기 좋아요.'];
-    reasons.set(location.id, getCuratorReason(location) || prefix[index] || prefix[0]);
-  });
-
-  return {
-    primary: top[0],
-    secondary: top.slice(1),
-    reasons,
-  };
 }

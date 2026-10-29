@@ -16,6 +16,7 @@ import type { Location, CategoryMain } from '../types/location';
 import { PROVINCES, inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
 import { getCuratorReason } from './curation';
+import type { IntentConditions } from './intentChips';
 
 // ─────────────────────────────────────────────
 // 1. Companion → 태그 매핑
@@ -114,9 +115,9 @@ interface ScoredLocation {
   location: Location;
   score: number;
   matchedTags: string[];
-  companion: Companion;
-  timeSlot: TimeSlot;
-  priorityFeature: PriorityFeature;
+  companion: Companion | null;
+  timeSlot: TimeSlot | null;
+  priorityFeature: PriorityFeature | null;
 }
 
 function addMatchedTag(tags: string[], tag: string) {
@@ -125,14 +126,14 @@ function addMatchedTag(tags: string[], tag: string) {
 
 function scoreLocation(
   location: Location,
-  companion: Companion,
-  timeSlot: TimeSlot,
-  priorityFeature: PriorityFeature,
+  companion: Companion | null,
+  timeSlot: TimeSlot | null,
+  priorityFeature: PriorityFeature | null,
 ): ScoredLocation | null {
   const matchedTags: string[] = [];
   let score = 0;
 
-  const priorityKeywords = getPriorityTagKeywords(priorityFeature);
+  const priorityKeywords = priorityFeature ? getPriorityTagKeywords(priorityFeature) : [];
   if (priorityKeywords.length > 0 && !hasTagKeyword(location, priorityKeywords)) {
     return null;
   }
@@ -142,7 +143,7 @@ function scoreLocation(
   }
 
   // ── 보너스: Companion 태그 매칭 ──
-  const companionKeywords = getCompanionTagKeywords(companion);
+  const companionKeywords = companion ? getCompanionTagKeywords(companion) : [];
   if (hasTagKeyword(location, companionKeywords)) {
     score += 30;
     addMatchedTag(matchedTags, companionKeywords[0]);
@@ -150,7 +151,7 @@ function scoreLocation(
 
   // ── 보너스: TimeSlot 카테고리 가중치 ──
   const categoryMain = location.categoryMain as CategoryMain | undefined;
-  if (categoryMain && categoryMain !== '전체') {
+  if (timeSlot && categoryMain && categoryMain !== '전체') {
     const weight = TIME_CATEGORY_WEIGHT[timeSlot][categoryMain] ?? 1;
     score += weight * 10;
   }
@@ -200,29 +201,32 @@ export interface DecisionResult {
   reasons: Map<string, string>;
 }
 
+/** 카페·디저트는 식사 후보와 섞이지 않도록 따로 본다 */
+export function isCafeLike(location: Location): boolean {
+  return location.categoryMain === '카페' || location.categoryMain === '디저트';
+}
+
 /**
- * 사용자 입력을 기반으로 최적의 장소 3곳을 선정한다.
+ * 사용자 조건을 기반으로 최적의 장소 3곳을 선정한다.
+ * 비어 있는 조건(null)은 점수에 반영하지 않는다.
  *
- * @param locations - 전체 장소 데이터
- * @param companion - 동행 유형
- * @param timeSlot - 시간대
- * @param priorityFeature - 우선 조건
- * @param region - 지역 필터 (null이면 전체)
  * @returns 추천 결과 (3곳) 또는 null (결과 없음)
  */
 export function decideLocations(
   locations: Location[],
-  companion: Companion,
-  timeSlot: TimeSlot,
-  priorityFeature: PriorityFeature,
-  region?: string | null,
+  conditions: IntentConditions,
 ): DecisionResult | null {
-  const candidates =
+  const { region, companion, timeSlot, priority: priorityFeature, kind } = conditions;
+  const inRegion =
     region && region.trim()
       ? (PROVINCES as readonly string[]).includes(region)
         ? locations.filter((loc) => inferProvinceFromRegion(loc.region) === region || loc.province === region)
         : locations.filter((loc) => loc.region === region)
       : locations;
+  const candidates =
+    kind === 'cafe' ? inRegion.filter(isCafeLike)
+    : kind === 'meal' ? inRegion.filter((loc) => !isCafeLike(loc))
+    : inRegion;
 
   const scored: ScoredLocation[] = [];
   for (const loc of candidates) {
@@ -293,8 +297,8 @@ const PRIORITY_REASON_TEXT: Partial<Record<PriorityFeature, string>> = {
 
 function generateReason(
   scored: ScoredLocation,
-  companion: Companion,
-  timeSlot: TimeSlot,
+  companion: Companion | null,
+  timeSlot: TimeSlot | null,
 ): string {
   const loc = scored.location;
 
@@ -310,17 +314,22 @@ function generateReason(
     .filter((text, index, array) => array.indexOf(text) === index)
     .slice(0, 2);
 
+  const when = [timeSlot ? TIME_TEXT[timeSlot] : '', companion ? COMPANION_REASON_TEXT[companion] : '']
+    .filter(Boolean)
+    .join(' ');
+  const goodFor = when ? `${when} 가기 좋은` : '가볍게 들르기 좋은';
+
   if (featureTexts.length > 0) {
-    return `${TIME_TEXT[timeSlot]} ${COMPANION_REASON_TEXT[companion]} 가기 좋은 ${featureTexts[0]} 후보예요.`;
+    return `${goodFor} ${featureTexts[0]} 후보예요.`;
   }
 
-  const priorityText = PRIORITY_REASON_TEXT[scored.priorityFeature];
+  const priorityText = scored.priorityFeature ? PRIORITY_REASON_TEXT[scored.priorityFeature] : undefined;
   if (priorityText) {
-    return `${priorityText} ${TIME_TEXT[timeSlot]} 비교해볼 만한 후보예요.`;
+    return `${priorityText} 비교해볼 만한 후보예요.`;
   }
 
   // fallback
-  return `${TIME_TEXT[timeSlot]} ${COMPANION_REASON_TEXT[companion]} 가기 좋은 후보예요.`;
+  return `${goodFor} 후보예요.`;
 }
 
 // ─────────────────────────────────────────────
