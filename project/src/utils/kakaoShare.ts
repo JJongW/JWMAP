@@ -1,5 +1,6 @@
 import type { Location } from '../types/location';
 import { getDetailImageUrl } from './image';
+import { getCuratorReason } from './curation';
 
 // Kakao SDK 타입 선언
 declare global {
@@ -86,8 +87,9 @@ function buildDescription(location: Location): string {
   }
 
   // 원라이너 (short_desc)
-  if (location.short_desc) {
-    parts.push(`"${location.short_desc}"`);
+  const curatorReason = getCuratorReason(location);
+  if (curatorReason) {
+    parts.push(`"${curatorReason}"`);
   }
 
   return parts.join('\n');

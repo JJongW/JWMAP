@@ -1,8 +1,9 @@
-import { CheckCircle, Calendar, Clock } from 'lucide-react';
+import { CheckCircle, Calendar, Circle, Clock } from 'lucide-react';
 import type { DisclosureType } from '../types/location';
+import { VISIT_STATUS_LABEL } from '../utils/curation';
 
 interface ProofBarProps {
-  /** 주인장이 직접 다녀온 장소인지. false면 ProofBar 미표시 */
+  /** 주인장이 직접 다녀온 장소인지. false면 '아직 안 가본 후보'로 표시 */
   curatorVisited?: boolean;
   visitedAt?: string;
   visitSlot?: string;
@@ -17,8 +18,15 @@ const disclosureLabels: Record<DisclosureType, { label: string; color: string }>
 };
 
 export function ProofBar({ curatorVisited = true, visitedAt, visitSlot, disclosure }: ProofBarProps) {
-  // 주인장이 직접 다녀오지 않은 장소면 표시하지 않음
-  if (curatorVisited === false) return null;
+  // 주인장이 직접 다녀오지 않은 장소는 숨기지 않고 후보임을 분명히 알린다
+  if (curatorVisited === false) {
+    return (
+      <div className="flex items-center gap-1.5 py-3 border-y border-gray-100 text-gray-500">
+        <Circle size={16} className="flex-shrink-0" />
+        <span className="text-sm font-medium">{VISIT_STATUS_LABEL.candidate}</span>
+      </div>
+    );
+  }
 
   // 방문 날짜 포맷팅
   const formatDate = (dateStr: string): string => {
@@ -38,7 +46,7 @@ export function ProofBar({ curatorVisited = true, visitedAt, visitSlot, disclosu
       {/* 큐레이터 직접 방문 배지 */}
       <div className="flex items-center gap-1.5 text-green-600">
         <CheckCircle size={16} className="flex-shrink-0" />
-        <span className="text-sm font-medium">큐레이터 직접 방문</span>
+        <span className="text-sm font-medium">{VISIT_STATUS_LABEL.visited}</span>
       </div>
 
       {/* 방문 날짜 */}

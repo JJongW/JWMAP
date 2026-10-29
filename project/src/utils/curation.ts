@@ -4,6 +4,8 @@
  * 주인장 모드(VITE_OWNER_MODE=true)에서만 수정 가능
  */
 
+import type { Location } from '../types/location';
+
 /** 주인장 모드: 큐레이션 레벨 수정 가능 (환경변수 VITE_OWNER_MODE=true) */
 export const isOwnerMode = import.meta.env.VITE_OWNER_MODE === 'true';
 
@@ -79,4 +81,52 @@ export function ratingToCurationLevel(rating: number): number {
   if (rating >= 4) return 4;    // 원픽 → 강력추천
   if (rating >= 2.5) return 2;  // 자주 방문 → 가볼만함
   return 1;                     // 모르겠음 → 후보
+}
+
+// ─────────────────────────────────────────────
+// 운영자 추천 이유 / 방문 정보 분리
+// ─────────────────────────────────────────────
+
+type CuratorFields = Partial<Pick<Location, 'short_desc' | 'memo' | 'curator_visited' | 'address'>>;
+
+const PROVINCE_PREFIX = /^(서울|경기|인천|부산|대구|대전|광주|울산|세종|강원|충북|충남|충청|전북|전남|전라|경북|경남|경상|제주)\S*\s/;
+
+/** short_desc에 주소가 들어간 데이터가 많아(2026-10 기준 423개 중 337개) 주소처럼 보이면 걸러낸다 */
+function looksLikeAddress(text: string, address?: string): boolean {
+  if (address && text === address.trim()) return true;
+  return PROVINCE_PREFIX.test(text) && /\d/.test(text);
+}
+
+/**
+ * 카드·상세에서 "추천 이유"로 보여줄 운영자 한 줄.
+ * short_desc만 쓴다. memo는 주차·분위기 같은 자동 생성 설명이 대부분이라 추천 이유로 쓰지 않는다.
+ */
+export function getCuratorReason(location: CuratorFields): string {
+  const text = location.short_desc?.trim() ?? '';
+  if (!text || looksLikeAddress(text, location.address)) return '';
+  return text;
+}
+
+/** 주차·포장·예약처럼 고를 이유가 아니라 찾아갈 때 필요한 정보성 태그 */
+export function isPracticalInfoTag(tag: string): boolean {
+  return /주차|포장|배달|예약|웨이팅|이동약자|좁음/.test(tag);
+}
+
+/** 방문 정보 섹션에 넣을 자동 생성/참고 설명 (memo) */
+export function getVisitInfoText(location: CuratorFields): string {
+  return location.memo?.trim() ?? '';
+}
+
+/** curator_visited가 비어 있으면 기존 데이터 호환을 위해 직접 방문으로 본다 */
+export function isCuratorVisited(location: CuratorFields): boolean {
+  return location.curator_visited !== false;
+}
+
+export const VISIT_STATUS_LABEL = {
+  visited: '운영자 직접 방문',
+  candidate: '아직 안 가본 후보',
+} as const;
+
+export function getVisitStatusLabel(location: CuratorFields): string {
+  return isCuratorVisited(location) ? VISIT_STATUS_LABEL.visited : VISIT_STATUS_LABEL.candidate;
 }

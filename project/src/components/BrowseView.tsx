@@ -6,15 +6,26 @@
  * 쓰는 보조 기능으로 제공한다.
  */
 
-import { CheckCircle2, ChevronDown, ChevronUp, Heart, MapPin, Search, Sparkles, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Heart, List, Map as MapIcon, MapPin, Search, Sparkles, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
+import { IntentInput } from './browse/IntentInput';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useBrowseViewController } from '../hooks/useBrowseViewController';
 import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
-import { getCurationLabel, getCurationBadgeClass, getCurationDescription, ratingToCurationLevel } from '../utils/curation';
+import {
+  getCurationLabel,
+  getCurationBadgeClass,
+  getCurationDescription,
+  getCuratorReason,
+  getVisitInfoText,
+  getVisitStatusLabel,
+  isCuratorVisited,
+  isPracticalInfoTag,
+  ratingToCurationLevel,
+} from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { getSavedIds, getVisitedIds, recordActivity, toggleSaved, toggleVisited } from '../utils/activity';
 import type { Location } from '../types/location';
@@ -28,6 +39,7 @@ export function BrowseView({
   contentMode = 'food',
   onContentModeChange,
   displayedLocations,
+  searchableLocations,
   isCuratedStart = false,
   totalLocationCount,
   savedOnly = false,
@@ -66,6 +78,9 @@ export function BrowseView({
   onShowMore,
   onBackToDecision,
   onMapReady,
+  regionOptions = [],
+  onRecommendText,
+  onQuickStart,
 }: BrowseViewProps) {
   const { isMobile } = useBreakpoint();
   const {
@@ -86,6 +101,9 @@ export function BrowseView({
     resolvedGetDistrictCount,
     searchQuery,
     setSearchQuery,
+    isSearching,
+    searchSourceCount,
+    hasActiveFilter,
     isFilterExpanded,
     setIsFilterExpanded,
     selectedLocation,
@@ -97,6 +115,8 @@ export function BrowseView({
     handleMarkerClick,
   } = useBrowseViewController({
     displayedLocations,
+    searchableLocations,
+    savedOnly,
     filterState,
     filterControls,
     filterOptions,
@@ -121,6 +141,16 @@ export function BrowseView({
     onMapReady,
     isMobile,
   });
+  const searchScopeLabel =
+    resolvedSelectedDistrict !== '전체'
+      ? resolvedSelectedDistrict
+      : resolvedSelectedProvince !== '전체'
+        ? resolvedSelectedProvince
+        : '전체';
+  // 모바일은 목록을 기본으로 보여주고, 지도는 전체 화면으로 전환해서 본다.
+  const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
+  const showsList = !isMobile || mobileView === 'list';
+  const showsMap = !isMobile || mobileView === 'map';
   const [clearPlaceStateFeedback, setClearPlaceStateFeedback] = useState('');
   const [isClearingPlaceState, setIsClearingPlaceState] = useState(false);
 
@@ -151,17 +181,18 @@ export function BrowseView({
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(360px,440px)_1fr]">
-        <section className="flex min-h-0 flex-col border-r border-gray-100 bg-white">
-          <header className="border-b border-gray-100 px-5 pb-4 pt-12 md:px-6 md:pt-16">
+        {showsList && (
+        <section className="flex min-h-0 flex-1 flex-col border-r border-gray-100 bg-white lg:flex-none">
+          <header className="shrink-0 border-b border-gray-100 px-4 pb-3 pt-4 md:px-6 lg:pt-6">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className={`text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-500'}`}>
                   JWMAP
                 </p>
-                <h1 className="mt-1 text-xl font-bold tracking-tight text-gray-900 md:text-2xl">
+                <h1 className="mt-1 text-base font-bold tracking-tight text-gray-900 md:text-xl">
                   추천해달라는 말, 이제 여기서 볼 수 있어요.
                 </h1>
-                <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                <p className="mt-0.5 text-xs leading-relaxed text-gray-500 md:text-sm">
                   제가 직접 다녀온 곳과 솔직한 메모를 모았어요.
                 </p>
               </div>
@@ -188,7 +219,16 @@ export function BrowseView({
             </div>
           </header>
 
-          <div className="shrink-0 space-y-3 border-b border-gray-100 px-4 py-4 md:px-5">
+          <div className="shrink-0 space-y-2.5 border-b border-gray-100 px-4 py-3 md:px-5">
+            {onRecommendText && onQuickStart && (
+              <IntentInput
+                contentMode={contentMode}
+                regionOptions={regionOptions}
+                onSubmitText={onRecommendText}
+                onQuickStart={onQuickStart}
+                onContentModeChange={onContentModeChange}
+              />
+            )}
             <div className="relative">
               <Search
                 size={16}
@@ -198,7 +238,7 @@ export function BrowseView({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="장소, 지역, 카테고리 검색"
+                placeholder="가게 이름이나 지역으로 찾기"
                 className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-3 pl-9 pr-9 text-sm text-gray-700 placeholder-gray-300 outline-none transition-colors focus:border-gray-300 focus:bg-white"
               />
               {searchQuery && (
@@ -240,6 +280,19 @@ export function BrowseView({
               >
                 <CheckCircle2 size={13} />
                 <span>저장한 곳 {myPlaceCount}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+                aria-expanded={isFilterExpanded}
+                aria-controls="browse-filter-section"
+                className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
+              >
+                <span>필터</span>
+                {isFilterExpanded
+                  ? <ChevronUp size={14} />
+                  : <ChevronDown size={14} />
+                }
               </button>
             </div>
 
@@ -286,20 +339,6 @@ export function BrowseView({
                 )}
               </div>
             )}
-
-            <button
-              type="button"
-              onClick={() => setIsFilterExpanded(!isFilterExpanded)}
-              aria-expanded={isFilterExpanded}
-              aria-controls="browse-filter-section"
-              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
-            >
-              <span>필터</span>
-              {isFilterExpanded
-                ? <ChevronUp size={14} />
-                : <ChevronDown size={14} />
-              }
-            </button>
 
             {isFilterExpanded && isMobile && (
               <button
@@ -375,23 +414,16 @@ export function BrowseView({
             )}
 
             {isCuratedStart && !savedOnly && (
-              <div className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-4 shadow-[0_10px_28px_rgba(251,146,60,0.08)]">
+              <div className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white px-3 py-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="flex items-center gap-1.5 text-xs font-bold text-orange-700">
                       <Sparkles size={14} />
                       요즘 먼저 볼 만한 곳
                     </p>
-                    <p className="mt-1 text-xs leading-relaxed text-orange-700/70">
-                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 대표픽과 제 메모가 있는 곳을 먼저 보여줘요.
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-orange-700/70">
+                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 대표픽과 제 메모가 있는 곳부터 보여줘요.
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {['대표픽 우선', '메모 있는 곳'].map((label) => (
-                        <span key={label} className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-orange-700 shadow-sm">
-                          {label}
-                        </span>
-                      ))}
-                    </div>
                   </div>
                   {onShowAllPlaces && (
                     <button
@@ -404,7 +436,7 @@ export function BrowseView({
                   )}
                 </div>
                 {hotRegions.length > 0 && (
-                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  <div className="mt-2 flex gap-2 overflow-x-auto">
                     {hotRegions.map((region) => (
                       <button
                         key={region}
@@ -421,10 +453,12 @@ export function BrowseView({
             )}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-32 pt-4 md:px-5 lg:pb-28">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-3 md:px-5">
             <p className="mb-3 text-xs font-medium text-gray-400">
-              {searchQuery
-                ? `검색 결과 ${searchFilteredLocations.length}곳`
+              {isSearching
+                ? savedOnly
+                  ? `저장한 곳에서 찾은 결과 ${searchFilteredLocations.length}곳`
+                  : `${searchScopeLabel} ${searchSourceCount}곳에서 찾은 결과 ${searchFilteredLocations.length}곳`
                 : savedOnly
                   ? getSavedViewCountLabel(savedView, searchFilteredLocations.length)
                   : isCuratedStart
@@ -443,16 +477,24 @@ export function BrowseView({
                   ? '아직 저장한 곳이 없어요. 마음에 드는 곳은 저장하고, 다녀온 곳은 기록해보세요.'
                   : savedOnly
                   ? getSavedViewEmptyMessage(savedView)
-                  : searchQuery
-                  ? `'${searchQuery}'에 맞는 장소가 없어요. 검색어를 바꿔보세요.`
+                  : isSearching
+                  ? `${searchScopeLabel}에서 '${searchQuery.trim()}'에 맞는 장소를 찾지 못했어요.`
                   : '조건에 맞는 장소가 없어요.'
               }
-              emptyAction={
+              emptyActions={
                 savedOnly && myPlaceCount === 0
-                  ? {
-                      label: '먼저 볼 곳 보기',
-                      onClick: () => onSavedOnlyChange?.(false),
-                    }
+                  ? [{ label: '먼저 볼 곳 보기', onClick: () => onSavedOnlyChange?.(false) }]
+                  : isSearching
+                  ? [
+                      ...(savedOnly
+                        ? [{ label: '전체 장소에서 찾기', onClick: () => onSavedOnlyChange?.(false) }]
+                        : hasActiveFilter
+                        ? [{ label: '전체 장소에서 찾기', onClick: () => onResetFilters?.() }]
+                        : []),
+                      { label: '검색어 지우기', onClick: () => setSearchQuery(''), secondary: true },
+                    ]
+                  : hasActiveFilter
+                  ? [{ label: '조건 초기화', onClick: () => onResetFilters?.() }]
                   : undefined
               }
               onSavedStateChange={onSavedStateChange}
@@ -460,16 +502,23 @@ export function BrowseView({
             />
           </div>
         </section>
+        )}
 
-        <BrowseMapSection
-          locations={searchFilteredLocations}
-          selectedLocation={selectedLocation}
-          onMarkerClick={handleMarkerClick}
-          onMapReady={onMapReady}
-        />
+        {showsMap && (
+          <BrowseMapSection
+            locations={searchFilteredLocations}
+            selectedLocation={selectedLocation}
+            onMarkerClick={handleMarkerClick}
+            onMapReady={onMapReady}
+          />
+        )}
       </div>
 
-      <RecommendationBar onBackToDecision={onBackToDecision} />
+      <RecommendationBar
+        onBackToDecision={onBackToDecision}
+        mobileView={isMobile ? mobileView : undefined}
+        onMobileViewChange={setMobileView}
+      />
 
       {/* ── 모바일 상세 보기 (PlaceDetail 재사용) ── */}
       {detailLocation && isMobile && (
@@ -499,10 +548,11 @@ export function BrowseView({
 
 /**
  * 기존 LocationList의 "card" variant보다 가볍게:
- * - 썸네일, 이름·동네, 큐레이터 추천 이유 한 줄(short_desc 또는 메모 첫 줄)
+ * - 썸네일, 이름·동네·방문 상태, 운영자 추천 이유 한 줄(short_desc)
  * - tags, event tags 없음
  *
- * 메모 자체가 카드의 주인공이다. 메모가 없을 때만 큐레이션 설명으로 대신한다.
+ * 운영자 한 줄이 카드의 주인공이다. 없으면 큐레이션 설명으로 대신하고,
+ * 주차·분위기 같은 자동 생성 메모는 상세의 방문 정보에서만 보여준다.
  */
 
 interface BrowseListProps {
@@ -512,10 +562,11 @@ interface BrowseListProps {
   onSelect: (location: Location) => void;
   selectedId?: string;
   emptyMessage?: string;
-  emptyAction?: {
+  emptyActions?: {
     label: string;
     onClick: () => void;
-  };
+    secondary?: boolean;
+  }[];
   onSavedStateChange?: () => void;
   savedView?: 'saved' | 'visited' | 'revisit';
 }
@@ -527,7 +578,7 @@ function BrowseList({
   onSelect,
   selectedId,
   emptyMessage = '조건에 맞는 장소가 없어요.',
-  emptyAction,
+  emptyActions,
   onSavedStateChange,
   savedView,
 }: BrowseListProps) {
@@ -541,14 +592,23 @@ function BrowseList({
         <p className="text-sm leading-relaxed text-gray-500">
           {emptyMessage}
         </p>
-        {emptyAction && (
-          <button
-            type="button"
-            onClick={emptyAction.onClick}
-            className="mt-4 rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800"
-          >
-            {emptyAction.label}
-          </button>
+        {emptyActions && emptyActions.length > 0 && (
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            {emptyActions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                onClick={action.onClick}
+                className={
+                  action.secondary
+                    ? 'rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50'
+                    : 'rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-gray-800'
+                }
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     );
@@ -560,7 +620,8 @@ function BrowseList({
         const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
         const isSaved = savedIds.has(location.id);
         const isVisited = visitedIds.has(location.id);
-        const curatorNote = getCuratorNote(location);
+        const curatorNote = getCuratorReason(location);
+        const curatorVisited = isCuratorVisited(location);
         const reason = getRecommendationReason(location, level, savedView);
         const showsVisitState = savedView === 'visited' || savedView === 'revisit';
 
@@ -600,9 +661,6 @@ function BrowseList({
                   <p className="truncate text-sm font-semibold text-gray-800">
                     {location.name}
                   </p>
-                  {location.curator_visited !== false && (
-                    <CheckCircle2 size={13} className="shrink-0 text-emerald-500" />
-                  )}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-gray-400">
                   {location.region}
@@ -612,6 +670,10 @@ function BrowseList({
                       {location.categorySub || location.categoryMain}
                     </span>
                   )}
+                  {' · '}
+                  <span className={curatorVisited ? 'font-semibold text-emerald-600' : 'text-gray-400'}>
+                    {getVisitStatusLabel(location)}
+                  </span>
                 </p>
                 {curatorNote ? (
                   <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-gray-700">
@@ -697,7 +759,7 @@ function BrowseMapSection({
   onMapReady,
 }: BrowseMapSectionProps) {
   return (
-    <section className="order-first h-[42vh] min-h-[320px] border-b border-gray-100 bg-gray-50 lg:order-last lg:h-full lg:min-h-0 lg:border-b-0">
+    <section className="min-h-0 flex-1 bg-gray-50 lg:h-full">
       <div className="flex h-10 items-center justify-between border-b border-gray-100 bg-white/95 px-4 text-xs font-medium text-gray-500 backdrop-blur">
         <div className="flex items-center gap-1.5">
           <MapPin size={14} />
@@ -721,25 +783,40 @@ function BrowseMapSection({
 // ─────────────────────────────────────────────
 
 /**
- * 화면 하단에 고정된 CTA 바.
+ * 화면 하단 CTA 바. 목록을 덮지 않도록 fixed가 아니라 레이아웃 흐름 안에 둔다.
  * 이것은 광고가 아니라 "안도의 밸브(relief valve)"다.
  * Browse에서 인지 부하를 느낀 사용자가 자연스럽게 Decision으로 돌아가게 한다.
+ * 모바일에서는 같은 바에 목록/지도 전환 버튼을 함께 둔다.
  */
 
 interface RecommendationBarProps {
   onBackToDecision: () => void;
+  /** 모바일일 때만 전달. 없으면 전환 버튼을 숨긴다. */
+  mobileView?: 'list' | 'map';
+  onMobileViewChange?: (view: 'list' | 'map') => void;
 }
 
-function RecommendationBar({ onBackToDecision }: RecommendationBarProps) {
+function RecommendationBar({ onBackToDecision, mobileView, onMobileViewChange }: RecommendationBarProps) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-100 bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-5 pb-6 pt-3 md:pb-4">
-        <p className="text-sm font-medium text-gray-500">
-          후보가 많다면
-        </p>
+    <div className="shrink-0 border-t border-gray-100 bg-white/95 backdrop-blur-sm">
+      <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        {mobileView ? (
+          <button
+            type="button"
+            onClick={() => onMobileViewChange?.(mobileView === 'list' ? 'map' : 'list')}
+            className="flex min-h-[44px] items-center gap-1.5 rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700"
+          >
+            {mobileView === 'list' ? <MapIcon size={16} /> : <List size={16} />}
+            {mobileView === 'list' ? '지도 보기' : '목록 보기'}
+          </button>
+        ) : (
+          <p className="text-sm font-medium text-gray-500">
+            후보가 많다면
+          </p>
+        )}
         <button
           onClick={onBackToDecision}
-          className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.98]"
+          className="min-h-[44px] rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.98]"
         >
           3곳만 추려보기
         </button>
@@ -760,15 +837,9 @@ function getRecommendationReason(
         ? '방문 기록 있음'
         : getCurationDescription(level),
   ];
-  if (location.curator_visited !== false) reasonParts.push('직접 확인');
-  if (location.tags?.[0]) reasonParts.push(`#${location.tags[0]}`);
+  const moodTag = location.tags?.find((tag) => !isPracticalInfoTag(tag));
+  if (moodTag) reasonParts.push(`#${moodTag}`);
   return reasonParts.slice(0, 3).join(' · ');
-}
-
-/** 카드에 보여줄 큐레이터 추천 이유 한 줄: short_desc 우선, 없으면 메모 첫 줄 */
-function getCuratorNote(location: Location): string {
-  if (location.short_desc?.trim()) return location.short_desc.trim();
-  return location.memo?.split('\n').map((line) => line.trim()).find(Boolean) ?? '';
 }
 
 function getSavedViewGuide(view: 'saved' | 'visited' | 'revisit'): string {
@@ -866,7 +937,9 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
     onPlaceStateChange?.();
     showStateFeedback(nextVisited ? '다녀온 곳으로 기록했어요.' : '방문 기록을 해제했어요.');
   };
-  const previewText = location.short_desc || location.memo;
+  const curatorReason = getCuratorReason(location);
+  const visitInfoText = getVisitInfoText(location);
+  const curatorVisited = isCuratorVisited(location);
 
   return (
     <div className="fixed right-0 top-0 z-50 h-full w-96 border-l border-gray-100 bg-white shadow-lg">
@@ -882,7 +955,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
       </div>
 
       {/* 콘텐츠 — 중립적 톤, "추천" 언어 없음 */}
-      <div className="overflow-y-auto">
+      <div className="h-[calc(100%-57px)] overflow-y-auto">
         {/* 장소 이미지 — 상세 보기에서는 사진이 있어야 판단할 수 있다 */}
         {location.imageUrl && (
           <div className="aspect-[4/3] w-full overflow-hidden bg-gray-100">
@@ -920,6 +993,18 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
           <PriceLevelBadge priceLevel={location.price_level} size="sm" />
         </div>
 
+        <p className={`mt-3 flex items-center gap-1.5 text-sm font-medium ${curatorVisited ? 'text-emerald-600' : 'text-gray-500'}`}>
+          <CheckCircle2 size={15} className={curatorVisited ? '' : 'opacity-40'} />
+          {getVisitStatusLabel(location)}
+        </p>
+
+        {curatorReason && (
+          <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50/60 p-3">
+            <p className="text-xs font-semibold text-orange-700">추천 이유</p>
+            <p className="mt-1 text-sm font-medium leading-relaxed text-gray-800">{curatorReason}</p>
+          </div>
+        )}
+
         <div className="mt-4 space-y-2">
           <p className="text-xs font-semibold text-gray-400">내 상태</p>
           <div className="grid grid-cols-2 gap-2">
@@ -955,17 +1040,15 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
           )}
         </div>
 
-        <p className="mt-4 text-sm text-gray-500">
-          {location.address}
-        </p>
-
-        {previewText && (
-          <p className="mt-3 text-sm leading-relaxed text-gray-600">
-            {previewText.length > 140
-              ? `${previewText.slice(0, 140)}...`
-              : previewText}
-          </p>
-        )}
+        <div className="mt-4 rounded-xl bg-gray-50 p-3">
+          <p className="text-xs font-semibold text-gray-400">방문 정보</p>
+          <p className="mt-1 text-sm text-gray-500">{location.address}</p>
+          {visitInfoText && (
+            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-600">
+              {visitInfoText}
+            </p>
+          )}
+        </div>
 
         {/* 지도 열기 버튼 — 중립적 스타일 */}
         <div className="mt-6 flex gap-2">

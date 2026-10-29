@@ -1,5 +1,6 @@
 import type { CategoryMain, CategorySub, ContentMode, Location, Province } from '../../types/location';
 import type { FilterState } from '../../types/filter';
+import type { IntentConditions } from '../../utils/intentChips';
 
 export type SavedView = 'saved' | 'visited' | 'revisit';
 
@@ -24,6 +25,8 @@ export interface BrowseViewProps {
   contentMode?: ContentMode;
   onContentModeChange?: (mode: ContentMode) => void;
   displayedLocations: Location[];
+  /** 검색 대상: 현재 지역·카테고리 필터만 적용한 전체 장소. 없으면 displayedLocations에서 찾는다 */
+  searchableLocations?: Location[];
   isCuratedStart?: boolean;
   totalLocationCount?: number;
   savedOnly?: boolean;
@@ -62,4 +65,8 @@ export interface BrowseViewProps {
   onShowMore: () => void;
   onBackToDecision: () => void;
   onMapReady?: (map: kakao.maps.Map) => void;
+  /** "오늘 어디 갈까요?" 입력·빠른 시작 */
+  regionOptions?: string[];
+  onRecommendText?: (text: string) => Promise<void> | void;
+  onQuickStart?: (partial: Partial<IntentConditions>) => void;
 }

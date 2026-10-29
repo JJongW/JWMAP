@@ -5,7 +5,7 @@ import { reviewApi, searchLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
-import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, CURATION_LEVELS } from '../utils/curation';
+import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, CURATION_LEVELS, getCuratorReason, getVisitInfoText, isCuratorVisited, isPracticalInfoTag } from '../utils/curation';
 import { recordActivity, toggleSaved, toggleVisited, getSavedIds, getVisitedIds } from '../utils/activity';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { CommunityReviews } from './CommunityReviews';
@@ -167,7 +167,43 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
     }, 700);
   };
 
-  const visibleTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 10);
+  const allTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])];
+  const visibleTags = allTags.filter((tag) => !isPracticalInfoTag(tag)).slice(0, 10);
+  const practicalTags = allTags.filter(isPracticalInfoTag);
+  const curatorReason = getCuratorReason(location);
+  const visitInfoText = getVisitInfoText(location);
+  const VisitInfoSection = (
+    <div className="rounded-xl bg-base p-4">
+      <p className="text-xs font-semibold text-accent/60">방문 정보</p>
+      <div className="mt-2 flex items-center gap-2">
+        <MapPin size={14} className="text-accent/50 flex-shrink-0" />
+        <span className="text-sm text-accent/80 flex-1">{location.address}</span>
+        <button
+          onClick={handleCopyAddress}
+          className="p-1.5 rounded-lg hover:bg-white transition-colors"
+          title="주소 복사"
+        >
+          {copied ? (
+            <Check size={16} className="text-green-500" />
+          ) : (
+            <Copy size={16} className="text-accent/50" />
+          )}
+        </button>
+      </div>
+      {practicalTags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {practicalTags.map((tag) => (
+            <span key={tag} className="rounded-lg bg-white px-2 py-1 text-xs text-accent/70">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+      {visitInfoText && (
+        <p className="mt-2 text-sm text-accent/80 leading-relaxed whitespace-pre-line">{visitInfoText}</p>
+      )}
+    </div>
+  );
 
   useEffect(() => {
     recordActivity('view_detail', location);
@@ -229,31 +265,23 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
               </div>
               <p className="text-sm text-accent/70 mt-1">{location.region}</p>
 
-              {/* 주소 + 복사 버튼 */}
-              <div className="flex items-center gap-2 mt-2">
-                <MapPin size={14} className="text-accent/50 flex-shrink-0" />
-                <span className="text-sm text-accent/80 flex-1">{location.address}</span>
-                <button
-                  onClick={handleCopyAddress}
-                  className="p-1.5 rounded-lg hover:bg-base transition-colors"
-                  title="주소 복사"
-                >
-                  {copied ? (
-                    <Check size={16} className="text-green-500" />
-                  ) : (
-                    <Copy size={16} className="text-accent/50" />
-                  )}
-                </button>
-              </div>
             </div>
 
-            {/* ProofBar - 주인장 다녀온 장소만 표시 */}
+            {/* ProofBar - 운영자 직접 방문 / 아직 안 가본 후보 */}
             <ProofBar
-              curatorVisited={location.curator_visited !== false}
+              curatorVisited={isCuratorVisited(location)}
               visitedAt={location.curator_visited_at}
               visitSlot={location.curator_visit_slot}
               disclosure={location.disclosure}
             />
+
+            {/* 추천 이유: 운영자가 직접 쓴 한 줄만 */}
+            {curatorReason && (
+              <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
+                <p className="text-xs font-semibold text-orange-700">추천 이유</p>
+                <p className="mt-1 text-base font-medium leading-relaxed text-gray-800">{curatorReason}</p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -301,12 +329,8 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
               </div>
             )}
 
-            {/* 메모 (상세 화면 전용) */}
-            {location.memo && (
-              <div className="bg-base rounded-xl p-4">
-                <p className="text-sm text-accent/80 leading-relaxed whitespace-pre-line">{location.memo}</p>
-              </div>
-            )}
+            {/* 방문 정보: 주소, 주차·분위기 등 참고 설명 */}
+            {VisitInfoSection}
 
             {/* 커뮤니티 리뷰 섹션 */}
             <CommunityReviews
@@ -426,30 +450,23 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
               </div>
               <p className="text-sm text-accent/70 mt-1">{location.region}</p>
 
-              <div className="flex items-center gap-2 mt-2">
-                <MapPin size={14} className="text-accent/50 flex-shrink-0" />
-                <span className="text-sm text-accent/80 flex-1">{location.address}</span>
-                <button
-                  onClick={handleCopyAddress}
-                  className="p-1.5 rounded-lg hover:bg-base transition-colors"
-                  title="주소 복사"
-                >
-                  {copied ? (
-                    <Check size={16} className="text-green-500" />
-                  ) : (
-                    <Copy size={16} className="text-accent/50" />
-                  )}
-                </button>
-              </div>
             </div>
 
-            {/* ProofBar - 주인장 다녀온 장소만 표시 */}
+            {/* ProofBar - 운영자 직접 방문 / 아직 안 가본 후보 */}
             <ProofBar
-              curatorVisited={location.curator_visited !== false}
+              curatorVisited={isCuratorVisited(location)}
               visitedAt={location.curator_visited_at}
               visitSlot={location.curator_visit_slot}
               disclosure={location.disclosure}
             />
+
+            {/* 추천 이유: 운영자가 직접 쓴 한 줄만 */}
+            {curatorReason && (
+              <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
+                <p className="text-xs font-semibold text-orange-700">추천 이유</p>
+                <p className="mt-1 text-base font-medium leading-relaxed text-gray-800">{curatorReason}</p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -497,12 +514,8 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
               </div>
             )}
 
-            {/* 메모 (상세 화면 전용) */}
-            {location.memo && (
-              <div className="bg-base rounded-xl p-4">
-                <p className="text-sm text-accent/80 leading-relaxed whitespace-pre-line">{location.memo}</p>
-              </div>
-            )}
+            {/* 방문 정보: 주소, 주차·분위기 등 참고 설명 */}
+            {VisitInfoSection}
 
             {/* 커뮤니티 리뷰 */}
             <CommunityReviews

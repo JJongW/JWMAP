@@ -10,20 +10,37 @@
  * 3. Action Buttons - 네이버/카카오 지도 열기
  * 4. "다시 고르기" / "지도로 보기" 전환 버튼
  * 
- * 지도/리뷰는 스크롤 아래 "자세히 보기" 이후에만 노출.
+ * 카드 탭과 "자세히 보기"는 모두 같은 장소 상세(PlaceDetail)를 연다.
  */
 
 import { useState } from 'react';
-import { MapPin, ChevronDown, Navigation } from 'lucide-react';
+import { MapPin, ChevronRight, Navigation } from 'lucide-react';
 import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
-import { getDifferentiator } from '../utils/decisionEngine';
+import { getConditionMatches, getDifferentiator, type ConditionMatch } from '../utils/decisionEngine';
+import type { IntentConditions } from '../utils/intentChips';
+import { ConditionChips } from './ConditionChips';
 import { getCardImageUrl } from '../utils/image';
-import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
+import {
+  getCurationLabel,
+  getCurationBadgeClass,
+  getCuratorReason,
+  getVisitStatusLabel,
+  isCuratorVisited,
+  isPracticalInfoTag,
+  ratingToCurationLevel,
+} from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 
 interface DecisionResultViewProps {
-  result: DecisionResult;
+  /** null이면 조건에 맞는 곳이 없다는 안내와 칩만 보여준다 */
+  result: DecisionResult | null;
+  /** 지금 추천에 쓴 조건. 칩을 고치면 바로 다시 추천한다 */
+  conditions: IntentConditions;
+  onConditionsChange: (next: IntentConditions) => void;
+  regionOptions: string[];
+  /** 문장에서 조건을 못 읽었을 때 등 결과 위 안내 */
+  notice?: string | null;
   contentMode?: ContentMode;
   /** "다시 고르기" 클릭 시 → decision 모드로 돌아감 */
   onRetry: () => void;
@@ -35,13 +52,15 @@ interface DecisionResultViewProps {
 
 export function DecisionResultView({
   result,
+  conditions,
+  onConditionsChange,
+  regionOptions,
+  notice,
   contentMode = 'food',
   onRetry,
   onBrowse,
   onOpenDetail,
 }: DecisionResultViewProps) {
-  const { primary, secondary, reasons } = result;
-  const [showMore, setShowMore] = useState(false);
   const copy = getResultCopy(contentMode);
 
   return (
@@ -53,69 +72,32 @@ export function DecisionResultView({
           <p className="mb-2 text-sm font-medium tracking-widest text-gray-300">
             {copy.eyebrow}
           </p>
-          <h1 className="mb-10 text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">
-            {copy.title}
+          <h1 className="mb-4 text-2xl font-bold tracking-tight text-gray-900 md:text-3xl">
+            {result ? copy.title : '조건에 맞는 곳이 아직 없어요.'}
           </h1>
 
-          {/* ── 1순위 추천 카드 ── */}
-          <PrimaryCard
-            location={primary}
-            reason={reasons.get(primary.id) || ''}
-            onOpenDetail={onOpenDetail}
-          />
-
-          {/* ── 보조 추천 (2~3순위) ── */}
-          {secondary.length > 0 && (
-            <div className="mt-6">
-              <p className="mb-3 text-xs font-medium tracking-widest text-gray-300">
-                {copy.secondaryLabel}
+          {/* ── 추천 조건 칩: 고치면 바로 다시 추천 ── */}
+          <div className="mb-8">
+            <ConditionChips
+              conditions={conditions}
+              onChange={onConditionsChange}
+              regionOptions={regionOptions}
+              showKind={contentMode === 'food'}
+            />
+            {notice && (
+              <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800" role="status">
+                {notice}
               </p>
-              <div className="flex flex-col gap-3">
-                {secondary.map((loc) => (
-                  <SecondaryCard
-                    key={loc.id}
-                    location={loc}
-                    differentiator={getDifferentiator(loc, primary)}
-                    onOpenDetail={onOpenDetail}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── 지도 열기 버튼 (1순위 기준) ── */}
-          <div className="mt-8 flex gap-3">
-            <MapButton
-              label="네이버 지도"
-              onClick={() => openNaver(primary)}
-              variant="primary"
-            />
-            <MapButton
-              label="카카오맵"
-              onClick={() => openKakao(primary)}
-              variant="secondary"
-            />
-          </div>
-
-          {/* ── 자세히 보기 접기/펼치기 ── */}
-          <div className="mt-10 border-t border-gray-100 pt-6">
-            <button
-              onClick={() => setShowMore(!showMore)}
-              className="flex w-full items-center justify-center gap-1 text-sm text-gray-400 transition-colors hover:text-gray-600"
-            >
-              <span>{showMore ? '접기' : '자세히 보기'}</span>
-              <ChevronDown
-                size={16}
-                className={`transition-transform duration-200 ${showMore ? 'rotate-180' : ''}`}
-              />
-            </button>
-
-            {showMore && (
-              <div className="mt-6">
-                <DetailPreview location={primary} onOpenDetail={onOpenDetail} />
-              </div>
             )}
           </div>
+
+          {result ? (
+            <ResultCards result={result} conditions={conditions} copy={copy} onOpenDetail={onOpenDetail} />
+          ) : (
+            <p className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-8 text-center text-sm leading-relaxed text-gray-500">
+              칩의 ×를 눌러 조건을 하나 빼거나, 다른 값으로 바꿔보세요.
+            </p>
+          )}
 
         </div>
       </div>
@@ -138,6 +120,98 @@ export function DecisionResultView({
         </div>
       </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ResultCards: 1순위 + 보조 추천 + 지도 열기
+// ─────────────────────────────────────────────
+
+interface ResultCardsProps {
+  result: DecisionResult;
+  conditions: IntentConditions;
+  copy: ReturnType<typeof getResultCopy>;
+  onOpenDetail: (location: Location) => void;
+}
+
+function ResultCards({ result, conditions, copy, onOpenDetail }: ResultCardsProps) {
+  const { primary, secondary, reasons, afterCafe } = result;
+  // 둘이·여럿이일 때 #혼밥 같은 태그는 오해를 부르므로 숨긴다. 주차·포장은 방문 정보에서 본다.
+  const hideTag = (tag: string) =>
+    isPracticalInfoTag(tag) || (conditions.companion !== 'solo' && /혼밥|혼자/.test(tag));
+
+  return (
+    <>
+      {/* ── 1순위 추천 카드 ── */}
+      <PrimaryCard
+        location={primary}
+        reason={reasons.get(primary.id) || ''}
+        matches={getConditionMatches(primary, conditions)}
+        hideTag={hideTag}
+        onOpenDetail={onOpenDetail}
+      />
+
+      {/* ── 보조 추천 (2~3순위) ── */}
+      {secondary.length > 0 && (
+        <div className="mt-6">
+          <p className="mb-3 text-xs font-medium tracking-widest text-gray-300">
+            {copy.secondaryLabel}
+          </p>
+          <div className="flex flex-col gap-3">
+            {secondary.map((loc) => (
+              <SecondaryCard
+                key={loc.id}
+                location={loc}
+                differentiator={getDifferentiator(loc, primary)}
+                matches={getConditionMatches(loc, conditions)}
+                onOpenDetail={onOpenDetail}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 식후 카페: 식사 후보와 섞지 않고 따로 ── */}
+      {afterCafe && (
+        <div className="mt-6">
+          <p className="mb-3 text-xs font-medium tracking-widest text-gray-300">
+            식후 카페
+          </p>
+          <SecondaryCard
+            location={afterCafe}
+            differentiator={getCuratorReason(afterCafe) || `${afterCafe.region}에서 식사 후 들르기 좋은 카페예요`}
+            matches={getConditionMatches(afterCafe, { ...conditions, timeSlot: null })}
+            onOpenDetail={onOpenDetail}
+          />
+        </div>
+      )}
+
+      {/* ── 지도 열기 버튼 (1순위 기준) ── */}
+      <div className="mt-8 flex gap-3">
+        <MapButton
+          label="네이버 지도"
+          onClick={() => openNaver(primary)}
+          variant="primary"
+        />
+        <MapButton
+          label="카카오맵"
+          onClick={() => openKakao(primary)}
+          variant="secondary"
+        />
+      </div>
+
+      {/* ── 자세히 보기: 카드 탭과 같은 장소 상세를 연다 ── */}
+      <div className="mt-10 border-t border-gray-100 pt-6">
+        <button
+          type="button"
+          onClick={() => onOpenDetail(primary)}
+          className="flex w-full items-center justify-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
+        >
+          <span>{primary.name} 자세히 보기</span>
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -168,13 +242,17 @@ function getResultCopy(contentMode: ContentMode) {
 interface PrimaryCardProps {
   location: Location;
   reason: string;
+  matches: ConditionMatch[];
+  hideTag: (tag: string) => boolean;
   onOpenDetail: (location: Location) => void;
 }
 
-function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
+function PrimaryCard({ location, reason, matches, hideTag, onOpenDetail }: PrimaryCardProps) {
   const [imageError, setImageError] = useState(false);
 
-  const activeTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 4);
+  const activeTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])]
+    .filter((tag) => !hideTag(tag))
+    .slice(0, 4);
 
   return (
     <button
@@ -215,8 +293,8 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
           </div>
         </div>
 
-        {/* 지역 */}
-        <div className="mb-3 flex items-center gap-1 text-sm text-gray-400">
+        {/* 지역 · 방문 상태 */}
+        <div className="mb-3 flex flex-wrap items-center gap-1 text-sm text-gray-400">
           <MapPin size={13} />
           <span>{location.region}</span>
           {location.categoryMain && location.categoryMain !== '전체' && (
@@ -225,12 +303,24 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
               <span>{location.categoryMain}</span>
             </>
           )}
+          <span className="text-gray-200">·</span>
+          <span className={isCuratorVisited(location) ? 'font-semibold text-emerald-600' : ''}>
+            {getVisitStatusLabel(location)}
+          </span>
         </div>
 
         {/* 이유 텍스트 */}
         <p className="mb-4 text-sm leading-relaxed text-gray-600">
           {reason}
         </p>
+
+        {/* 고른 조건과 맞는 점 */}
+        {matches.length > 0 && (
+          <div className="mb-4 rounded-xl bg-gray-50 px-3 py-2.5">
+            <p className="mb-1 text-[11px] font-semibold text-gray-400">고른 조건과 맞는 점</p>
+            <ConditionMatchList matches={matches} />
+          </div>
+        )}
 
         {/* 기본 태그 */}
         {activeTags.length > 0 && (
@@ -257,10 +347,13 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
 interface SecondaryCardProps {
   location: Location;
   differentiator: string;
+  matches: ConditionMatch[];
   onOpenDetail: (location: Location) => void;
 }
 
-function SecondaryCard({ location, differentiator, onOpenDetail }: SecondaryCardProps) {
+function SecondaryCard({ location, differentiator, matches, onOpenDetail }: SecondaryCardProps) {
+  const matchedLabels = matches.filter((match) => match.evidence).map((match) => match.label);
+
   return (
     <button
       onClick={() => onOpenDetail(location)}
@@ -298,8 +391,31 @@ function SecondaryCard({ location, differentiator, onOpenDetail }: SecondaryCard
         <p className="mt-0.5 text-xs text-gray-500">
           {differentiator}
         </p>
+        <p className={`mt-0.5 text-[11px] ${isCuratorVisited(location) ? 'font-semibold text-emerald-600' : 'text-gray-400'}`}>
+          {getVisitStatusLabel(location)}
+          {matchedLabels.length > 0 && (
+            <span className="font-medium text-gray-500"> · {matchedLabels.join(' · ')} 맞음</span>
+          )}
+        </p>
       </div>
     </button>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ConditionMatchList: 조건별 근거. 근거가 없으면 지어내지 않고 '확인된 정보 없음'
+// ─────────────────────────────────────────────
+
+function ConditionMatchList({ matches }: { matches: ConditionMatch[] }) {
+  return (
+    <ul className="space-y-0.5 text-xs">
+      {matches.map((match) => (
+        <li key={match.label} className={match.evidence ? 'text-gray-700' : 'text-gray-400'}>
+          <span className="font-semibold">{match.evidence ? '✓' : '·'} {match.label}</span>
+          <span> — {match.evidence ?? '확인된 정보 없음'}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -328,60 +444,6 @@ function MapButton({ label, onClick, variant }: MapButtonProps) {
       <Navigation size={15} />
       <span>{label}</span>
     </button>
-  );
-}
-
-// ─────────────────────────────────────────────
-// DetailPreview: 자세히 보기 (접힌 영역)
-// ─────────────────────────────────────────────
-
-interface DetailPreviewProps {
-  location: Location;
-  onOpenDetail: (location: Location) => void;
-}
-
-function DetailPreview({ location, onOpenDetail }: DetailPreviewProps) {
-  const previewTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 6);
-  const summaryText = location.short_desc || location.memo;
-
-  return (
-    <div className="space-y-4">
-      {/* 주소 */}
-      <div className="flex items-start gap-2 text-sm text-gray-500">
-        <MapPin size={14} className="mt-0.5 shrink-0" />
-        <span>{location.address}</span>
-      </div>
-
-      {/* 메모 (짧게) */}
-      {summaryText && (
-        <p className="text-sm leading-relaxed text-gray-600">
-          {summaryText.length > 120
-            ? `${summaryText.slice(0, 120)}...`
-            : summaryText}
-        </p>
-      )}
-
-      {previewTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {previewTags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-600"
-            >
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* 전체 상세 보기 버튼 */}
-      <button
-        onClick={() => onOpenDetail(location)}
-        className="w-full rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400"
-      >
-        전체 정보 보기
-      </button>
-    </div>
   );
 }
 
