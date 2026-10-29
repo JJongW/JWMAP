@@ -65,3 +65,11 @@ _DB 대규모 개편 — Phase 0 대기 (macOS에서 실행). 기준: docs/db-ov
 - [ ] admin 배포 (022 적용 뒤)
 - [ ] 카카오 저장 목록·리뷰·공식 사진 수집기 (브라우저 확인 필요)
 - [ ] 사이트를 새 테이블로 전환 (hidden 상태는 그때부터 반영)
+
+## 2026-10-29 배포 (PR #64, 이슈 #63)
+- [x] 018~023 운영 적용, admin·사이트·odiga-api 배포
+- [x] 카카오 DB 점검 결과 반영 (영업 997 · 폐업 의심 24 · 위치 바뀜 32)
+- [ ] (사용자) odiga-vault-intake --apply → odiga-photo-upload --apply → kakao-saved-collect --from-report --apply
+- [ ] 폐업 의심 24곳 admin에서 확인 후 숨기기
+- [ ] 남의 목록 폴더 3개(흑백요리사·카카오 동네맛집·우체국) 나중에
+- [ ] 사이트를 새 테이블로 전환, user_place_states RLS, agent-server MCP 설계

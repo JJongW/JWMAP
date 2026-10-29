@@ -5,11 +5,21 @@ import {
   mapLocationUpdateToRow,
   mapRowToLocation,
 } from './locationMapper';
+import { SESSION_HEADER, getSessionId } from './session';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// 요청마다 방문자 세션 ID를 붙인다. user_place_states는 RLS가 이 헤더와 같은 세션 행만 허용한다
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: {
+    fetch: (input, init) => {
+      const headers = new Headers(init?.headers);
+      headers.set(SESSION_HEADER, getSessionId());
+      return fetch(input, { ...init, headers });
+    },
+  },
+});
 
 function getLocationTable(mode: ContentMode): string {
   return mode === 'space' ? 'attractions' : 'locations';
@@ -450,4 +460,53 @@ export const reviewApi = {
       return 0;
     }
   }
+};
+
+// 큐레이션 상세 (새 테이블, migration 018~023). 공개된 것만 RLS로 읽힌다
+export interface PlaceCuration {
+  recommendation: { body: string; fits_for: string | null; caveats: string | null; basis: string } | null;
+  visits: { visited_on: string | null }[];
+  facts: { field: string; text: string; source: string; checked_at: string | null }[];
+}
+
+export const curationApi = {
+  async getDetail(placeId: string): Promise<PlaceCuration | null> {
+    try {
+      const [rec, visits, facts] = await Promise.all([
+        supabase
+          .from('recommendations')
+          .select('body, fits_for, caveats, basis')
+          .eq('place_id', placeId)
+          .eq('status', 'published')
+          .order('published_at', { ascending: false, nullsFirst: false })
+          .limit(1),
+        supabase.from('visits').select('visited_on').eq('place_id', placeId).order('visited_on', { ascending: false, nullsFirst: false }),
+        supabase
+          .from('place_facts')
+          .select('field, value, source, checked_at')
+          .eq('place_id', placeId)
+          .in('field', ['hours', 'phone'])
+          .neq('status', 'outdated')
+          .order('checked_at', { ascending: false, nullsFirst: false }),
+      ]);
+      if (rec.error || visits.error || facts.error) return null;
+      const seen = new Set<string>();
+      return {
+        recommendation: (rec.data?.[0] as PlaceCuration['recommendation']) ?? null,
+        visits: (visits.data ?? []) as PlaceCuration['visits'],
+        // 항목마다 가장 최근에 확인한 값 하나만
+        facts: (facts.data ?? [])
+          .filter((f) => !seen.has(f.field) && seen.add(f.field))
+          .map((f) => ({
+            field: f.field as string,
+            text: String((f.value as { text?: string })?.text ?? ''),
+            source: f.source as string,
+            checked_at: f.checked_at as string | null,
+          }))
+          .filter((f) => f.text),
+      };
+    } catch {
+      return null;
+    }
+  },
 };

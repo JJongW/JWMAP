@@ -1,10 +1,10 @@
 import type { Location } from '../types/location';
 import { clickLogApi, savedPlaceApi, type ClickActionType } from './supabase';
+import { getSessionId } from './session';
 
 const ACTIVITY_KEY = 'jwmap.activity.v1';
 const SAVED_KEY = 'jwmap.saved.v1';
 const VISITED_KEY = 'jwmap.visited.v1';
-const SESSION_KEY = 'jwmap.session.v1';
 
 export type ActivityAction =
   | ClickActionType
@@ -39,26 +39,7 @@ function writeJson(key: string, value: unknown) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
-function readString(key: string): string | null {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(key);
-}
-
-function writeString(key: string, value: string) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(key, value);
-}
-
-export function getSessionId(): string {
-  const existing = readString(SESSION_KEY);
-  if (existing) return existing;
-
-  const sessionId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `jwmap-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  writeString(SESSION_KEY, sessionId);
-  return sessionId;
-}
+export { getSessionId };
 
 export function recordActivity(action: ActivityAction, location?: Location, metadata?: Record<string, string>) {
   const entries = readJson<ActivityEntry[]>(ACTIVITY_KEY, []);
