@@ -89,7 +89,7 @@ export function LocationFilters({ regions }: Props) {
         </div>
 
         <div>
-          <Label className="text-xs">카테고리</Label>
+          <Label className="text-xs">장소 종류</Label>
           <Select
             value={searchParams.get('category_main') ?? 'all'}
             onValueChange={(v) => updateParam('category_main', v)}

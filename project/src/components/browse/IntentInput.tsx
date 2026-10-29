@@ -50,7 +50,7 @@ export function IntentInput({
           type="text"
           value={text}
           onChange={(event) => setText(event.target.value)}
-          placeholder="오늘 어디 갈까요? 예: 종로에서 둘이 저녁"
+          placeholder={contentMode === 'space' ? '예: 비 오는 날 가기 좋은 전시' : '예: 혼자 노트북 하기 좋은 카페'}
           aria-label="오늘 어디 갈까요?"
           enterKeyHint="go"
           className="min-w-0 flex-1 rounded-xl border border-orange-200 bg-white px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 outline-none transition-colors focus:border-orange-400"

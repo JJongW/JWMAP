@@ -12,11 +12,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
-import { InlinePriceLevelCell } from './InlinePriceLevelCell';
-import { InlineCurationLevelCell } from './InlineCurationLevelCell';
-import { InlineTagsCell } from './InlineTagsCell';
-import { InlineCategoryCell } from './InlineCategoryCell';
+import { Pencil, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
+import { getCurationLabel } from './CurationLevelSelector';
 
 interface Props {
   locations: Location[];
@@ -35,11 +32,7 @@ export function LocationTable({
   totalCount,
   page,
   perPage,
-  allTags,
-  locationTagsByLocId,
   basePath = '/locations',
-  tagDomain = 'food',
-  domain = basePath === '/attractions' ? 'attractions' : 'locations',
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -57,20 +50,21 @@ export function LocationTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[200px]">장소명</TableHead>
+              <TableHead className="w-[200px]">장소</TableHead>
               <TableHead>지역</TableHead>
-              <TableHead>카테고리</TableHead>
-              <TableHead className="text-center">가격대</TableHead>
-              <TableHead className="text-center">큐레이션</TableHead>
-              <TableHead className="min-w-[140px]">태그</TableHead>
-              <TableHead className="text-right">수정일</TableHead>
+              <TableHead>장소 종류</TableHead>
+              <TableHead className="text-center">가봤나요</TableHead>
+              <TableHead>추천하는 이유</TableHead>
+              <TableHead className="text-center">사진</TableHead>
+              <TableHead className="text-center">추천 강도</TableHead>
+              <TableHead className="text-right">등록일</TableHead>
               <TableHead className="w-[60px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {locations.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   장소가 없습니다
                 </TableCell>
               </TableRow>
@@ -78,33 +72,42 @@ export function LocationTable({
             {locations.map((loc) => (
               <TableRow key={loc.id}>
                 <TableCell className="font-medium">
-                  <Link href={`${basePath}/${loc.id}`} className="hover:underline">
+                  <Link href={`/places/${loc.id}`} className="hover:underline">
                     {loc.name}
                   </Link>
                 </TableCell>
                 <TableCell className="text-muted-foreground">{loc.region}</TableCell>
-                <TableCell>
-                  <InlineCategoryCell location={loc} domain={domain} />
+                <TableCell className="text-xs">
+                  {[loc.category_main, loc.category_sub].filter(Boolean).join(' · ') || (
+                    <span className="text-red-500">미정</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-center">
-                  <InlinePriceLevelCell location={loc} />
+                  {loc.curator_visited ? (
+                    <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-600">가봤음</span>
+                  ) : (
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-muted-foreground">후보</span>
+                  )}
+                </TableCell>
+                <TableCell className="max-w-[260px] truncate text-xs text-muted-foreground" title={loc.short_desc ?? undefined}>
+                  {loc.curator_visited && loc.short_desc ? loc.short_desc : <span className="text-muted-foreground/50">없음</span>}
+                </TableCell>
+                <TableCell className="text-center">
+                  {loc.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={loc.imageUrl} alt="" className="mx-auto h-8 w-8 rounded object-cover" loading="lazy" />
+                  ) : (
+                    <ImageOff className="mx-auto h-4 w-4 text-muted-foreground/40" />
+                  )}
                 </TableCell>
                 <TableCell className="text-center text-xs">
-                  <InlineCurationLevelCell location={loc} />
-                </TableCell>
-                <TableCell>
-                  <InlineTagsCell
-                    location={loc}
-                    locationTags={locationTagsByLocId[loc.id] ?? []}
-                    allTags={allTags}
-                    tagDomain={tagDomain}
-                  />
+                  {loc.curation_level ? getCurationLabel(loc.curation_level) : '-'}
                 </TableCell>
                 <TableCell className="text-right text-xs text-muted-foreground">
                   {loc.created_at ? new Date(loc.created_at).toLocaleDateString('ko-KR') : '-'}
                 </TableCell>
                 <TableCell>
-                  <Link href={`${basePath}/${loc.id}`}>
+                  <Link href={`/places/${loc.id}`}>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>

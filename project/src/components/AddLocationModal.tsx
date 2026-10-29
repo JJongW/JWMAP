@@ -59,7 +59,7 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
         {/* 헤더 */}
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
           <h2 className="text-lg font-bold text-gray-900">
-            {contentMode === 'space' ? '새 볼거리 장소 추가' : '새로운 장소 추가'}
+            {contentMode === 'space' ? '가본 볼거리 추가하기' : '가본 곳 추가하기'}
           </h2>
           <button
             onClick={onClose}
@@ -111,7 +111,7 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
 
           {/* 카테고리 대분류 */}
           <CustomSelect
-            label="카테고리 (대분류)"
+            label="장소 종류"
             required
             value={formData.categoryMain}
             onChange={(value) => setFormData((prev) => ({
@@ -120,13 +120,13 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
               categorySub: '', // 대분류 변경 시 소분류 초기화
             }))}
             options={getCategoryMainsByMode(contentMode).filter(main => main !== '전체')}
-            placeholder="카테고리 대분류를 선택하세요"
+            placeholder="어떤 곳인가요? (카페, 전시/문화 …)"
           />
 
           {/* 카테고리 소분류 - 대분류 선택 후에만 표시 */}
           {formData.categoryMain && formData.categoryMain !== '전체' && availableCategorySubs.length > 0 && (
             <CustomSelect
-              label="카테고리 (소분류)"
+              label="세부 종류"
               required
               value={formData.categorySub}
               onChange={(value) => setFormData((prev) => ({
@@ -134,7 +134,7 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
                 categorySub: value as CategorySub,
               }))}
               options={availableCategorySubs}
-              placeholder="카테고리 소분류를 선택하세요"
+              placeholder="조금 더 자세히 골라 주세요"
             />
           )}
 
@@ -156,7 +156,7 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
 
           {/* 이미지 */}
           <ImageUpload
-            label="이미지"
+            label="사진"
             value={formData.imageUrl}
             onChange={(url) => setFormData((prev) => ({ ...prev, imageUrl: url }))}
           />
@@ -164,7 +164,7 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
           {/* 큐레이션 레벨 (주인장만 수정 가능) */}
           {isOwnerMode && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">큐레이션 레벨</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">추천 강도 <span className="font-normal text-gray-400">(직접 가본 곳에만 보여요)</span></label>
               <div className="grid grid-cols-5 gap-1.5">
                 {CURATION_LEVELS.map((tier) => (
                   <button
@@ -192,7 +192,7 @@ export function AddLocationModal({ contentMode, onClose, onSave, existingLocatio
               onChange={(e) => setFormData((prev) => ({ ...prev, curator_visited: e.target.checked }))}
               className="rounded border-gray-300 text-point focus:ring-point"
             />
-            <span className="text-sm text-gray-700">주인장이 직접 다녀온 장소</span>
+            <span className="text-sm text-gray-700">제가 직접 가본 곳이에요</span>
           </label>
         </div>
 

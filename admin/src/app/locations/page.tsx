@@ -59,11 +59,14 @@ export default async function LocationsPage({ searchParams }: Props) {
     <AdminLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">장소 관리</h1>
-          <Link href="/locations/new">
-            <Button>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">맛집·카페</h1>
+            <p className="mt-1 text-xs text-muted-foreground">이름을 누르면 방문 기록·추천하는 이유·분류·사진을 한 화면에서 고쳐요.</p>
+          </div>
+          <Link href="/intake">
+            <Button className="bg-orange-500 text-white hover:bg-orange-600">
               <Plus className="mr-2 h-4 w-4" />
-              장소 추가
+              새 장소는 검토함에서
             </Button>
           </Link>
         </div>

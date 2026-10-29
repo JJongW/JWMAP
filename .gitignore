@@ -9,3 +9,8 @@ dist/
 
 # DB 개편: 카카오맵 저장 장소 등 개인 수집 데이터 (git에 올리지 않음)
 data/kakao-saved/
+
+# 수집 스크립트 결과 (외부 리뷰 발췌·로컬 경로 포함, 다시 만들 수 있음)
+docs/db-overhaul/kakao-place-check.json
+docs/db-overhaul/kakao-saved.json
+docs/db-overhaul/odiga-vault-intake.json

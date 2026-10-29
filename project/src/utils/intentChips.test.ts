@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { mapSearchSlots, matchRegion, parseIntentText, resolveIntent, EMPTY_CONDITIONS } from './intentChips';
+import { getConditionLabels, mapSearchSlots, matchRegion, parseIntentText, resolveIntent, EMPTY_CONDITIONS } from './intentChips';
 
 // 장소 수가 많은 순
 const REGIONS = ['종로/중구', '강남', '홍대/합정/마포/연남', '건대/성수/왕십리', '용산/이태원/한남', '마포/홍대'];
@@ -7,6 +7,7 @@ const REGIONS = ['종로/중구', '강남', '홍대/합정/마포/연남', '건�
 describe('parseIntentText', () => {
   it('종로에서 둘이 저녁, 조용한 곳 → 4개 조건', () => {
     expect(parseIntentText('종로에서 둘이 저녁, 조용한 곳', REGIONS)).toEqual({
+      ...EMPTY_CONDITIONS,
       region: '종로/중구',
       companion: 'pair',
       timeSlot: 'dinner',
@@ -44,7 +45,7 @@ describe('mapSearchSlots', () => {
         { region: '종로/중구', time_of_day: '저녁', visit_context: '데이트', constraints: ['조용한'], category_main: '카페' },
         REGIONS,
       ),
-    ).toEqual({ region: '종로/중구', companion: 'pair', timeSlot: 'dinner', priority: 'quiet', kind: 'cafe' });
+    ).toEqual({ ...EMPTY_CONDITIONS, region: '종로/중구', companion: 'pair', timeSlot: 'dinner', priority: 'quiet', kind: 'cafe' });
   });
 });
 
@@ -65,7 +66,7 @@ describe('resolveIntent', () => {
     expect(fetcher).toHaveBeenCalledOnce();
     expect(result).toEqual({
       source: 'api',
-      conditions: { region: '강남', companion: 'group', timeSlot: 'dinner', priority: null, kind: null },
+      conditions: { ...EMPTY_CONDITIONS, region: '강남', companion: 'group', timeSlot: 'dinner' },
     });
   });
 
@@ -73,5 +74,20 @@ describe('resolveIntent', () => {
     const fetcher = vi.fn().mockRejectedValue(new Error('offline'));
     const result = await resolveIntent('아무거나', REGIONS, fetcher as unknown as typeof fetch);
     expect(result).toEqual({ source: 'none', conditions: EMPTY_CONDITIONS });
+  });
+});
+
+describe('getConditionLabels', () => {
+  it('볼거리는 질문 화면과 같은 라벨을 결과 칩에서도 쓴다', () => {
+    const labels = getConditionLabels('space');
+    expect(labels.companion.pair).toBe('둘이');
+    expect(labels.timeSlot.lunch).toBe('가볍게');
+    expect(labels.priority.wait_short).toBe('실내 위주');
+  });
+
+  it('맛집 라벨은 그대로', () => {
+    const labels = getConditionLabels('food');
+    expect(labels.timeSlot.lunch).toBe('점심');
+    expect(labels.priority.wait_short).toBe('줄 안 서는 곳');
   });
 });

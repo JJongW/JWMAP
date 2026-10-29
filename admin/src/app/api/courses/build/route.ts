@@ -454,7 +454,8 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
     lat: kakao.lat || 0,
     address: kakao.address || '',
     memo: enriched.memo || input.note || '',
-    short_desc: enriched.short_desc || null,
+    // 추천하는 이유는 운영자가 적은 한줄느낌 그대로. AI가 블로그 후기로 다듬은 문장은 운영자 목소리로 쓰지 않는다
+    short_desc: input.note.trim() || null,
     rating: 0,
     curation_level: curationLevel,
     price_level: enriched.price_level,
@@ -477,12 +478,15 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
   if (existing) {
     row = existing;
     const mergedTags = uniqueTags([...((existing.tags as string[] | undefined) ?? []), ...tags]);
+    // 이미 있는 장소는 운영자가 정한 값(추천하는 이유·메모·직접 가본 곳 여부·추천 강도)을 덮어쓰지 않고 빈 칸만 채운다
+    const updatePayload: Record<string, unknown> = { ...payload, tags: mergedTags };
+    for (const field of ['short_desc', 'memo', 'curator_visited', 'curation_level'] as const) {
+      const current = existing[field];
+      if (current !== null && current !== undefined && current !== '') updatePayload[field] = current;
+    }
     const { data: updated, error } = await supabase
       .from(domain)
-      .update({
-        ...payload,
-        tags: mergedTags,
-      })
+      .update(updatePayload)
       .eq('id', existing.id as string)
       .select('*')
       .single();

@@ -170,7 +170,7 @@ export function LocationForm({
 
   const isAttractionDomain = domain === 'attractions';
   const categoryHierarchy = isAttractionDomain ? ATTRACTION_CATEGORY_HIERARCHY : CATEGORY_HIERARCHY;
-  const curationLabel = isAttractionDomain ? '큐레이션 레벨' : '쩝쩝박사 레벨';
+  const curationLabel = '추천 강도';
   const priceLabel = isAttractionDomain ? '입장료 레벨' : '가격대';
 
   const categoryMain = watch('category_main');
@@ -340,11 +340,11 @@ export function LocationForm({
           }
           if (payload.category_main) {
             setValue('category_main', payload.category_main);
-            applied.push('카테고리 대분류');
+            applied.push('장소 종류');
           }
           if (payload.category_sub) {
             setValue('category_sub', payload.category_sub);
-            applied.push('카테고리 소분류');
+            applied.push('세부 종류');
           }
           if (payload.imageUrl) {
             setValue('imageUrl', payload.imageUrl);
@@ -353,20 +353,17 @@ export function LocationForm({
 
           // 붙여넣은 텍스트에서 리뷰·해시태그 추출 후 place-detail 결과와 병합
           const pasted = firstParsed;
+          const memoParts: string[] = [];
           const isAddressLike = (s: string) =>
             /서울|경기|인천|부산|^\d|동\s|구\s|로\s|길\s/.test(s) || s.length < 20;
 
-          // 한줄 설명: 복붙 리뷰 스니펫 우선 (주소 형태보다 감성적 설명이 낫음)
-          const shortDesc =
-            pasted.reviewSnippets.find((r) => !isAddressLike(r)) ??
-            (payload.short_desc && !isAddressLike(payload.short_desc) ? payload.short_desc : null);
-          if (shortDesc) {
-            setValue('short_desc', shortDesc, { shouldValidate: true });
-            applied.push('한줄 설명');
+          // 추천하는 이유(short_desc)는 운영자가 직접 쓴 글만 담는다.
+          // 지도 페이지의 소개·후기는 다른 사람의 글이라 자동으로 넣지 않고, 아래 메모에 참고 정보로만 남긴다.
+          if (payload.short_desc && !isAddressLike(payload.short_desc)) {
+            memoParts.push(`- 지도 소개: ${payload.short_desc}`);
           }
 
           // 메모: place-detail 내용 + 복붙 리뷰·해시태그 병합
-          const memoParts: string[] = [];
           if (payload.memo) memoParts.push(...payload.memo.split('\n').filter(Boolean));
           if (pasted.reviewSnippets.length > 0) {
             memoParts.push(...pasted.reviewSnippets.map((s) => `- 리뷰: ${s}`));
@@ -453,17 +450,12 @@ export function LocationForm({
         const mapped = mapKakaoCategoryByDomain(categorySource, domain);
         if (mapped.main) {
           setValue('category_main', mapped.main);
-          applied.push('카테고리 대분류');
+          applied.push('장소 종류');
         }
         if (mapped.sub) {
           setValue('category_sub', mapped.sub);
-          applied.push('카테고리 소분류');
+          applied.push('세부 종류');
         }
-      }
-
-      if (!watch('short_desc') && parsed.reviewSnippets.length > 0) {
-        setValue('short_desc', parsed.reviewSnippets[0], { shouldValidate: true });
-        applied.push('한줄 설명');
       }
 
       const memoLines: string[] = [];
@@ -557,7 +549,7 @@ export function LocationForm({
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              카카오맵(place.map.kakao.com) 또는 네이버지도(map.naver.com/place) 링크만 붙여넣어도 장소명·주소·위도·경도·지역·Place ID·이미지·태그·설명이 자동으로 채워집니다.
+              카카오맵(place.map.kakao.com) 또는 네이버지도(map.naver.com/place) 링크만 붙여넣어도 장소명·주소·위도·경도·지역·Place ID·이미지·태그가 채워지고, 영업시간·후기 같은 내용은 메모에 참고 정보로 들어가요. 추천하는 이유는 자동으로 채우지 않아요. 직접 적어 주세요.
             </p>
             <Textarea
               value={rawMapText}
@@ -574,7 +566,7 @@ export function LocationForm({
               </Button>
             </div>
             <p className="text-xs text-amber-700">
-              안내: 자동 추출은 보조 기능입니다. 저장 전 카테고리/좌표/주소를 반드시 확인해주세요.
+              안내: 자동 추출은 보조 기능이에요. 저장 전에 장소 종류·좌표·주소를 꼭 확인해 주세요.
             </p>
           </CardContent>
         </Card>
@@ -622,11 +614,11 @@ export function LocationForm({
         {/* Category & Score */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">분류 & 평가</CardTitle>
+            <CardTitle className="text-base">장소 종류와 추천 강도</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>카테고리 대분류</Label>
+              <Label>장소 종류</Label>
               <Controller
                 control={control}
                 name="category_main"
@@ -651,7 +643,7 @@ export function LocationForm({
               />
             </div>
             <div>
-              <Label>카테고리 소분류</Label>
+              <Label>세부 종류</Label>
               <Controller
                 control={control}
                 name="category_sub"
@@ -675,6 +667,9 @@ export function LocationForm({
             </div>
             <div data-field="curation_level">
               <Label>{curationLabel}</Label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                사용자 화면 배지는 &lsquo;제가 직접 가본 곳이에요&rsquo;에 체크한 곳에만 붙어요. 3단계 운영자 추천, 4단계 이상 대표픽.
+              </p>
               <Controller
                 control={control}
                 name="curation_level"
@@ -739,7 +734,7 @@ export function LocationForm({
         {/* Image */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">이미지</CardTitle>
+            <CardTitle className="text-base">사진</CardTitle>
           </CardHeader>
           <CardContent>
             <Controller
@@ -759,7 +754,7 @@ export function LocationForm({
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground mb-2">
-              기존 태그에서 선택 (클릭하여 추가/해제)
+              추천하는 이유·이런 때 잘 맞아요·방문 정보(주차·예약 등)에 맞는 태그를 골라요. 여러 개 고를 수 있어요.
             </p>
             <TagSelector
               allTags={allTags}
@@ -773,21 +768,27 @@ export function LocationForm({
         {/* Meta */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">메타 정보</CardTitle>
+            <CardTitle className="text-base">직접 가본 기록</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>방문일</Label>
-              <Input {...register('visit_date')} type="date" className="mt-1" />
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="curator_visited"
+                  {...register('curator_visited')}
+                  className="rounded"
+                />
+                <Label htmlFor="curator_visited">제가 직접 가본 곳이에요</Label>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                체크하지 않으면 사용자 화면에 &lsquo;아직 안 가본 후보&rsquo;로 보이고 추천 강도 배지가 붙지 않아요.
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="curator_visited"
-                {...register('curator_visited')}
-                className="rounded"
-              />
-              <Label htmlFor="curator_visited">큐레이터 방문 확인</Label>
+            <div>
+              <Label>가본 날</Label>
+              <Input {...register('visit_date')} type="date" className="mt-1" />
+              <p className="mt-1 text-xs text-muted-foreground">정확한 날짜를 모르면 비워 두세요.</p>
             </div>
           </CardContent>
         </Card>
@@ -795,16 +796,26 @@ export function LocationForm({
         {/* Description */}
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">설명</CardTitle>
+            <CardTitle className="text-base">추천하는 이유와 메모</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>한줄 설명</Label>
-              <Input {...register('short_desc')} className="mt-1" placeholder="핵심 한줄 설명" />
+              <Label>추천하는 이유</Label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                직접 가서 좋았던 점을 문장으로 적어 주세요. 사용자 화면에 그대로 보여요. 주소나 다른 사람의 후기는 넣지 마세요.
+              </p>
+              <Textarea
+                {...register('short_desc')}
+                className="mt-1 min-h-[72px]"
+                placeholder="예: 커피가 진하고 창가 자리가 넓어서 평일 오후에 작업하기 편해요"
+              />
             </div>
             <div>
-              <Label>메모 (상세)</Label>
-              <Textarea {...register('memo')} className="mt-1 min-h-[120px]" placeholder="상세 메모..." />
+              <Label>직접 가본 메모 · 참고 정보</Label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                먹은 것·본 것·아쉬운 점처럼 직접 겪은 내용을 적어요. 빠른 입력이 채운 영업시간·후기·해시태그는 사용자 화면에 &lsquo;참고 정보 (운영자 확인 전)&rsquo;로 보여요.
+              </p>
+              <Textarea {...register('memo')} className="mt-1 min-h-[120px]" placeholder="예: 버터치킨커리를 먹었어요. 점심엔 20분 정도 기다렸어요." />
             </div>
           </CardContent>
         </Card>

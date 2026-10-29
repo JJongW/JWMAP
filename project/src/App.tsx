@@ -18,7 +18,7 @@ import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { getCuratorReason, isCuratorVisited } from './utils/curation';
-import { EMPTY_CONDITIONS, resolveIntent, type IntentConditions } from './utils/intentChips';
+import { EMPTY_CONDITIONS, inferConditionMode, resolveIntent, type IntentConditions } from './utils/intentChips';
 import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
 import { clearPlaceStates, getActivityScore, getSavedIds, getVisitedIds, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -57,6 +57,9 @@ export default function App() {
   const [conditions, setConditions] = useState<IntentConditions>(EMPTY_CONDITIONS);
   /** 문장에서 조건을 하나도 못 읽었을 때 결과 화면에서 안내한다 */
   const [intentNotice, setIntentNotice] = useState<string | null>(null);
+  /** 추천을 찾은 데이터. '비 오는 날 전시'처럼 다른 탭의 장소 종류를 물으면 그쪽에서 찾는다 */
+  const [decisionMode, setDecisionMode] = useState<ContentMode>('food');
+  const otherModeCache = useRef<Partial<Record<ContentMode, Location[]>>>({});
 
   // 초기 데이터 로딩 상태
   const [isLoading, setIsLoading] = useState(true);
@@ -205,14 +208,14 @@ export default function App() {
           getActivityScore(a) * 8 +
           (a.imageUrl ? 3 : 0) +
           (getCuratorReason(a) ? 2 : 0) +
-          // 먼저 볼 곳은 운영자가 직접 가본 곳을 앞에 둔다
-          (isCuratorVisited(a) ? 6 : 0);
+          // 먼저 볼 곳은 운영자가 직접 가본 곳을 앞에 둔다 (미방문 후보의 큐레이션 단계보다 우선)
+          (isCuratorVisited(a) ? 100 : 0);
         const bScore =
           (b.curation_level ?? 1) * 12 +
           getActivityScore(b) * 8 +
           (b.imageUrl ? 3 : 0) +
           (getCuratorReason(b) ? 2 : 0) +
-          (isCuratorVisited(b) ? 6 : 0);
+          (isCuratorVisited(b) ? 100 : 0);
         return bScore - aScore;
       })
       .slice(0, contentMode === 'space' ? 24 : 36);
@@ -454,11 +457,21 @@ export default function App() {
    * 조건으로 결정 엔진을 돌리고 결과 화면으로 간다.
    * 맞는 곳이 없으면 조건을 무시한 대체 결과 대신, 결과 화면에서 칩을 빼보도록 안내한다.
    */
-  const runDecision = useCallback((next: IntentConditions) => {
+  const runDecision = useCallback(async (next: IntentConditions) => {
+    const mode = inferConditionMode(next) ?? contentMode;
+    let pool = locations;
+    if (mode !== contentMode) {
+      pool = otherModeCache.current[mode] ?? (await locationApi.getAll(mode).catch(() => []));
+      otherModeCache.current[mode] = pool;
+    }
+    if (mode !== contentMode) {
+      setIntentNotice(mode === 'space' ? '고른 장소 종류에 맞춰 볼거리에서 찾았어요.' : '고른 장소 종류에 맞춰 맛집·카페에서 찾았어요.');
+    }
     setConditions(next);
-    setDecisionResult(decideLocations(locations, next));
+    setDecisionMode(mode);
+    setDecisionResult(decideLocations(pool, next, mode));
     setUiMode('result');
-  }, [locations]);
+  }, [locations, contentMode]);
 
   /** 4단계 선택 완료(지역·동행·시간·우선조건) → 결정 엔진 실행 → result 모드 전환 */
   const handleDecide = useCallback((
@@ -674,7 +687,7 @@ export default function App() {
           onConditionsChange={handleConditionsChange}
           regionOptions={regionOptions.slice(0, 20)}
           notice={intentNotice}
-          contentMode={contentMode}
+          contentMode={decisionMode}
           onRetry={handleRetryDecision}
           onBrowse={handleSwitchToBrowse}
           onOpenDetail={handleDecisionOpenDetail}

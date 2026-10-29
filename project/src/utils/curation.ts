@@ -117,9 +117,34 @@ export function getVisitInfoText(location: CuratorFields): string {
   return location.memo?.trim() ?? '';
 }
 
-/** curator_visited가 비어 있으면 기존 데이터 호환을 위해 직접 방문으로 본다 */
+/**
+ * 자동 생성·수집 메모의 흔적. DB 이관(019)의 분류와 같은 규칙
+ * 예: "분위기: 차분한 · 방문 많음", "[배치 수집] https://…", "⏰ 운영시간: 10시~19시"
+ */
+const AUTO_MEMO = /분위기:|방문 많음|^\[배치 수집\]|운영시간:|입장료:|전화번호:|⏰|💰|🚗|🚇|^https?:\/\/\S+$|- (리뷰|리뷰 메모|지도 소개|해시태그|카맵 평점|카맵 후기 수|공식 URL|대중교통):/m;
+
+export type NoteOrigin = 'operator_note' | 'auto_generated' | 'address' | 'empty';
+
+/**
+ * '직접 가본 메모'로 보여도 되는지. 메모 칸에는 자동 정리·외부 소개 문구가 섞여 있어서
+ * 운영자가 직접 방문한 곳이고, 자동 문구·주소가 아닐 때만 그렇게 부른다.
+ */
+export function isFirstHandMemo(location: CuratorFields): boolean {
+  return isCuratorVisited(location) && classifyNote(location.memo, location.address) === 'operator_note';
+}
+
+/** 원문 메모가 운영자가 쓴 글인지, 자동 정리 문구인지, 주소인지. 원문은 바꾸지 않고 분류만 한다 */
+export function classifyNote(text: string | undefined, address?: string): NoteOrigin {
+  const value = text?.trim() ?? '';
+  if (!value) return 'empty';
+  if (looksLikeAddress(value, address)) return 'address';
+  if (AUTO_MEMO.test(value)) return 'auto_generated';
+  return 'operator_note';
+}
+
+/** 데이터에 직접 방문(true)으로 적힌 곳만 직접 방문이다. 값이 비어 있으면 방문했다고 말하지 않는다 */
 export function isCuratorVisited(location: CuratorFields): boolean {
-  return location.curator_visited !== false;
+  return location.curator_visited === true;
 }
 
 export const VISIT_STATUS_LABEL = {
@@ -129,4 +154,33 @@ export const VISIT_STATUS_LABEL = {
 
 export function getVisitStatusLabel(location: CuratorFields): string {
   return isCuratorVisited(location) ? VISIT_STATUS_LABEL.visited : VISIT_STATUS_LABEL.candidate;
+}
+
+// ─────────────────────────────────────────────
+// 추천 강도 배지: 방문 여부와 섞이지 않게 '직접 다녀온 곳'에만 붙인다
+// ─────────────────────────────────────────────
+
+export interface RecommendBadge {
+  label: string;
+  description: string;
+  badgeClass: string;
+}
+
+export const RECOMMEND_BADGES: RecommendBadge[] = [
+  { label: '운영자 추천', description: '직접 다녀와서 추천하는 곳', badgeClass: 'bg-emerald-50 text-emerald-700' },
+  { label: '대표픽', description: '직접 다녀온 곳 중 특히 추천하는 곳', badgeClass: 'bg-orange-100 text-orange-700' },
+];
+
+/**
+ * 직접 방문 + 큐레이션 3단계 이상일 때만 추천 강도 배지를 준다.
+ * 아직 안 가본 후보는 curation_level이 높아도 배지를 달지 않는다 (방문·검증 주장이 되지 않게).
+ */
+export function getRecommendBadge(
+  location: CuratorFields & Partial<Pick<Location, 'curation_level' | 'rating'>>,
+): RecommendBadge | null {
+  if (!isCuratorVisited(location)) return null;
+  const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
+  if (level >= 4) return RECOMMEND_BADGES[1];
+  if (level >= 3) return RECOMMEND_BADGES[0];
+  return null;
 }

@@ -118,8 +118,9 @@ export async function fetchTagMatchedLocationIds(getSupabase: GetSupabase, keywo
 }
 
 export async function fetchTopRatedLocations(getSupabase: GetSupabase): Promise<Location[]> {
+  // 검색 뷰는 운영자가 숨긴 장소(폐업 등)를 뺀다 (migration 023)
   const { data } = await getSupabase()
-    .from('locations')
+    .from('locations_search')
     .select('*')
     .order('rating', { ascending: false, nullsFirst: false })
     .limit(20);

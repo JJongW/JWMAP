@@ -6,7 +6,7 @@
  * 쓰는 보조 기능으로 제공한다.
  */
 
-import { CheckCircle2, ChevronDown, ChevronUp, Heart, List, Map as MapIcon, MapPin, Search, Sparkles, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Heart, List, Map as MapIcon, MapPin, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
@@ -16,17 +16,14 @@ import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useBrowseViewController } from '../hooks/useBrowseViewController';
 import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
 import {
-  getCurationLabel,
-  getCurationBadgeClass,
-  getCurationDescription,
   getCuratorReason,
+  isFirstHandMemo,
   getVisitInfoText,
   getVisitStatusLabel,
   isCuratorVisited,
-  isPracticalInfoTag,
-  ratingToCurationLevel,
 } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
+import { RecommendBadge } from './RecommendBadge';
 import { getSavedIds, getVisitedIds, recordActivity, toggleSaved, toggleVisited } from '../utils/activity';
 import type { Location } from '../types/location';
 import type { BrowseViewProps } from './browse/types';
@@ -52,8 +49,6 @@ export function BrowseView({
   onSavedViewChange,
   onSavedStateChange,
   onClearPlaceState,
-  hotRegions = [],
-  onSelectHotRegion,
   onShowAllPlaces,
   onResetFilters,
   filterState,
@@ -183,17 +178,18 @@ export function BrowseView({
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(360px,440px)_1fr]">
         {showsList && (
         <section className="flex min-h-0 flex-1 flex-col border-r border-gray-100 bg-white lg:flex-none">
-          <header className="shrink-0 border-b border-gray-100 px-4 pb-3 pt-4 md:px-6 lg:pt-6">
+          {/* ── 주 흐름: 지역·상황 입력 → 추천 1곳과 대안 ── */}
+          <header className="shrink-0 border-b border-gray-100 px-4 pb-3 pt-4 md:px-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className={`text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-500'}`}>
-                  JWMAP
+                <p className={`text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-700'}`}>
+                  오늘 오디가?
                 </p>
-                <h1 className="mt-1 text-base font-bold tracking-tight text-gray-900 md:text-xl">
-                  추천해달라는 말, 이제 여기서 볼 수 있어요.
+                <h1 className="mt-1 text-lg font-bold tracking-tight text-gray-900 md:text-xl">
+                  오늘 어디 갈까요?
                 </h1>
-                <p className="mt-0.5 text-xs leading-relaxed text-gray-500 md:text-sm">
-                  제가 직접 다녀온 곳과 솔직한 메모를 모았어요.
+                <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
+                  지역·상황·하고 싶은 일을 적으면 추천 1곳과 대안을 골라드려요.
                 </p>
               </div>
               {onContentModeChange && (
@@ -217,29 +213,37 @@ export function BrowseView({
                 </div>
               )}
             </div>
+            {onRecommendText && onQuickStart && (
+              <div className="mt-3">
+                <IntentInput
+                  contentMode={contentMode}
+                  regionOptions={regionOptions}
+                  onSubmitText={onRecommendText}
+                  onQuickStart={onQuickStart}
+                  onContentModeChange={onContentModeChange}
+                />
+              </div>
+            )}
+            <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+              제가 다녀온 곳은 <span className="font-semibold text-emerald-600">운영자 직접 방문</span>, 아직 못 가본 곳은{' '}
+              <span className="font-semibold text-gray-500">아직 안 가본 후보</span>로 구분해요.
+            </p>
           </header>
 
-          <div className="shrink-0 space-y-2.5 border-b border-gray-100 px-4 py-3 md:px-5">
-            {onRecommendText && onQuickStart && (
-              <IntentInput
-                contentMode={contentMode}
-                regionOptions={regionOptions}
-                onSubmitText={onRecommendText}
-                onQuickStart={onQuickStart}
-                onContentModeChange={onContentModeChange}
-              />
-            )}
+          {/* ── 보조 경로: 이름 검색·목록·지도 탐색 ── */}
+          <div className="shrink-0 space-y-2 border-b border-gray-100 bg-gray-50/60 px-4 py-2.5 md:px-5">
             <div className="relative">
               <Search
-                size={16}
+                size={14}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300"
               />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="가게 이름이나 지역으로 찾기"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-3 pl-9 pr-9 text-sm text-gray-700 placeholder-gray-300 outline-none transition-colors focus:border-gray-300 focus:bg-white"
+                placeholder="이름이나 지역으로 직접 찾기"
+                aria-label="이름이나 지역으로 직접 찾기"
+                className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-8 pr-9 text-xs text-gray-700 placeholder-gray-400 outline-none transition-colors focus:border-gray-300"
               />
               {searchQuery && (
                 <button
@@ -253,12 +257,12 @@ export function BrowseView({
               )}
             </div>
 
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="flex gap-2 overflow-x-auto">
               <button
                 type="button"
                 onClick={() => onSavedOnlyChange?.(false)}
                 aria-pressed={!savedOnly}
-                className={`shrink-0 rounded-full border px-3 py-2 text-xs font-bold transition-colors ${
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
                   !savedOnly
                     ? contentMode === 'space'
                       ? 'border-violet-200 bg-violet-50 text-violet-700'
@@ -272,7 +276,7 @@ export function BrowseView({
                 type="button"
                 onClick={() => onSavedOnlyChange?.(true)}
                 aria-pressed={savedOnly}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-bold transition-colors ${
+                className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
                   savedOnly
                     ? 'border-rose-200 bg-rose-50 text-rose-700'
                     : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
@@ -286,7 +290,7 @@ export function BrowseView({
                 onClick={() => setIsFilterExpanded(!isFilterExpanded)}
                 aria-expanded={isFilterExpanded}
                 aria-controls="browse-filter-section"
-                className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
+                className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50"
               >
                 <span>필터</span>
                 {isFilterExpanded
@@ -413,48 +417,11 @@ export function BrowseView({
               </div>
             )}
 
-            {isCuratedStart && !savedOnly && (
-              <div className="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white px-3 py-2.5">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 text-xs font-bold text-orange-700">
-                      <Sparkles size={14} />
-                      요즘 먼저 볼 만한 곳
-                    </p>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-orange-700/70">
-                      전체 {totalLocationCount ?? displayedLocations.length}곳 중 대표픽과 제 메모가 있는 곳부터 보여줘요.
-                    </p>
-                  </div>
-                  {onShowAllPlaces && (
-                    <button
-                      type="button"
-                      onClick={onShowAllPlaces}
-                      className="shrink-0 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-orange-700 shadow-sm"
-                    >
-                      전체 보기
-                    </button>
-                  )}
-                </div>
-                {hotRegions.length > 0 && (
-                  <div className="mt-2 flex gap-2 overflow-x-auto">
-                    {hotRegions.map((region) => (
-                      <button
-                        key={region}
-                        type="button"
-                        onClick={() => onSelectHotRegion?.(region)}
-                        className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm transition-colors hover:text-orange-700"
-                      >
-                        {region}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-3 md:px-5">
-            <p className="mb-3 text-xs font-medium text-gray-400">
+            <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-gray-400">
               {isSearching
                 ? savedOnly
                   ? `저장한 곳에서 찾은 결과 ${searchFilteredLocations.length}곳`
@@ -462,10 +429,20 @@ export function BrowseView({
                 : savedOnly
                   ? getSavedViewCountLabel(savedView, searchFilteredLocations.length)
                   : isCuratedStart
-                    ? `먼저 볼 후보 ${searchFilteredLocations.length}곳`
+                    ? `먼저 볼 곳 ${searchFilteredLocations.length}곳 · 직접 방문한 곳부터`
                 : `장소 ${searchFilteredLocations.length}곳`
               }
             </p>
+            {isCuratedStart && !savedOnly && !isSearching && onShowAllPlaces && (
+              <button
+                type="button"
+                onClick={onShowAllPlaces}
+                className="shrink-0 text-xs font-semibold text-gray-500 underline-offset-2 hover:text-gray-700 hover:underline"
+              >
+                전체 {totalLocationCount ?? displayedLocations.length}곳 보기
+              </button>
+            )}
+            </div>
             <BrowseList
               locations={searchFilteredLocations}
               visibleCount={visibleLocations}
@@ -617,12 +594,11 @@ function BrowseList({
   return (
     <div className="divide-y divide-gray-100">
       {locations.slice(0, visibleCount).map((location) => {
-        const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
         const isSaved = savedIds.has(location.id);
         const isVisited = visitedIds.has(location.id);
         const curatorNote = getCuratorReason(location);
         const curatorVisited = isCuratorVisited(location);
-        const reason = getRecommendationReason(location, level, savedView);
+        const savedViewNote = getSavedViewNote(savedView);
         const showsVisitState = savedView === 'visited' || savedView === 'revisit';
 
         return (
@@ -671,19 +647,20 @@ function BrowseList({
                     </span>
                   )}
                   {' · '}
-                  <span className={curatorVisited ? 'font-semibold text-emerald-600' : 'text-gray-400'}>
+                  <span className={curatorVisited ? 'font-semibold text-emerald-600' : 'font-medium text-gray-500'}>
                     {getVisitStatusLabel(location)}
                   </span>
                 </p>
+                {/* 추천 이유는 운영자 한 줄만. 없으면 비워 둔다 (일반 태그로 대신하지 않는다) */}
                 {curatorNote ? (
                   <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-gray-700">
                     {curatorNote}
                   </p>
-                ) : (
+                ) : savedViewNote ? (
                   <p className="mt-1 truncate text-xs font-medium text-gray-500">
-                    {reason}
+                    {savedViewNote}
                   </p>
-                )}
+                ) : null}
               </div>
             </button>
 
@@ -716,9 +693,7 @@ function BrowseList({
                 <Heart size={showsVisitState ? 13 : 15} fill={isSaved ? 'currentColor' : 'none'} />
               </button>
               <div className="flex items-center gap-1.5">
-                <span className={`rounded px-2 py-0.5 text-xs font-semibold ${getCurationBadgeClass(level)}`}>
-                  {getCurationLabel(level)}
-                </span>
+                <RecommendBadge location={location} size="xs" />
                 <PriceLevelBadge priceLevel={location.price_level} size="xs" />
               </div>
             </div>
@@ -810,36 +785,26 @@ function RecommendationBar({ onBackToDecision, mobileView, onMobileViewChange }:
             {mobileView === 'list' ? '지도 보기' : '목록 보기'}
           </button>
         ) : (
-          <p className="text-sm font-medium text-gray-500">
-            후보가 많다면
+          <p className="text-sm text-gray-400">
+            문장 대신 하나씩 고르고 싶다면
           </p>
         )}
         <button
           onClick={onBackToDecision}
-          className="min-h-[44px] rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white transition-all duration-150 active:scale-[0.98]"
+          className="min-h-[44px] rounded-xl border border-gray-200 bg-white px-5 text-sm font-semibold text-gray-700 transition-all duration-150 hover:border-orange-300 hover:text-orange-700 active:scale-[0.98]"
         >
-          3곳만 추려보기
+          조건 골라 추천받기
         </button>
       </div>
     </div>
   );
 }
 
-function getRecommendationReason(
-  location: Location,
-  level: number,
-  savedView?: 'saved' | 'visited' | 'revisit'
-): string {
-  const reasonParts: string[] = [
-    savedView === 'revisit'
-      ? '다시 보기 좋은 후보'
-      : savedView === 'visited'
-        ? '방문 기록 있음'
-        : getCurationDescription(level),
-  ];
-  const moodTag = location.tags?.find((tag) => !isPracticalInfoTag(tag));
-  if (moodTag) reasonParts.push(`#${moodTag}`);
-  return reasonParts.slice(0, 3).join(' · ');
+/** 내 저장 목록에서 운영자 한 줄이 없을 때만 보여주는 내 기록 안내 */
+function getSavedViewNote(savedView?: 'saved' | 'visited' | 'revisit'): string {
+  if (savedView === 'revisit') return '다시 보기 좋은 후보';
+  if (savedView === 'visited') return '방문 기록 있음';
+  return '';
 }
 
 function getSavedViewGuide(view: 'saved' | 'visited' | 'revisit'): string {
@@ -849,7 +814,7 @@ function getSavedViewGuide(view: 'saved' | 'visited' | 'revisit'): string {
   if (view === 'visited') {
     return '다녀온 곳은 다음에 다시 갈 후보를 고를 때 기준점이 돼요.';
   }
-  return '가보고 싶은 곳만 모아두면 나중에 3곳으로 더 쉽게 줄일 수 있어요.';
+  return '가보고 싶은 곳만 모아두면 나중에 고를 때 비교하기 쉬워요.';
 }
 
 function getSavedViewCountLabel(view: 'saved' | 'visited' | 'revisit', count: number): string {
@@ -982,14 +947,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
         </div>
 
         <div className="mt-2 flex items-center gap-1.5">
-          {(() => {
-            const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
-            return (
-              <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getCurationBadgeClass(level)}`}>
-                {getCurationLabel(level)}
-              </span>
-            );
-          })()}
+          <RecommendBadge location={location} />
           <PriceLevelBadge priceLevel={location.price_level} size="sm" />
         </div>
 
@@ -1000,8 +958,15 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
 
         {curatorReason && (
           <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50/60 p-3">
-            <p className="text-xs font-semibold text-orange-700">추천 이유</p>
+            <p className="text-xs font-semibold text-orange-700">추천하는 이유</p>
             <p className="mt-1 text-sm font-medium leading-relaxed text-gray-800">{curatorReason}</p>
+          </div>
+        )}
+
+        {visitInfoText && isFirstHandMemo(location) && (
+          <div className="mt-3 rounded-xl border border-gray-100 p-3">
+            <p className="text-xs font-semibold text-gray-500">직접 가본 메모</p>
+            <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-700">{visitInfoText}</p>
           </div>
         )}
 
@@ -1043,10 +1008,13 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
         <div className="mt-4 rounded-xl bg-gray-50 p-3">
           <p className="text-xs font-semibold text-gray-400">방문 정보</p>
           <p className="mt-1 text-sm text-gray-500">{location.address}</p>
-          {visitInfoText && (
-            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-600">
-              {visitInfoText}
-            </p>
+          {visitInfoText && !isFirstHandMemo(location) && (
+            <>
+              <p className="mt-2 text-[11px] font-semibold text-gray-400">참고 정보 (운영자 확인 전)</p>
+              <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-600">
+                {visitInfoText}
+              </p>
+            </>
           )}
         </div>
 

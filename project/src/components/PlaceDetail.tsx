@@ -5,7 +5,9 @@ import { reviewApi, searchLogApi } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
-import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel, CURATION_LEVELS, getCuratorReason, getVisitInfoText, isCuratorVisited, isPracticalInfoTag } from '../utils/curation';
+import { RECOMMEND_BADGES, VISIT_STATUS_LABEL, isFirstHandMemo, getCuratorReason, getVisitInfoText, isCuratorVisited, isPracticalInfoTag } from '../utils/curation';
+import { describePlace } from '../utils/taxonomy';
+import { RecommendBadge } from './RecommendBadge';
 import { recordActivity, toggleSaved, toggleVisited, getSavedIds, getVisitedIds } from '../utils/activity';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { CommunityReviews } from './CommunityReviews';
@@ -32,19 +34,15 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
   const [stateFeedback, setStateFeedback] = useState('');
   const stateFeedbackTimerRef = useRef<number | null>(null);
 
-  const curationLevel = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
-
-  /** 큐레이션 뱃지 + "?" 레전드 토글 버튼 */
+  /** 추천 강도 배지(직접 방문한 곳만) + "?" 레전드 토글 버튼 */
   const CurationBadge = (
     <div className="relative">
       <div className="flex items-center gap-1">
-        <span className={`px-2.5 py-1 text-sm font-medium rounded-lg ${getCurationBadgeClass(curationLevel)}`}>
-          {getCurationLabel(curationLevel)}
-        </span>
+        <RecommendBadge location={location} />
         <button
           type="button"
           onClick={() => setShowCurationLegend((v) => !v)}
-          aria-label="큐레이션 단계 설명 보기"
+          aria-label="배지 뜻 보기"
           aria-expanded={showCurationLegend}
           className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-xs text-gray-400 hover:bg-gray-200"
         >
@@ -52,16 +50,19 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
         </button>
       </div>
       {showCurationLegend && (
-        <div className="absolute right-0 top-9 z-20 w-52 rounded-xl border border-gray-100 bg-white p-3 shadow-lg">
-          <p className="mb-2 text-xs font-semibold text-gray-500">큐레이션 단계</p>
-          {CURATION_LEVELS.map((tier) => (
-            <div key={tier.level} className="flex items-center gap-2 py-0.5">
-              <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${tier.badgeClass}`}>
-                {tier.label}
+        <div className="absolute right-0 top-9 z-20 w-60 rounded-xl border border-gray-100 bg-white p-3 shadow-lg">
+          <p className="mb-2 text-xs font-semibold text-gray-500">배지 뜻</p>
+          {RECOMMEND_BADGES.map((badge) => (
+            <div key={badge.label} className="flex items-center gap-2 py-0.5">
+              <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${badge.badgeClass}`}>
+                {badge.label}
               </span>
-              <span className="text-xs text-gray-500">{tier.description}</span>
+              <span className="text-xs text-gray-500">{badge.description}</span>
             </div>
           ))}
+          <p className="mt-2 text-xs leading-relaxed text-gray-400">
+            '{VISIT_STATUS_LABEL.candidate}'에는 추천 강도 배지를 달지 않아요.
+          </p>
         </div>
       )}
     </div>
@@ -172,6 +173,39 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
   const practicalTags = allTags.filter(isPracticalInfoTag);
   const curatorReason = getCuratorReason(location);
   const visitInfoText = getVisitInfoText(location);
+  // 운영자가 직접 쓴 메모와 자동 정리 문구를 같은 이름으로 보여주지 않는다
+  const memoIsOperatorNote = isFirstHandMemo(location);
+  const placeTerms = describePlace(location, curatorReason);
+
+  /** 장소 종류 · 추천하는 이유 · 이런 때 잘 맞아요 · 직접 가본 메모. 근거 없는 분류는 보여주지 않는다 */
+  const ReasonSection = (
+    <div className="space-y-3">
+      {placeTerms.place_type.length > 0 && (
+        <TermRow title="장소 종류" items={placeTerms.place_type} />
+      )}
+      <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
+        <p className="text-xs font-semibold text-orange-700">추천하는 이유</p>
+        {curatorReason ? (
+          <p className="mt-1 text-base font-medium leading-relaxed text-gray-800">{curatorReason}</p>
+        ) : (
+          <p className="mt-1 text-sm text-gray-500">아직 운영자가 이유를 적지 않았어요.</p>
+        )}
+        {placeTerms.reason.length > 0 && (
+          <TermRow items={placeTerms.reason} compact />
+        )}
+      </div>
+      {placeTerms.situation.length > 0 && (
+        <TermRow title="이런 때 잘 맞아요" items={placeTerms.situation} />
+      )}
+      {memoIsOperatorNote && (
+        <div className="rounded-xl border border-gray-100 bg-white p-4">
+          <p className="text-xs font-semibold text-gray-500">직접 가본 메모</p>
+          <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-700">{visitInfoText}</p>
+        </div>
+      )}
+    </div>
+  );
+
   const VisitInfoSection = (
     <div className="rounded-xl bg-base p-4">
       <p className="text-xs font-semibold text-accent/60">방문 정보</p>
@@ -199,8 +233,11 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
           ))}
         </div>
       )}
-      {visitInfoText && (
-        <p className="mt-2 text-sm text-accent/80 leading-relaxed whitespace-pre-line">{visitInfoText}</p>
+      {visitInfoText && !memoIsOperatorNote && (
+        <div className="mt-2">
+          <p className="text-[11px] font-semibold text-accent/50">참고 정보 (운영자 확인 전)</p>
+          <p className="mt-0.5 text-sm text-accent/80 leading-relaxed whitespace-pre-line">{visitInfoText}</p>
+        </div>
       )}
     </div>
   );
@@ -275,13 +312,8 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
               disclosure={location.disclosure}
             />
 
-            {/* 추천 이유: 운영자가 직접 쓴 한 줄만 */}
-            {curatorReason && (
-              <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
-                <p className="text-xs font-semibold text-orange-700">추천 이유</p>
-                <p className="mt-1 text-base font-medium leading-relaxed text-gray-800">{curatorReason}</p>
-              </div>
-            )}
+            {/* 장소 종류 · 추천하는 이유 · 이런 때 잘 맞아요 · 직접 가본 메모 */}
+            {ReasonSection}
 
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -460,13 +492,8 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
               disclosure={location.disclosure}
             />
 
-            {/* 추천 이유: 운영자가 직접 쓴 한 줄만 */}
-            {curatorReason && (
-              <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
-                <p className="text-xs font-semibold text-orange-700">추천 이유</p>
-                <p className="mt-1 text-base font-medium leading-relaxed text-gray-800">{curatorReason}</p>
-              </div>
-            )}
+            {/* 장소 종류 · 추천하는 이유 · 이런 때 잘 맞아요 · 직접 가본 메모 */}
+            {ReasonSection}
 
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -583,6 +610,26 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
           onSuccess={handleReviewAdded}
         />
       )}
+    </div>
+  );
+}
+
+/** 근거가 있는 분류 칩. 마우스를 올리면 근거(#태그, 등록 분류, 운영자 문장)를 보여준다 */
+function TermRow({ title, items, compact = false }: { title?: string; items: { slug: string; label: string; evidence: string }[]; compact?: boolean }) {
+  return (
+    <div className={compact ? 'mt-2' : ''}>
+      {title && <p className="mb-1.5 text-xs font-semibold text-gray-500">{title}</p>}
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((item) => (
+          <span
+            key={item.slug}
+            title={`근거: ${item.evidence}`}
+            className="rounded-full bg-white px-2.5 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-100"
+          >
+            {item.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

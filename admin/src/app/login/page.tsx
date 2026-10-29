@@ -29,7 +29,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push('/dashboard');
+    router.push('/intake');
     router.refresh();
   }
 

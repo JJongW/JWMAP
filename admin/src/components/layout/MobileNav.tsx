@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import {
+  Inbox,
   BarChart2,
   MapPin,
   Sparkles,
@@ -18,17 +19,18 @@ import {
 import { cn } from '@/lib/utils';
 
 const primaryItems = [
-  { href: '/dashboard', label: 'Analytics', icon: BarChart2 },
-  { href: '/locations', label: '맛집', icon: MapPin },
+  { href: '/intake', label: '검토함', icon: Inbox },
+  { href: '/locations', label: '맛집·카페', icon: MapPin },
   { href: '/attractions', label: '볼거리', icon: Sparkles },
-  { href: '/courses', label: '코스', icon: Route },
-  { href: '/reviews', label: '리뷰', icon: MessageSquare },
+  { href: '/locations/incomplete', label: '확인 필요', icon: AlertTriangle },
 ];
 
 const secondaryItems = [
-  { href: '/locations/incomplete', label: '데이터 품질', icon: AlertTriangle },
+  { href: '/courses', label: '코스', icon: Route },
+  { href: '/reviews', label: '방문자 리뷰', icon: MessageSquare },
   { href: '/content-engine', label: '콘텐츠 엔진', icon: Bot },
-  { href: '/todo', label: 'Daily Tasks', icon: CheckSquare },
+  { href: '/todo', label: '오늘 할 일', icon: CheckSquare },
+  { href: '/dashboard', label: 'odiga 분석', icon: BarChart2 },
 ];
 
 function isActive(href: string, pathname: string): boolean {
