@@ -8,6 +8,7 @@ import {
   MIGRATION_021,
   MIGRATION_022,
   MIGRATION_023,
+  MIGRATION_025,
   PROD_RLS_STATE,
   ROLLBACK_023,
   applyCurationMigrations,
@@ -83,6 +84,16 @@ describe('023', () => {
     expect(await count(db, 'SELECT count(*) FROM external_reviews')).toBe(1);
     await db.exec(`INSERT INTO place_photos (place_id, source, url) VALUES ('${OPEN}', 'official', 'https://t1.kakaocdn.net/a')`);
     await expect(db.query(`INSERT INTO place_photos (place_id, source, url) VALUES ('${OPEN}', 'official', 'https://t1.kakaocdn.net/a')`)).rejects.toThrow();
+  });
+
+  it('025: 지난 정보로 표시한 값은 정보 충돌에서 빠진다', async () => {
+    await db.exec(MIGRATION_025);
+    await db.exec(`INSERT INTO place_facts (place_id, field, value, source) VALUES
+                     ('${OPEN}', 'parking', '{"available": true}', 'legacy_tag'),
+                     ('${OPEN}', 'parking', '{"available": false}', 'operator')`);
+    expect(await count(db, 'SELECT count(*) FROM curation_review_fact_conflicts')).toBe(1);
+    await db.exec(`UPDATE place_facts SET status = 'outdated' WHERE source = 'legacy_tag' AND field = 'parking'`);
+    expect(await count(db, 'SELECT count(*) FROM curation_review_fact_conflicts')).toBe(0);
   });
 
   it('두 번 적용해도 되고, 되돌리면 숨김 거르기만 없어진다', async () => {

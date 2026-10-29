@@ -226,7 +226,7 @@ async function main() {
       const extra = [
         ['external_reviews?on_conflict=source,external_id', [
           ...kakao.reviews.map((v) => ({ intake_id: row.id, place_id: intake.matched_place_id, source: 'kakao', external_id: v.id, excerpt: v.excerpt, rating: v.rating, written_at: v.written_at, source_url: placeUrl })),
-          ...kakao.blogs.map((v) => ({ intake_id: row.id, place_id: intake.matched_place_id, source: 'blog', external_id: v.id, excerpt: v.excerpt, written_at: v.written_at, source_url: v.url })),
+          ...kakao.blogs.map((v) => ({ intake_id: row.id, place_id: intake.matched_place_id, source: 'blog', external_id: v.id, excerpt: v.excerpt, rating: null, written_at: v.written_at, source_url: v.url })),
         ].filter((v) => v.external_id && v.excerpt)],
         ['place_photos?on_conflict=url', kakao.store_photos.map((ph, i) => ({ intake_id: row.id, place_id: intake.matched_place_id, source: 'official', url: ph.url, source_url: placeUrl, status: 'suggested', sort_order: 100 + i }))],
       ];
