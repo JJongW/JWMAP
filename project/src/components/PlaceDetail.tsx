@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, MapPin, Copy, Check, Navigation, ExternalLink, Share2, Heart, CheckCircle2 } from 'lucide-react';
 import type { Location, Review } from '../types/location';
-import { reviewApi, searchLogApi } from '../utils/supabase';
+import { curationApi, reviewApi, searchLogApi, type PlaceCuration } from '../utils/supabase';
 import { getDetailImageUrl } from '../utils/image';
 import { shareToKakao } from '../utils/kakaoShare';
 import { ProofBar } from './ProofBar';
@@ -82,6 +82,18 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
       window.clearTimeout(stateFeedbackTimerRef.current);
     }
   }, []);
+
+  // 큐레이션 상세: 공개된 추천 문장·방문 기록·영업시간 (새 테이블)
+  const [curation, setCuration] = useState<PlaceCuration | null>(null);
+  useEffect(() => {
+    let alive = true;
+    curationApi.getDetail(location.id).then((data) => {
+      if (alive) setCuration(data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [location.id]);
 
   // 리뷰 데이터 로드
   useEffect(() => {
@@ -171,7 +183,13 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
   const allTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])];
   const visibleTags = allTags.filter((tag) => !isPracticalInfoTag(tag)).slice(0, 10);
   const practicalTags = allTags.filter(isPracticalInfoTag);
-  const curatorReason = getCuratorReason(location);
+  const visited = isCuratorVisited(location);
+  const recommendation = curation?.recommendation ?? null;
+  // 공개된 추천 문장이 우선. 없으면 가본 곳의 한 줄 설명만 (안 가본 곳의 초안은 보여주지 않는다)
+  const curatorReason = recommendation?.body ?? (visited ? getCuratorReason(location) : '');
+  const unvisitedBasis = recommendation && recommendation.basis !== 'visited' ? UNVISITED_BASIS_LABEL[recommendation.basis] ?? '' : '';
+  const datedVisits = (curation?.visits ?? []).filter((v) => v.visited_on);
+  const facts = curation?.facts ?? [];
   const visitInfoText = getVisitInfoText(location);
   // 운영자가 직접 쓴 메모와 자동 정리 문구를 같은 이름으로 보여주지 않는다
   const memoIsOperatorNote = isFirstHandMemo(location);
@@ -184,9 +202,16 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
         <TermRow title="장소 종류" items={placeTerms.place_type} />
       )}
       <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
-        <p className="text-xs font-semibold text-orange-700">추천하는 이유</p>
+        <p className="text-xs font-semibold text-orange-700">
+          추천하는 이유
+          {unvisitedBasis && <span className="ml-1.5 font-normal text-gray-500">· 아직 안 가봤어요 ({unvisitedBasis})</span>}
+        </p>
         {curatorReason ? (
-          <p className="mt-1 text-base font-medium leading-relaxed text-gray-800">{curatorReason}</p>
+          <>
+            <p className="mt-1 text-base font-medium leading-relaxed text-gray-800">{curatorReason}</p>
+            {recommendation?.fits_for && <p className="mt-1.5 text-sm text-gray-600">이런 분께: {recommendation.fits_for}</p>}
+            {recommendation?.caveats && <p className="mt-0.5 text-sm text-gray-600">알아둘 점: {recommendation.caveats}</p>}
+          </>
         ) : (
           <p className="mt-1 text-sm text-gray-500">아직 운영자가 이유를 적지 않았어요.</p>
         )}
@@ -196,6 +221,12 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
       </div>
       {placeTerms.situation.length > 0 && (
         <TermRow title="이런 때 잘 맞아요" items={placeTerms.situation} />
+      )}
+      {datedVisits.length > 0 && (
+        <p className="text-xs text-gray-500">
+          운영자 방문 {formatDay(datedVisits[0].visited_on)}
+          {datedVisits.length > 1 && ` 외 ${datedVisits.length - 1}번`}
+        </p>
       )}
       {memoIsOperatorNote && (
         <div className="rounded-xl border border-gray-100 bg-white p-4">
@@ -224,6 +255,17 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
           )}
         </button>
       </div>
+      {facts.map((fact) => (
+        <div key={fact.field} className="mt-2">
+          <p className="text-[11px] font-semibold text-accent/50">
+            {FACT_LABEL[fact.field] ?? fact.field}
+            <span className="ml-1 font-normal">
+              ({fact.source === 'kakao' ? '카카오맵 기준' : '운영자 확인'}{fact.checked_at ? ` · ${formatDay(fact.checked_at)} 확인` : ''})
+            </span>
+          </p>
+          <p className="mt-0.5 text-sm text-accent/80 leading-relaxed">{fact.text}</p>
+        </div>
+      ))}
       {practicalTags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {practicalTags.map((tag) => (
@@ -615,6 +657,15 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
 }
 
 /** 근거가 있는 분류 칩. 마우스를 올리면 근거(#태그, 등록 분류, 운영자 문장)를 보여준다 */
+const UNVISITED_BASIS_LABEL: Record<string, string> = { friend: '지인 추천', research: '직접 찾아봄', wishlist: '가보고 싶은 곳' };
+const FACT_LABEL: Record<string, string> = { hours: '영업시간', phone: '전화' };
+
+function formatDay(value: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+}
+
 function TermRow({ title, items, compact = false }: { title?: string; items: { slug: string; label: string; evidence: string }[]; compact?: boolean }) {
   return (
     <div className={compact ? 'mt-2' : ''}>
