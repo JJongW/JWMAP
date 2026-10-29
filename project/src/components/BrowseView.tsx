@@ -17,6 +17,7 @@ import { useBrowseViewController } from '../hooks/useBrowseViewController';
 import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
 import {
   getCuratorReason,
+  getUnvisitedBasisLabel,
   isFirstHandMemo,
   getVisitInfoText,
   getVisitStatusLabel,
@@ -958,7 +959,10 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
 
         {curatorReason && (
           <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50/60 p-3">
-            <p className="text-xs font-semibold text-orange-700">추천하는 이유</p>
+            <p className="text-xs font-semibold text-orange-700">
+              추천하는 이유
+              {getUnvisitedBasisLabel(location) && <span className="ml-1 font-normal text-gray-500">· {getUnvisitedBasisLabel(location)}</span>}
+            </p>
             <p className="mt-1 text-sm font-medium leading-relaxed text-gray-800">{curatorReason}</p>
           </div>
         )}
