@@ -16,7 +16,7 @@ import type { Location, CategoryMain } from '../types/location';
 import { PROVINCES, inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
 import { getCuratorReason } from './curation';
-import type { IntentConditions } from './intentChips';
+import { COMPANION_LABEL, PRIORITY_LABEL, TIME_SLOT_LABEL, type IntentConditions } from './intentChips';
 
 // ─────────────────────────────────────────────
 // 1. Companion → 태그 매핑
@@ -28,7 +28,8 @@ function getCompanionTagKeywords(companion: Companion): string[] {
     case 'solo':
       return ['혼밥', '혼자'];
     case 'pair':
-      return ['데이트', '분위기'];
+      // '분위기'만으로는 '조용한 분위기'까지 걸려 둘이 근거로 잘못 쓰이므로 구체적인 태그만 본다
+      return ['데이트', '소개팅', '분위기좋은', '분위기 좋은'];
     case 'group':
       return ['모임', '단체', '회식'];
   }
@@ -149,6 +150,11 @@ function scoreLocation(
     addMatchedTag(matchedTags, companionKeywords[0]);
   }
 
+  // 둘이·여럿이인데 혼밥 위주 가게면 뒤로 민다 (혼밥 태그가 데이트·모임 후보로 섞이지 않게)
+  if (companion && companion !== 'solo' && hasTagKeyword(location, ['혼밥', '혼자'])) {
+    score -= 40;
+  }
+
   // ── 보너스: TimeSlot 카테고리 가중치 ──
   const categoryMain = location.categoryMain as CategoryMain | undefined;
   if (timeSlot && categoryMain && categoryMain !== '전체') {
@@ -199,6 +205,8 @@ export interface DecisionResult {
   secondary: Location[];
   /** 각 추천에 대한 이유 텍스트 */
   reasons: Map<string, string>;
+  /** 식사 추천과 따로 보여줄 식후 카페 (밥집·카페를 따로 고르지 않았을 때만) */
+  afterCafe?: Location;
 }
 
 /** 카페·디저트는 식사 후보와 섞이지 않도록 따로 본다 */
@@ -223,26 +231,17 @@ export function decideLocations(
         ? locations.filter((loc) => inferProvinceFromRegion(loc.region) === region || loc.province === region)
         : locations.filter((loc) => loc.region === region)
       : locations;
+  const meals = inRegion.filter((loc) => !isCafeLike(loc));
+  const cafes = inRegion.filter(isCafeLike);
+  // 종류를 안 골랐으면 식사 후보에서 카페를 빼고, 카페는 '식후 카페'로 따로 고른다.
+  // 지역에 식사 후보가 없을 때만 카페를 메인으로 올린다.
   const candidates =
-    kind === 'cafe' ? inRegion.filter(isCafeLike)
-    : kind === 'meal' ? inRegion.filter((loc) => !isCafeLike(loc))
-    : inRegion;
+    kind === 'cafe' ? cafes
+    : kind === 'meal' ? meals
+    : meals.length > 0 ? meals : cafes;
 
-  const scored: ScoredLocation[] = [];
-  for (const loc of candidates) {
-    const result = scoreLocation(loc, companion, timeSlot, priorityFeature);
-    if (result) {
-      scored.push(result);
-    }
-  }
-
+  const scored = rankLocations(candidates, companion, timeSlot, priorityFeature);
   if (scored.length === 0) return null;
-
-  // 스코어 내림차순 정렬 → 동점이면 평점 내림차순
-  scored.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    return (b.location.rating ?? 0) - (a.location.rating ?? 0);
-  });
 
   // 상위 3개 선정 (최소 1개)
   const top = scored.slice(0, 3);
@@ -255,7 +254,78 @@ export function decideLocations(
     reasons.set(item.location.id, generateReason(item, companion, timeSlot));
   }
 
-  return { primary, secondary, reasons };
+  let afterCafe: Location | undefined;
+  if (kind === null && candidates === meals && cafes.length > 0) {
+    // 식후 카페는 우선 조건을 지키는 곳을 먼저 찾고, 없으면 조건 없이 고른다
+    afterCafe =
+      rankLocations(cafes, companion, null, priorityFeature)[0]?.location ??
+      rankLocations(cafes, companion, null, null)[0]?.location;
+  }
+
+  return { primary, secondary, reasons, afterCafe };
+}
+
+/** 점수순 정렬 (동점이면 평점순). 우선 조건을 못 지키는 곳은 빠진다 */
+function rankLocations(
+  candidates: Location[],
+  companion: Companion | null,
+  timeSlot: TimeSlot | null,
+  priorityFeature: PriorityFeature | null,
+): ScoredLocation[] {
+  const scored = candidates
+    .map((loc) => scoreLocation(loc, companion, timeSlot, priorityFeature))
+    .filter((item): item is ScoredLocation => item !== null);
+  return scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return (b.location.rating ?? 0) - (a.location.rating ?? 0);
+  });
+}
+
+// ─────────────────────────────────────────────
+// 5-1. 고른 조건과 맞는 점 (결과 카드 설명용)
+// ─────────────────────────────────────────────
+
+export interface ConditionMatch {
+  /** 사용자가 고른 조건 이름 (예: '조용한 곳') */
+  label: string;
+  /** 맞는 근거. 데이터로 확인 못 하면 null — 지어내지 않는다 */
+  evidence: string | null;
+}
+
+function findTag(location: Location, keywords: string[]): string | null {
+  const lowered = keywords.map((keyword) => keyword.toLowerCase());
+  return location.tags?.find((tag) => lowered.some((keyword) => tag.toLowerCase().includes(keyword))) ?? null;
+}
+
+/** 누구와·시간·분위기 조건마다 이 장소가 왜 맞는지 근거를 찾는다 (지역·종류는 이미 필터로 걸러짐) */
+export function getConditionMatches(location: Location, conditions: IntentConditions): ConditionMatch[] {
+  const matches: ConditionMatch[] = [];
+
+  if (conditions.companion) {
+    const tag = findTag(location, getCompanionTagKeywords(conditions.companion));
+    matches.push({ label: COMPANION_LABEL[conditions.companion], evidence: tag ? `#${tag}` : null });
+  }
+
+  if (conditions.timeSlot) {
+    const categoryMain = location.categoryMain as CategoryMain | undefined;
+    const weight = categoryMain ? TIME_CATEGORY_WEIGHT[conditions.timeSlot][categoryMain] ?? 0 : 0;
+    const lateTag = conditions.timeSlot === 'late' ? findTag(location, ['심야', '야식', '늦게']) : null;
+    matches.push({
+      label: TIME_SLOT_LABEL[conditions.timeSlot],
+      evidence: lateTag
+        ? `#${lateTag}`
+        : weight >= 2 && categoryMain
+          ? `${TIME_SLOT_LABEL[conditions.timeSlot]}에 잘 맞는 ${categoryMain}`
+          : null,
+    });
+  }
+
+  if (conditions.priority) {
+    const tag = findTag(location, getPriorityTagKeywords(conditions.priority));
+    matches.push({ label: PRIORITY_LABEL[conditions.priority], evidence: tag ? `#${tag}` : null });
+  }
+
+  return matches;
 }
 
 // ─────────────────────────────────────────────

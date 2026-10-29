@@ -17,15 +17,17 @@ import { useState } from 'react';
 import { MapPin, ChevronRight, Navigation } from 'lucide-react';
 import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
-import { getDifferentiator } from '../utils/decisionEngine';
+import { getConditionMatches, getDifferentiator, type ConditionMatch } from '../utils/decisionEngine';
 import type { IntentConditions } from '../utils/intentChips';
 import { ConditionChips } from './ConditionChips';
 import { getCardImageUrl } from '../utils/image';
 import {
   getCurationLabel,
   getCurationBadgeClass,
+  getCuratorReason,
   getVisitStatusLabel,
   isCuratorVisited,
+  isPracticalInfoTag,
   ratingToCurationLevel,
 } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
@@ -90,7 +92,7 @@ export function DecisionResultView({
           </div>
 
           {result ? (
-            <ResultCards result={result} copy={copy} onOpenDetail={onOpenDetail} />
+            <ResultCards result={result} conditions={conditions} copy={copy} onOpenDetail={onOpenDetail} />
           ) : (
             <p className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-8 text-center text-sm leading-relaxed text-gray-500">
               칩의 ×를 눌러 조건을 하나 빼거나, 다른 값으로 바꿔보세요.
@@ -127,12 +129,16 @@ export function DecisionResultView({
 
 interface ResultCardsProps {
   result: DecisionResult;
+  conditions: IntentConditions;
   copy: ReturnType<typeof getResultCopy>;
   onOpenDetail: (location: Location) => void;
 }
 
-function ResultCards({ result, copy, onOpenDetail }: ResultCardsProps) {
-  const { primary, secondary, reasons } = result;
+function ResultCards({ result, conditions, copy, onOpenDetail }: ResultCardsProps) {
+  const { primary, secondary, reasons, afterCafe } = result;
+  // 둘이·여럿이일 때 #혼밥 같은 태그는 오해를 부르므로 숨긴다. 주차·포장은 방문 정보에서 본다.
+  const hideTag = (tag: string) =>
+    isPracticalInfoTag(tag) || (conditions.companion !== 'solo' && /혼밥|혼자/.test(tag));
 
   return (
     <>
@@ -140,6 +146,8 @@ function ResultCards({ result, copy, onOpenDetail }: ResultCardsProps) {
       <PrimaryCard
         location={primary}
         reason={reasons.get(primary.id) || ''}
+        matches={getConditionMatches(primary, conditions)}
+        hideTag={hideTag}
         onOpenDetail={onOpenDetail}
       />
 
@@ -155,10 +163,26 @@ function ResultCards({ result, copy, onOpenDetail }: ResultCardsProps) {
                 key={loc.id}
                 location={loc}
                 differentiator={getDifferentiator(loc, primary)}
+                matches={getConditionMatches(loc, conditions)}
                 onOpenDetail={onOpenDetail}
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── 식후 카페: 식사 후보와 섞지 않고 따로 ── */}
+      {afterCafe && (
+        <div className="mt-6">
+          <p className="mb-3 text-xs font-medium tracking-widest text-gray-300">
+            식후 카페
+          </p>
+          <SecondaryCard
+            location={afterCafe}
+            differentiator={getCuratorReason(afterCafe) || `${afterCafe.region}에서 식사 후 들르기 좋은 카페예요`}
+            matches={getConditionMatches(afterCafe, { ...conditions, timeSlot: null })}
+            onOpenDetail={onOpenDetail}
+          />
         </div>
       )}
 
@@ -218,13 +242,17 @@ function getResultCopy(contentMode: ContentMode) {
 interface PrimaryCardProps {
   location: Location;
   reason: string;
+  matches: ConditionMatch[];
+  hideTag: (tag: string) => boolean;
   onOpenDetail: (location: Location) => void;
 }
 
-function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
+function PrimaryCard({ location, reason, matches, hideTag, onOpenDetail }: PrimaryCardProps) {
   const [imageError, setImageError] = useState(false);
 
-  const activeTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 4);
+  const activeTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])]
+    .filter((tag) => !hideTag(tag))
+    .slice(0, 4);
 
   return (
     <button
@@ -286,6 +314,14 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
           {reason}
         </p>
 
+        {/* 고른 조건과 맞는 점 */}
+        {matches.length > 0 && (
+          <div className="mb-4 rounded-xl bg-gray-50 px-3 py-2.5">
+            <p className="mb-1 text-[11px] font-semibold text-gray-400">고른 조건과 맞는 점</p>
+            <ConditionMatchList matches={matches} />
+          </div>
+        )}
+
         {/* 기본 태그 */}
         {activeTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
@@ -311,10 +347,13 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
 interface SecondaryCardProps {
   location: Location;
   differentiator: string;
+  matches: ConditionMatch[];
   onOpenDetail: (location: Location) => void;
 }
 
-function SecondaryCard({ location, differentiator, onOpenDetail }: SecondaryCardProps) {
+function SecondaryCard({ location, differentiator, matches, onOpenDetail }: SecondaryCardProps) {
+  const matchedLabels = matches.filter((match) => match.evidence).map((match) => match.label);
+
   return (
     <button
       onClick={() => onOpenDetail(location)}
@@ -354,9 +393,29 @@ function SecondaryCard({ location, differentiator, onOpenDetail }: SecondaryCard
         </p>
         <p className={`mt-0.5 text-[11px] ${isCuratorVisited(location) ? 'font-semibold text-emerald-600' : 'text-gray-400'}`}>
           {getVisitStatusLabel(location)}
+          {matchedLabels.length > 0 && (
+            <span className="font-medium text-gray-500"> · {matchedLabels.join(' · ')} 맞음</span>
+          )}
         </p>
       </div>
     </button>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ConditionMatchList: 조건별 근거. 근거가 없으면 지어내지 않고 '확인된 정보 없음'
+// ─────────────────────────────────────────────
+
+function ConditionMatchList({ matches }: { matches: ConditionMatch[] }) {
+  return (
+    <ul className="space-y-0.5 text-xs">
+      {matches.map((match) => (
+        <li key={match.label} className={match.evidence ? 'text-gray-700' : 'text-gray-400'}>
+          <span className="font-semibold">{match.evidence ? '✓' : '·'} {match.label}</span>
+          <span> — {match.evidence ?? '확인된 정보 없음'}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Location } from '../types/location';
-import { decideLocations } from './decisionEngine';
+import { decideLocations, getConditionMatches } from './decisionEngine';
 import { EMPTY_CONDITIONS } from './intentChips';
 
 let seq = 0;
@@ -50,5 +50,43 @@ describe('decideLocations', () => {
 
   it('맞는 곳이 없으면 조건을 무시한 대체 결과 대신 null', () => {
     expect(decideLocations(all, { ...EMPTY_CONDITIONS, region: '강남', kind: 'cafe' })).toBeNull();
+  });
+});
+
+describe('식사 후보와 식후 카페 분리 (P2)', () => {
+  const quietMeal = place({ name: '조용한 양식', categoryMain: '양식·퓨전', tags: ['조용한 분위기', '데이트'] });
+  const soloMeal = place({ name: '혼밥 라멘', categoryMain: '면', tags: ['조용', '혼밥'] });
+  const quietCafe = place({ name: '조용한 카페', categoryMain: '카페', tags: ['조용'] });
+  const dessert = place({ name: '디저트 가게', categoryMain: '디저트', tags: ['조용'] });
+  const all = [quietMeal, soloMeal, quietCafe, dessert];
+  const pairDinnerQuiet = { ...EMPTY_CONDITIONS, companion: 'pair' as const, timeSlot: 'dinner' as const, priority: 'quiet' as const };
+
+  it('종류를 안 고르면 카페·디저트는 식사 후보에서 빠지고 식후 카페로 따로 나온다', () => {
+    const result = decideLocations(all, pairDinnerQuiet)!;
+    const mealNames = [result.primary, ...result.secondary].map((l) => l.name);
+    expect(mealNames).not.toContain('조용한 카페');
+    expect(mealNames).not.toContain('디저트 가게');
+    expect(['조용한 카페', '디저트 가게']).toContain(result.afterCafe?.name);
+  });
+
+  it('둘이면 혼밥 태그 가게가 1순위로 오지 않는다', () => {
+    expect(decideLocations(all, pairDinnerQuiet)!.primary.name).toBe('조용한 양식');
+  });
+
+  it('카페를 고르면 식후 카페 칸이 없다', () => {
+    expect(decideLocations(all, { ...pairDinnerQuiet, kind: 'cafe' })!.afterCafe).toBeUndefined();
+  });
+});
+
+describe('getConditionMatches', () => {
+  it('조건마다 근거를 붙이고, 근거가 없으면 null로 둔다', () => {
+    const loc = place({ categoryMain: '양식·퓨전', tags: ['조용한 분위기'] });
+    expect(
+      getConditionMatches(loc, { ...EMPTY_CONDITIONS, companion: 'pair', timeSlot: 'dinner', priority: 'quiet' }),
+    ).toEqual([
+      { label: '둘이', evidence: null },
+      { label: '저녁', evidence: '저녁에 잘 맞는 양식·퓨전' },
+      { label: '조용한 곳', evidence: '#조용한 분위기' },
+    ]);
   });
 });
