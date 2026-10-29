@@ -421,7 +421,96 @@ async function syncLocationTagJoin(locationId: string, tagIds: string[], table: 
   );
 }
 
-async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: DomainTable; place: PlaceLike; created: boolean }> {
+export type VisitResolution = 'already' | 'auto_photo' | 'needs_confirm';
+
+/** 내 사진 폴더(odiga)에 이 장소가 있으면 그 검토함 항목. 사진이 있다 = 가본 곳 */
+async function findOwnPhotoIntake(name: string, kakaoPlaceId: string | null): Promise<{ id: string } | null> {
+  const supabase = createServiceSupabase();
+  if (kakaoPlaceId) {
+    const { data } = await supabase
+      .from('place_intake')
+      .select('id')
+      .eq('source', 'odiga_vault')
+      .eq('kakao_place_id', kakaoPlaceId)
+      .limit(1)
+      .maybeSingle();
+    if (data) return data;
+  }
+  const { data } = await supabase.from('place_intake').select('id').eq('source', 'odiga_vault').eq('name', name).limit(1).maybeSingle();
+  return data ?? null;
+}
+
+/**
+ * 새 큐레이션 테이블(places)에도 같은 장소를 둔다. 사이트 검색 뷰는 places에 있는 장소만 보여준다 (migration 023).
+ * 방문 판정: 이미 가봤음 → 그대로 / 내 사진이 있으면 → 자동 가봤음 / 아니면 → 후보로 두고 운영자에게 묻는다.
+ * 한줄느낌은 운영자 문장이라, 가본 곳이면 공개 추천으로, 아니면 초안으로 남긴다 (이미 공개 추천이 있으면 그대로).
+ */
+async function syncCuration(
+  row: Record<string, unknown>,
+  domain: DomainTable,
+  note: string,
+): Promise<VisitResolution> {
+  const supabase = createServiceSupabase();
+  const id = row.id as string;
+  const kakaoId = (row.kakao_place_id as string | null) ?? null;
+  const { data: current } = await supabase.from('places').select('visit_status').eq('id', id).maybeSingle();
+  const ownPhotos = await findOwnPhotoIntake(row.name as string, kakaoId);
+  const alreadyVisited = current?.visit_status === 'visited' || row.curator_visited === true;
+
+  const price = Number(row.price_level);
+  const level = Number(row.curation_level);
+  const { error: placeError } = await supabase.from('places').upsert(
+    {
+      id,
+      legacy_table: domain,
+      name: row.name,
+      address: row.address || null,
+      lat: row.lat || null,
+      lon: row.lon || null,
+      province: domain === 'locations' ? row.province || null : null,
+      region: row.region || null,
+      sub_region: row.sub_region || null,
+      kakao_place_id: kakaoId,
+      naver_place_id: row.naver_place_id ?? null,
+      image_url: row.imageUrl || null,
+      price_level: price >= 1 && price <= 4 ? price : null,
+      category_main: row.category_main || null,
+      category_sub: row.category_sub || null,
+      curation_level: level >= 1 && level <= 5 ? level : null,
+      visit_status: current?.visit_status === 'hidden' ? 'hidden' : alreadyVisited ? 'visited' : 'candidate',
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' },
+  );
+  if (placeError) throw new Error(`places 저장 실패 (${row.name}): ${placeError.message}`);
+
+  let resolution: VisitResolution = alreadyVisited ? 'already' : 'needs_confirm';
+  if (!alreadyVisited && ownPhotos) {
+    // 사진 폴더 검토함 항목을 이 장소로 정한다: 방문 기록(첫 촬영일)·사진 연결·가봤음
+    const { error } = await supabase.rpc('admin_decide_intake', { p_intake_id: ownPhotos.id, p_status: 'visited', p_place_id: id, p_legacy_table: domain, p_basis: null });
+    if (error) throw new Error(`사진 폴더 연결 실패 (${row.name}): ${error.message}`);
+    resolution = 'auto_photo';
+  }
+
+  const body = note.trim();
+  if (body) {
+    const { data: recs } = await supabase.from('recommendations').select('id, status').eq('place_id', id);
+    if (!recs?.some((r) => r.status === 'published')) {
+      const visited = resolution !== 'needs_confirm';
+      await supabase.from('recommendations').insert({
+        place_id: id,
+        body,
+        basis: visited ? 'visited' : 'wishlist',
+        source: 'operator',
+        status: visited ? 'published' : 'draft',
+        ...(visited ? { published_at: new Date().toISOString() } : {}),
+      });
+    }
+  }
+  return resolution;
+}
+
+async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: DomainTable; place: PlaceLike; created: boolean; visit: VisitResolution }> {
   const supabase = createServiceSupabase();
 
   const [enriched, kakao] = await Promise.all([
@@ -464,7 +553,8 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
     event_tags: [] as string[],
     naver_place_id: null as string | null,
     kakao_place_id: kakao.kakao_place_id,
-    curator_visited: true,
+    // 가봤음 여부는 syncCuration이 정한다 (내 사진이 있으면 자동, 아니면 운영자에게 묻는다)
+    curator_visited: false,
   };
 
   // locations 테이블에는 province 컬럼이 있으므로 추가
@@ -507,6 +597,7 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
     created = true;
   }
 
+  const visit = await syncCuration(row, domain, input.note);
   const tagIds = await ensureTagIds((row.tags as string[] | undefined) ?? tags, toTagDomain(domain));
   await syncLocationTagJoin(row.id as string, tagIds, domain);
 
@@ -530,7 +621,7 @@ async function ensureLocationForPlace(input: InputPlace): Promise<{ domain: Doma
     kakao_place_id: (row.kakao_place_id ?? null) as string | null,
   };
 
-  return { domain, place, created };
+  return { domain, place, created, visit };
 }
 
 function buildCourse(places: PlaceLike[]) {
@@ -616,7 +707,7 @@ export async function POST(req: NextRequest) {
 
     const results = await Promise.allSettled(placesInput.map((p) => ensureLocationForPlace(p)));
     const errors: string[] = [];
-    const resolved: { domain: DomainTable; place: PlaceLike; created: boolean }[] = [];
+    const resolved: { domain: DomainTable; place: PlaceLike; created: boolean; visit: VisitResolution }[] = [];
 
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
@@ -681,6 +772,9 @@ export async function POST(req: NextRequest) {
       reused_locations: resolved.filter((r) => !r.created).length,
       domains,
       errors: errors.length > 0 ? errors : undefined,
+      // 사진이 없어 가봤는지 모르는 곳: 화면에서 운영자에게 묻는다
+      needs_visit_confirm: resolved.filter((r) => r.visit === 'needs_confirm').map((r) => ({ id: r.place.id, name: r.place.name })),
+      auto_visited: resolved.filter((r) => r.visit === 'auto_photo').map((r) => r.place.name),
       places: places.map((p) => ({
         id: p.id,
         name: p.name,

@@ -24,6 +24,7 @@ import { termLabel } from '../utils/taxonomy';
 import { getCardImageUrl } from '../utils/image';
 import {
   getCuratorReason,
+  getUnvisitedBasisLabel,
   getVisitStatusLabel,
   isCuratorVisited,
   isPracticalInfoTag,
@@ -299,7 +300,10 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
 
         {/* 추천하는 이유: 운영자가 쓴 문장만. 없으면 지어내지 않는다 */}
         <div className="mb-3">
-          <p className="text-[11px] font-semibold text-orange-700">추천하는 이유</p>
+          <p className="text-[11px] font-semibold text-orange-700">
+            추천하는 이유
+            {getUnvisitedBasisLabel(location) && <span className="ml-1 font-normal text-gray-500">· {getUnvisitedBasisLabel(location)}</span>}
+          </p>
           {reason ? (
             // 카드에서는 두 줄까지, 전체 문장은 상세에서 본다
             <p className="mt-0.5 line-clamp-2 text-sm leading-relaxed text-gray-800" title={reason}>{reason}</p>

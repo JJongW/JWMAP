@@ -40,6 +40,7 @@ export function mapRowToLocation(item: Row): Location {
     curation_level: item.curation_level as number | undefined,
     contentType: (item.content_type ?? item.contentType ?? 'food') as Location['contentType'],
     curator_visited: item.curator_visited as boolean | undefined,
+    recommend_basis: (item.recommend_basis ?? null) as Location['recommend_basis'],
     curator_visited_at: (item.visit_date as string | undefined) ?? (item.curator_visited_at as string | undefined),
     categoryMain,
     categorySub,

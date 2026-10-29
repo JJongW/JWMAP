@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { confirmVisited } from '@/app/courses/actions';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -87,6 +88,9 @@ export function CourseBuilder({ initialCourses, fetchError }: CourseBuilderProps
     { id: crypto.randomUUID(), name: '', note: '' },
   ]);
   const [isSaving, setIsSaving] = useState(false);
+  // 사진이 없어 가봤는지 모르는 장소 (저장 후 묻는다)
+  const [visitPrompt, setVisitPrompt] = useState<{ id: string; name: string }[]>([]);
+  const [isConfirming, startConfirm] = useTransition();
   const [savedCourses, setSavedCourses] = useState<SavedCourseRow[]>(initialCourses);
 
   function updatePlace(index: number, key: keyof DraftPlace, value: string) {
@@ -135,6 +139,8 @@ export function CourseBuilder({ initialCourses, fetchError }: CourseBuilderProps
         course_hash?: string;
         created_locations?: number;
         reused_locations?: number;
+        needs_visit_confirm?: { id: string; name: string }[];
+        auto_visited?: string[];
       };
 
       if (!res.ok) {
@@ -143,8 +149,10 @@ export function CourseBuilder({ initialCourses, fetchError }: CourseBuilderProps
       }
 
       toast.success(
-        `코스 저장 완료 (${json.course_hash}) · 신규 장소 ${json.created_locations ?? 0} / 기존 재사용 ${json.reused_locations ?? 0}`,
+        `코스 저장 완료 (${json.course_hash}) · 신규 장소 ${json.created_locations ?? 0} / 기존 재사용 ${json.reused_locations ?? 0}`
+        + (json.auto_visited?.length ? ` · 내 사진이 있어 가봤음: ${json.auto_visited.join(', ')}` : ''),
       );
+      setVisitPrompt(json.needs_visit_confirm ?? []);
       await refreshCourses();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '코스 저장 실패');
@@ -153,8 +161,49 @@ export function CourseBuilder({ initialCourses, fetchError }: CourseBuilderProps
     }
   }
 
+  const confirm = (place: { id: string; name: string }) =>
+    startConfirm(async () => {
+      const { error } = await confirmVisited(place.id);
+      if (error) {
+        toast.error(`저장 실패: ${error}`);
+        return;
+      }
+      toast.success(`${place.name}: 가봤음으로 기록했어요`);
+      setVisitPrompt((prev) => prev.filter((p) => p.id !== place.id));
+    });
+
   return (
     <div className="space-y-5">
+      {visitPrompt.length > 0 && (
+        <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
+          <p className="text-sm font-medium text-orange-800">사진이 없는 곳이에요. 가보셨나요?</p>
+          <p className="mt-0.5 text-xs text-orange-700/80">가봤음을 누르면 방문 기록이 생기고 한줄느낌이 추천하는 이유로 공개돼요. 그냥 두면 후보로 남아요.</p>
+          <ul className="mt-2 space-y-1.5">
+            {visitPrompt.map((place) => (
+              <li key={place.id} className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-sm">
+                <span className="font-medium">{place.name}</span>
+                <span className="flex gap-1">
+                  <button
+                    type="button"
+                    disabled={isConfirming}
+                    onClick={() => confirm(place)}
+                    className="h-7 rounded-md bg-orange-500 px-3 text-xs font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+                  >
+                    가봤음
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisitPrompt((prev) => prev.filter((p) => p.id !== place.id))}
+                    className="h-7 rounded-md border border-gray-200 px-3 text-xs text-muted-foreground hover:border-orange-300"
+                  >
+                    아직 안 가봄
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {/* 서비스 키 오류 등 fetch 실패 시 배너 */}
       {fetchError && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
