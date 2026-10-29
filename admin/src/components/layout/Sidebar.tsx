@@ -2,18 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MapPin, AlertTriangle, Sparkles, Route, Bot, BarChart2, CheckSquare, MessageSquare } from 'lucide-react';
+import { Inbox, MapPin, AlertTriangle, Sparkles, Route, Bot, BarChart2, CheckSquare, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/dashboard', label: 'Odiga Analytics', icon: BarChart2 },
-  { href: '/locations', label: '맛집/카페 관리', icon: MapPin },
-  { href: '/attractions', label: '볼거리 관리', icon: Sparkles },
-  { href: '/courses', label: '코스 관리', icon: Route },
-  { href: '/reviews', label: '리뷰 관리', icon: MessageSquare },
-  { href: '/locations/incomplete', label: '데이터 품질', icon: AlertTriangle },
+  { href: '/intake', label: '검토함', icon: Inbox },
+  { href: '/locations', label: '맛집·카페', icon: MapPin },
+  { href: '/attractions', label: '볼거리', icon: Sparkles },
+  { href: '/locations/incomplete', label: '확인 필요', icon: AlertTriangle },
+  { href: '/courses', label: '코스', icon: Route },
+  { href: '/reviews', label: '방문자 리뷰', icon: MessageSquare },
   { href: '/content-engine', label: '콘텐츠 엔진', icon: Bot },
-  { href: '/todo', label: 'Daily Tasks', icon: CheckSquare },
+  { href: '/todo', label: '오늘 할 일', icon: CheckSquare },
+  { href: '/dashboard', label: 'odiga 분석', icon: BarChart2 },
 ];
 
 export function Sidebar() {
@@ -22,14 +23,14 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex w-60 flex-col border-r bg-card">
       <div className="flex h-14 items-center border-b px-5">
-        <Link href="/dashboard" className="text-lg font-bold tracking-tight">
+        <Link href="/intake" className="text-lg font-bold tracking-tight">
           오늘오디가?
         </Link>
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
           const active = item.href === '/locations'
-            ? pathname === '/locations' || (pathname.startsWith('/locations/') && !pathname.startsWith('/locations/incomplete'))
+            ? pathname === '/locations' || pathname.startsWith('/places/') || (pathname.startsWith('/locations/') && !pathname.startsWith('/locations/incomplete'))
             : item.href === '/attractions'
               ? pathname === '/attractions' || pathname.startsWith('/attractions/')
             : pathname.startsWith(item.href);

@@ -72,8 +72,9 @@ function matchesActivityBucket(place: Place, activityType: string | null): boole
   return getPlaceActivityBucket(place) === activityType;
 }
 
+// 검색 뷰는 운영자가 숨긴 장소(폐업 등)를 뺀다 (migration 023)
 async function queryLocations(intent: ParsedIntent): Promise<Place[]> {
-  let query = getSupabase().from('locations').select('*');
+  let query = getSupabase().from('locations_search').select('*');
 
   if (intent.region) {
     query = query.or(`region.ilike.%${intent.region}%,province.ilike.%${intent.region}%,sub_region.ilike.%${intent.region}%`);
@@ -101,7 +102,7 @@ async function queryLocations(intent: ParsedIntent): Promise<Place[]> {
 
 async function queryAttractions(intent: ParsedIntent): Promise<Place[]> {
   let query = getSupabase()
-    .from('attractions')
+    .from('attractions_search')
     .select('id,name,region,sub_region,category_main,category_sub,lon,lat,address,memo,short_desc,rating,price_level,tags,imageUrl,naver_place_id,kakao_place_id');
 
   if (intent.region) {

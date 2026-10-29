@@ -108,7 +108,7 @@ export function FilterSection({
       {/* Province Section */}
       <div className="bg-white p-4 rounded-2xl border border-base">
         <h2 className="text-sm font-semibold text-accent/70 uppercase tracking-wide mb-3">
-          지역 (시/도)
+          지역
         </h2>
         <div className="flex flex-wrap gap-2">
           <CategoryButton
@@ -162,7 +162,7 @@ export function FilterSection({
       {/* Category Main Section */}
       <div className="bg-white p-4 rounded-2xl border border-base">
         <h2 className="text-sm font-semibold text-accent/70 uppercase tracking-wide mb-3">
-          종류 (대분류)
+          장소 종류
         </h2>
         <div className="flex flex-wrap gap-2">
           {availableCategoryMains.map(main => (

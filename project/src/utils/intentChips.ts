@@ -8,7 +8,9 @@
  * 갈아탈 신호: API 폴백 비율이 높아지면 사전을 넓히거나 API 우선으로 바꾼다.
  */
 
+import type { ContentMode } from '../types/location';
 import type { Companion, PriorityFeature, TimeSlot } from '../types/ui';
+import { findTermsInText, getTerm } from './taxonomy';
 
 export type PlaceKind = 'meal' | 'cafe';
 
@@ -18,6 +20,12 @@ export interface IntentConditions {
   timeSlot: TimeSlot | null;
   priority: PriorityFeature | null;
   kind: PlaceKind | null;
+  /** 장소 종류 (taxonomy place_type slug). 미술관·공원처럼 밥집/카페 밖의 종류 */
+  placeType: string | null;
+  /** 추천하는 이유 (taxonomy reason slug). 여러 개면 모두 맞아야 한다 */
+  reasons: string[];
+  /** 이런 때 잘 맞아요 (taxonomy situation slug). 여러 개면 모두 맞아야 한다 */
+  situations: string[];
 }
 
 export const EMPTY_CONDITIONS: IntentConditions = {
@@ -26,6 +34,9 @@ export const EMPTY_CONDITIONS: IntentConditions = {
   timeSlot: null,
   priority: null,
   kind: null,
+  placeType: null,
+  reasons: [],
+  situations: [],
 };
 
 export const COMPANION_LABEL: Record<Companion, string> = { solo: '혼자', pair: '둘이', group: '여럿이' };
@@ -39,8 +50,44 @@ export const PRIORITY_LABEL: Record<PriorityFeature, string> = {
 };
 export const KIND_LABEL: Record<PlaceKind, string> = { meal: '밥집', cafe: '카페' };
 
+/** 볼거리는 같은 조건 값을 쓰되 이름만 다르다 (예: lunch = '가볍게', wait_short = '실내 위주') */
+export const SPACE_TIME_SLOT_LABEL: Record<TimeSlot, string> = { lunch: '가볍게', dinner: '반나절', late: '저녁에도' };
+export const SPACE_PRIORITY_LABEL: Record<PriorityFeature, string> = {
+  quiet: '조용히 보기',
+  wait_short: '실내 위주',
+  fast_serve: '짧게 들르기',
+  date_ok: '사진 남기기',
+  solo_ok: '혼자 산책',
+};
+
+export interface ConditionLabels {
+  companion: Record<Companion, string>;
+  timeSlot: Record<TimeSlot, string>;
+  priority: Record<PriorityFeature, string>;
+}
+
+/** 질문 화면·결과 칩·추천 근거가 모두 이 라벨을 써야 고른 말과 보이는 말이 같다 */
+export function getConditionLabels(mode: ContentMode = 'food'): ConditionLabels {
+  return mode === 'space'
+    ? { companion: COMPANION_LABEL, timeSlot: SPACE_TIME_SLOT_LABEL, priority: SPACE_PRIORITY_LABEL }
+    : { companion: COMPANION_LABEL, timeSlot: TIME_SLOT_LABEL, priority: PRIORITY_LABEL };
+}
+
 export function hasAnyCondition(conditions: IntentConditions): boolean {
-  return Object.values(conditions).some((value) => value !== null);
+  return Object.values(conditions).some((value) => (Array.isArray(value) ? value.length > 0 : value !== null));
+}
+
+/** 장소 종류·이유·상황을 보면 어느 데이터(맛집/볼거리)에서 찾아야 하는지. 정할 수 없으면 null */
+export function inferConditionMode(conditions: IntentConditions): ContentMode | null {
+  const placeTypeMode = conditions.placeType ? getTerm(conditions.placeType)?.mode : undefined;
+  if (placeTypeMode === 'food' || placeTypeMode === 'space') return placeTypeMode;
+  if (conditions.kind) return 'food';
+  const modes = [conditions.placeType, ...conditions.reasons, ...conditions.situations]
+    .map((slug) => (slug ? getTerm(slug)?.mode : undefined))
+    .filter((mode): mode is ContentMode => mode === 'food' || mode === 'space');
+  if (modes.length === 0) return null;
+  // 이유·상황이 한쪽 데이터로만 모일 때만 정한다
+  return modes.every((mode) => mode === modes[0]) ? modes[0] : null;
 }
 
 // ─────────────────────────────────────────────
@@ -106,6 +153,9 @@ export function parseIntentText(text: string, regions: string[]): IntentConditio
     timeSlot: firstMatch(normalized, TIME_RULES),
     priority,
     kind: firstMatch(normalized, KIND_RULES),
+    placeType: findTermsInText(normalized, 'place_type')[0] ?? null,
+    reasons: findTermsInText(normalized, 'reason'),
+    situations: findTermsInText(normalized, 'situation'),
   };
 }
 
@@ -152,6 +202,7 @@ export function mapSearchSlots(slots: SearchSlotsLike, regions: string[]): Inten
     : null;
 
   return {
+    ...EMPTY_CONDITIONS,
     region: regionText ? matchRegion(regionText, regions) : null,
     companion,
     timeSlot,

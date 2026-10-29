@@ -90,3 +90,53 @@ describe('getConditionMatches', () => {
     ]);
   });
 });
+
+describe('볼거리 조건 (둘이 · 가볍게 · 실내 위주)', () => {
+  const indoor = place({ name: '실내 전시', categoryMain: '전시/문화' as Location['categoryMain'], tags: ['실내', '데이트'] });
+  const outdoor = place({ name: '야외 공원', categoryMain: '자연/공원' as Location['categoryMain'], tags: ['실외', '산책'] });
+  const conditions = { ...EMPTY_CONDITIONS, companion: 'pair' as const, timeSlot: 'lunch' as const, priority: 'wait_short' as const };
+
+  it('볼거리 키워드(실내)로 고르고 결과가 나온다', () => {
+    const result = decideLocations([indoor, outdoor], conditions, 'space')!;
+    expect(result.primary.name).toBe('실내 전시');
+    expect(result.secondary.map((l) => l.name)).not.toContain('야외 공원');
+  });
+
+  it('근거 라벨이 고른 볼거리 라벨과 같다', () => {
+    expect(getConditionMatches(indoor, conditions, 'space')).toEqual([
+      { label: '둘이', evidence: '#데이트' },
+      { label: '가볍게', evidence: null },
+      { label: '실내 위주', evidence: '#실내' },
+    ]);
+  });
+
+  it('맞는 곳이 없으면 조건을 바꾸지 않고 null', () => {
+    expect(decideLocations([outdoor], conditions, 'space')).toBeNull();
+  });
+});
+
+describe('추천 신뢰도', () => {
+  it('운영자 한 줄이 없으면 이유 문장을 지어내지 않는다', () => {
+    const loc = place({ tags: ['조용', '데이트'] });
+    const result = decideLocations([loc], { ...EMPTY_CONDITIONS, companion: 'pair', timeSlot: 'dinner' })!;
+    expect(result.reasons.get(loc.id)).toBe('');
+  });
+
+  it('운영자 한 줄이 있으면 그대로 쓴다', () => {
+    const loc = place({ short_desc: '돈카츠가 두꺼운데 부드러워요' });
+    expect(decideLocations([loc], EMPTY_CONDITIONS)!.reasons.get(loc.id)).toBe('돈카츠가 두꺼운데 부드러워요');
+  });
+
+  it('직접 방문한 곳을 미방문 후보보다 먼저 추천한다', () => {
+    const candidate = place({ name: '안 가본 곳', rating: 5, curation_level: 3, curator_visited: false });
+    const visited = place({ name: '가본 곳', rating: 3, curator_visited: true });
+    expect(decideLocations([candidate, visited], EMPTY_CONDITIONS)!.primary.name).toBe('가본 곳');
+  });
+
+  it('식후 카페가 우선 조건을 못 지키면 조건을 빼고 고르지 않는다', () => {
+    const quietMeal = place({ tags: ['조용'] });
+    const loudCafe = place({ categoryMain: '카페', tags: ['활기'] });
+    const result = decideLocations([quietMeal, loudCafe], { ...EMPTY_CONDITIONS, priority: 'quiet' })!;
+    expect(result.afterCafe).toBeUndefined();
+  });
+});

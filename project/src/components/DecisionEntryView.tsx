@@ -18,6 +18,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { ContentMode, Province } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
+import { getConditionLabels } from '../utils/intentChips';
 
 interface DecisionEntryViewProps {
   contentMode: ContentMode;
@@ -40,39 +41,10 @@ interface DecisionEntryViewProps {
 // 선택지 정의
 // ─────────────────────────────────────────────
 
-const COMPANION_OPTIONS: { value: Companion; label: string }[] = [
-  { value: 'solo', label: '혼자' },
-  { value: 'pair', label: '둘이' },
-  { value: 'group', label: '여럿이' },
-];
-
-const TIMESLOT_OPTIONS: { value: TimeSlot; label: string }[] = [
-  { value: 'lunch', label: '점심' },
-  { value: 'dinner', label: '저녁' },
-  { value: 'late', label: '늦은 밤' },
-];
-
-const SPACE_TIMESLOT_OPTIONS: { value: TimeSlot; label: string }[] = [
-  { value: 'lunch', label: '가볍게' },
-  { value: 'dinner', label: '반나절' },
-  { value: 'late', label: '저녁에도' },
-];
-
-const PRIORITY_OPTIONS: { value: PriorityFeature; label: string }[] = [
-  { value: 'quiet', label: '조용한 곳' },
-  { value: 'wait_short', label: '줄 안 서는 곳' },
-  { value: 'fast_serve', label: '빨리 나오는 곳' },
-  { value: 'date_ok', label: '분위기 좋은 곳' },
-  { value: 'solo_ok', label: '혼밥 눈치 안 보이는 곳' },
-];
-
-const SPACE_PRIORITY_OPTIONS: { value: PriorityFeature; label: string }[] = [
-  { value: 'quiet', label: '조용히 보기' },
-  { value: 'wait_short', label: '실내 위주' },
-  { value: 'fast_serve', label: '짧게 들르기' },
-  { value: 'date_ok', label: '사진 남기기' },
-  { value: 'solo_ok', label: '혼자 산책' },
-];
+/** 라벨은 결과 칩·추천 근거와 같은 곳(intentChips)에서 가져온다 */
+function toOptions<K extends string>(labels: Record<K, string>): { value: K; label: string }[] {
+  return (Object.keys(labels) as K[]).map((value) => ({ value, label: labels[value] }));
+}
 
 /** 지역 선택: '' = 상관없어요 (전체) */
 const REGION_ANY_VALUE = '';
@@ -94,6 +66,7 @@ export function DecisionEntryView({
   const [timeSlot, setTimeSlot] = useState<TimeSlot | null>(null);
   const [priorityFeature, setPriorityFeature] = useState<PriorityFeature | null>(null);
 
+  const labels = getConditionLabels(contentMode);
   const isComplete = companion !== null && timeSlot !== null && priorityFeature !== null;
   const completedCount = [companion, timeSlot, priorityFeature].filter(Boolean).length;
 
@@ -219,7 +192,7 @@ export function DecisionEntryView({
             isActive={true}
           >
             <PillGroup
-              options={COMPANION_OPTIONS}
+              options={toOptions<Companion>(labels.companion)}
               accent={modeText.accent}
               selected={companion}
               onSelect={setCompanion}
@@ -233,7 +206,7 @@ export function DecisionEntryView({
             isActive={companion !== null}
           >
             <PillGroup
-              options={contentMode === 'space' ? SPACE_TIMESLOT_OPTIONS : TIMESLOT_OPTIONS}
+              options={toOptions<TimeSlot>(labels.timeSlot)}
               accent={modeText.accent}
               selected={timeSlot}
               onSelect={setTimeSlot}
@@ -247,7 +220,7 @@ export function DecisionEntryView({
             isActive={companion !== null && timeSlot !== null}
           >
             <PillGroup
-              options={contentMode === 'space' ? SPACE_PRIORITY_OPTIONS : PRIORITY_OPTIONS}
+              options={toOptions<PriorityFeature>(labels.priority)}
               accent={modeText.accent}
               selected={priorityFeature}
               onSelect={setPriorityFeature}

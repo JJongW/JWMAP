@@ -112,7 +112,7 @@ export function IncompleteList({ locations, currentFilter }: Props) {
             <TableRow>
               <TableHead className="w-[240px]">장소명</TableHead>
               <TableHead>지역</TableHead>
-              <TableHead>카테고리</TableHead>
+              <TableHead>장소 종류</TableHead>
               <TableHead className="text-center">태그</TableHead>
               <TableHead className="text-center">이미지</TableHead>
               <TableHead className="text-right">등록일</TableHead>

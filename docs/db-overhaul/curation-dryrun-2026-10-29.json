@@ -1,0 +1,874 @@
+{
+  "generated_at": "2026-10-29T03:25:13.168Z",
+  "source_rows": {
+    "locations": 962,
+    "attractions": 133,
+    "tags": 290,
+    "location_tags": 222,
+    "attraction_tags": 512
+  },
+  "legacy_unchanged": true,
+  "idempotent": true,
+  "table_counts": {
+    "places": 1095,
+    "source_notes": 1367,
+    "visits": 458,
+    "recommendations": 190,
+    "recommendation_visits": 43,
+    "place_terms": 2058,
+    "recommendation_terms": 263,
+    "place_facts": 1624,
+    "taxonomy_terms": 35
+  },
+  "places": [
+    {
+      "legacy_table": "attractions",
+      "visit_status": "candidate",
+      "n": 126
+    },
+    {
+      "legacy_table": "attractions",
+      "visit_status": "visited",
+      "n": 7
+    },
+    {
+      "legacy_table": "locations",
+      "visit_status": "candidate",
+      "n": 511
+    },
+    {
+      "legacy_table": "locations",
+      "visit_status": "visited",
+      "n": 451
+    }
+  ],
+  "places_with_image": 861,
+  "places_with_kakao_id": 760,
+  "source_notes": [
+    {
+      "origin": "memo",
+      "classified_as": "auto_generated",
+      "n": 727
+    },
+    {
+      "origin": "memo",
+      "classified_as": "unknown",
+      "n": 87
+    },
+    {
+      "origin": "short_desc",
+      "classified_as": "address",
+      "n": 363
+    },
+    {
+      "origin": "short_desc",
+      "classified_as": "operator_note",
+      "n": 190
+    }
+  ],
+  "visits": [
+    {
+      "visited_on_precision": "day",
+      "n": 8
+    },
+    {
+      "visited_on_precision": "unknown",
+      "n": 450
+    }
+  ],
+  "recommendations": [
+    {
+      "status": "published",
+      "n": 43
+    },
+    {
+      "status": "draft",
+      "n": 147
+    }
+  ],
+  "place_terms": [
+    {
+      "kind": "place_type",
+      "status": "confirmed",
+      "source": "legacy_category",
+      "n": 1041
+    },
+    {
+      "kind": "place_type",
+      "status": "suggested",
+      "source": "legacy_tag",
+      "n": 246
+    },
+    {
+      "kind": "reason",
+      "status": "suggested",
+      "source": "legacy_tag",
+      "n": 361
+    },
+    {
+      "kind": "situation",
+      "status": "suggested",
+      "source": "legacy_tag",
+      "n": 410
+    }
+  ],
+  "places_with": {
+    "place_type": 1059,
+    "place_type_confirmed": 1040,
+    "multiple_place_types": 226,
+    "reason": 292,
+    "situation": 341
+  },
+  "term_usage": [
+    {
+      "kind": "place_type",
+      "label": "카페",
+      "places": 483,
+      "confirmed": 483
+    },
+    {
+      "kind": "place_type",
+      "label": "베이커리·디저트",
+      "places": 360,
+      "confirmed": 163
+    },
+    {
+      "kind": "place_type",
+      "label": "식당",
+      "places": 302,
+      "confirmed": 302
+    },
+    {
+      "kind": "place_type",
+      "label": "미술관·전시관",
+      "places": 41,
+      "confirmed": 33
+    },
+    {
+      "kind": "place_type",
+      "label": "술집",
+      "places": 37,
+      "confirmed": 9
+    },
+    {
+      "kind": "place_type",
+      "label": "공원·정원",
+      "places": 21,
+      "confirmed": 21
+    },
+    {
+      "kind": "place_type",
+      "label": "소품샵·편집숍",
+      "places": 19,
+      "confirmed": 10
+    },
+    {
+      "kind": "place_type",
+      "label": "서점·도서관",
+      "places": 15,
+      "confirmed": 11
+    },
+    {
+      "kind": "place_type",
+      "label": "궁궐·유적",
+      "places": 5,
+      "confirmed": 5
+    },
+    {
+      "kind": "place_type",
+      "label": "박물관",
+      "places": 2,
+      "confirmed": 2
+    },
+    {
+      "kind": "place_type",
+      "label": "전망대",
+      "places": 1,
+      "confirmed": 1
+    },
+    {
+      "kind": "place_type",
+      "label": "시장",
+      "places": 1,
+      "confirmed": 1
+    },
+    {
+      "kind": "place_type",
+      "label": "거리·동네",
+      "places": 0,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "분위기",
+      "places": 126,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "커피",
+      "places": 98,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "디저트·빵",
+      "places": 36,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "전시 보기",
+      "places": 25,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "전망·뷰",
+      "places": 17,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "사진 찍기",
+      "places": 16,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "산책",
+      "places": 14,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "구경·쇼핑",
+      "places": 9,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "꽃·자연",
+      "places": 9,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "책 읽기",
+      "places": 7,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "작업·공부",
+      "places": 4,
+      "confirmed": 0
+    },
+    {
+      "kind": "reason",
+      "label": "음식 맛",
+      "places": 0,
+      "confirmed": 0
+    },
+    {
+      "kind": "situation",
+      "label": "반려견과",
+      "places": 164,
+      "confirmed": 0
+    },
+    {
+      "kind": "situation",
+      "label": "데이트",
+      "places": 158,
+      "confirmed": 0
+    },
+    {
+      "kind": "situation",
+      "label": "혼자",
+      "places": 28,
+      "confirmed": 0
+    },
+    {
+      "kind": "situation",
+      "label": "조용히 있고 싶을 때",
+      "places": 21,
+      "confirmed": 0
+    },
+    {
+      "kind": "situation",
+      "label": "비 오는 날",
+      "places": 17,
+      "confirmed": 0
+    },
+    {
+      "kind": "situation",
+      "label": "여럿이 모일 때",
+      "places": 8,
+      "confirmed": 0
+    },
+    {
+      "kind": "situation",
+      "label": "선물 고를 때",
+      "places": 6,
+      "confirmed": 0
+    },
+    {
+      "kind": "situation",
+      "label": "아이와 함께",
+      "places": 5,
+      "confirmed": 0
+    },
+    {
+      "kind": "situation",
+      "label": "가족과",
+      "places": 3,
+      "confirmed": 0
+    },
+    {
+      "kind": "situation",
+      "label": "평일 오후",
+      "places": 0,
+      "confirmed": 0
+    }
+  ],
+  "recommendation_terms": [
+    {
+      "kind": "reason",
+      "label": "음식 맛",
+      "n": 52
+    },
+    {
+      "kind": "reason",
+      "label": "분위기",
+      "n": 33
+    },
+    {
+      "kind": "reason",
+      "label": "디저트·빵",
+      "n": 29
+    },
+    {
+      "kind": "reason",
+      "label": "커피",
+      "n": 25
+    },
+    {
+      "kind": "reason",
+      "label": "전시 보기",
+      "n": 24
+    },
+    {
+      "kind": "reason",
+      "label": "꽃·자연",
+      "n": 14
+    },
+    {
+      "kind": "reason",
+      "label": "구경·쇼핑",
+      "n": 13
+    },
+    {
+      "kind": "reason",
+      "label": "전망·뷰",
+      "n": 13
+    },
+    {
+      "kind": "reason",
+      "label": "책 읽기",
+      "n": 12
+    },
+    {
+      "kind": "situation",
+      "label": "조용히 있고 싶을 때",
+      "n": 8
+    },
+    {
+      "kind": "situation",
+      "label": "데이트",
+      "n": 6
+    },
+    {
+      "kind": "reason",
+      "label": "산책",
+      "n": 6
+    },
+    {
+      "kind": "situation",
+      "label": "아이와 함께",
+      "n": 5
+    },
+    {
+      "kind": "reason",
+      "label": "작업·공부",
+      "n": 4
+    },
+    {
+      "kind": "situation",
+      "label": "선물 고를 때",
+      "n": 4
+    },
+    {
+      "kind": "reason",
+      "label": "사진 찍기",
+      "n": 4
+    },
+    {
+      "kind": "situation",
+      "label": "평일 오후",
+      "n": 3
+    },
+    {
+      "kind": "situation",
+      "label": "가족과",
+      "n": 2
+    },
+    {
+      "kind": "situation",
+      "label": "비 오는 날",
+      "n": 2
+    },
+    {
+      "kind": "situation",
+      "label": "반려견과",
+      "n": 2
+    },
+    {
+      "kind": "situation",
+      "label": "혼자",
+      "n": 2
+    }
+  ],
+  "place_facts": [
+    {
+      "field": "accessibility",
+      "value": "{\"available\": true}",
+      "n": 32
+    },
+    {
+      "field": "admission_fee",
+      "value": "{\"free\": true}",
+      "n": 24
+    },
+    {
+      "field": "delivery",
+      "value": "{\"available\": true}",
+      "n": 221
+    },
+    {
+      "field": "no_kids_zone",
+      "value": "{\"available\": true}",
+      "n": 3
+    },
+    {
+      "field": "parking",
+      "value": "{\"available\": false}",
+      "n": 356
+    },
+    {
+      "field": "parking",
+      "value": "{\"available\": true}",
+      "n": 78
+    },
+    {
+      "field": "parking",
+      "value": "{\"note\": \"공간 협소\", \"available\": true}",
+      "n": 2
+    },
+    {
+      "field": "pet_friendly",
+      "value": "{\"available\": true}",
+      "n": 164
+    },
+    {
+      "field": "reservation",
+      "value": "{\"available\": true}",
+      "n": 224
+    },
+    {
+      "field": "takeout",
+      "value": "{\"available\": true}",
+      "n": 520
+    }
+  ],
+  "fact_conflicts": 1,
+  "untyped_places": {
+    "total": 36,
+    "by_category": [
+      {
+        "legacy_table": "attractions",
+        "category": "전시/문화 > (없음)",
+        "n": 22
+      },
+      {
+        "legacy_table": "attractions",
+        "category": "관광명소 > 명소",
+        "n": 9
+      },
+      {
+        "legacy_table": "locations",
+        "category": " > 꽃집,꽃배달",
+        "n": 1
+      },
+      {
+        "legacy_table": "locations",
+        "category": "주거시설 > 빌라,주택",
+        "n": 1
+      },
+      {
+        "legacy_table": "locations",
+        "category": " > 문화시설",
+        "n": 1
+      },
+      {
+        "legacy_table": "locations",
+        "category": " > 관광농원",
+        "n": 1
+      },
+      {
+        "legacy_table": "locations",
+        "category": "친목 > 노인정,노인회",
+        "n": 1
+      }
+    ]
+  },
+  "unmapped_tags": {
+    "total": 684,
+    "top": [
+      {
+        "tag": "돈까스",
+        "place_count": 65
+      },
+      {
+        "tag": "라멘",
+        "place_count": 55
+      },
+      {
+        "tag": "웨이팅",
+        "place_count": 40
+      },
+      {
+        "tag": "대형카페",
+        "place_count": 23
+      },
+      {
+        "tag": "브런치카페",
+        "place_count": 20
+      },
+      {
+        "tag": "흑백요리사",
+        "place_count": 14
+      },
+      {
+        "tag": "카페",
+        "place_count": 11
+      },
+      {
+        "tag": "나들이",
+        "place_count": 10
+      },
+      {
+        "tag": "높은 감도",
+        "place_count": 10
+      },
+      {
+        "tag": "비건베이커리",
+        "place_count": 10
+      },
+      {
+        "tag": "이국적인",
+        "place_count": 10
+      },
+      {
+        "tag": "좁음",
+        "place_count": 10
+      },
+      {
+        "tag": "미쉐린2025",
+        "place_count": 9
+      },
+      {
+        "tag": "문화생활",
+        "place_count": 8
+      },
+      {
+        "tag": "점심식사",
+        "place_count": 8
+      },
+      {
+        "tag": "한옥카페",
+        "place_count": 8
+      },
+      {
+        "tag": "실외",
+        "place_count": 7
+      },
+      {
+        "tag": "아침식사",
+        "place_count": 7
+      },
+      {
+        "tag": "이색카페",
+        "place_count": 7
+      },
+      {
+        "tag": "테라스가있는",
+        "place_count": 7
+      },
+      {
+        "tag": "버거맛집",
+        "place_count": 6
+      },
+      {
+        "tag": "비건푸드",
+        "place_count": 6
+      },
+      {
+        "tag": "3차맛집",
+        "place_count": 5
+      },
+      {
+        "tag": "넓음",
+        "place_count": 5
+      },
+      {
+        "tag": "비건카페",
+        "place_count": 5
+      },
+      {
+        "tag": "서울미식100선",
+        "place_count": 5
+      },
+      {
+        "tag": "성수동맛집",
+        "place_count": 5
+      },
+      {
+        "tag": "성수동카페",
+        "place_count": 5
+      },
+      {
+        "tag": "수제버거",
+        "place_count": 5
+      },
+      {
+        "tag": "웨이팅 적음",
+        "place_count": 5
+      },
+      {
+        "tag": "일회용품없는가게",
+        "place_count": 5
+      },
+      {
+        "tag": "피자펍",
+        "place_count": 5
+      },
+      {
+        "tag": "건축",
+        "place_count": 4
+      },
+      {
+        "tag": "노포",
+        "place_count": 4
+      },
+      {
+        "tag": "백년가게",
+        "place_count": 4
+      },
+      {
+        "tag": "삼청동",
+        "place_count": 4
+      },
+      {
+        "tag": "서울숲",
+        "place_count": 4
+      },
+      {
+        "tag": "서울숲카페",
+        "place_count": 4
+      },
+      {
+        "tag": "성수동",
+        "place_count": 4
+      },
+      {
+        "tag": "성수맛집",
+        "place_count": 4
+      }
+    ]
+  },
+  "duplicates": [
+    {
+      "matched_by": "kakao_place_id",
+      "key": "10305191",
+      "names": [
+        "덕수궁",
+        "덕수궁"
+      ]
+    },
+    {
+      "matched_by": "kakao_place_id",
+      "key": "1146973099",
+      "names": [
+        "바늘이야기",
+        "바늘이야기 연희직영점"
+      ]
+    },
+    {
+      "matched_by": "kakao_place_id",
+      "key": "13028509",
+      "names": [
+        "서울특별시교육청 정독도서관",
+        "서울특별시교육청 정독도서관"
+      ]
+    },
+    {
+      "matched_by": "kakao_place_id",
+      "key": "146558707",
+      "names": [
+        "세빠띠",
+        "세빠띠"
+      ]
+    },
+    {
+      "matched_by": "kakao_place_id",
+      "key": "449198920",
+      "names": [
+        "레브두",
+        "레브두"
+      ]
+    },
+    {
+      "matched_by": "kakao_place_id",
+      "key": "622430661",
+      "names": [
+        "노틀던",
+        "노틀던"
+      ]
+    },
+    {
+      "matched_by": "name_address",
+      "key": "노틀던 / 서울 성동구 서울숲2길 11",
+      "names": [
+        "노틀던",
+        "노틀던"
+      ]
+    },
+    {
+      "matched_by": "name_address",
+      "key": "덕수궁 / 서울 중구 세종대로 99",
+      "names": [
+        "덕수궁",
+        "덕수궁"
+      ]
+    },
+    {
+      "matched_by": "name_address",
+      "key": "레브두 / 서울 송파구 백제고분로45길 19",
+      "names": [
+        "레브두",
+        "레브두"
+      ]
+    },
+    {
+      "matched_by": "name_address",
+      "key": "서울특별시교육청 정독도서관 / 서울 종로구 북촌로5길 48",
+      "names": [
+        "서울특별시교육청 정독도서관",
+        "서울특별시교육청 정독도서관"
+      ]
+    },
+    {
+      "matched_by": "name_address",
+      "key": "세빠띠 / 서울 마포구 동교로25길 53",
+      "names": [
+        "세빠띠",
+        "세빠띠"
+      ]
+    }
+  ],
+  "samples": {
+    "published_recommendations": [
+      {
+        "name": "Uig",
+        "body": "카공하기에도 좋지만 그냥 브런치 먹기에도 너무 좋은 공간. 티그레라는 구움과자도 파는 데 너무 맛있음.",
+        "suggested_terms": [
+          "음식 맛",
+          "작업·공부"
+        ]
+      },
+      {
+        "name": "갈릭보이",
+        "body": "촉촉 쫀득한 마늘빵의 진한 유혹을 떨칠 수가 없었다..",
+        "suggested_terms": [
+          "디저트·빵"
+        ]
+      },
+      {
+        "name": "강동숲속도서관",
+        "body": "통창으로 비추는 풍경이 아름답고 카페슥으로 되어있음.",
+        "suggested_terms": [
+          "전망·뷰"
+        ]
+      },
+      {
+        "name": "공기식당",
+        "body": "버터치킨커리 추천드립니다. 진짜 깊고도 고소한 카레의 풍미가 느껴지고 특히 추운날에 들어가서 한 입 먹으면 ",
+        "suggested_terms": [
+          "커피"
+        ]
+      },
+      {
+        "name": "글루글루",
+        "body": "연희동 감성 느좋 브런치. 색감이 다양한 감각적인 공간. 오븐로스팅된 미니 양배추부터 초코무스까지 다양함.",
+        "suggested_terms": [
+          "분위기"
+        ]
+      },
+      {
+        "name": "꼼아파리",
+        "body": "생활의달인에도 언급된 파리 감성 빵의 향기. 빵 종류도 다양한데 맛도 상당함.",
+        "suggested_terms": [
+          "디저트·빵",
+          "분위기"
+        ]
+      },
+      {
+        "name": "노틀던",
+        "body": "섬세한 무스 케이크가 있는 깔끔한 공간",
+        "suggested_terms": [
+          "디저트·빵"
+        ]
+      },
+      {
+        "name": "다원맛칼국수",
+        "body": "뼈해장국이 양이 많고 맛있어요",
+        "suggested_terms": [
+          "음식 맛"
+        ]
+      }
+    ],
+    "draft_recommendations": [
+      {
+        "name": "943킹스크로스",
+        "body": "마슐쇼도 하고 층마나 컨샙도 달라서 재밋 \n근대 지하 1층 넘 무서워요 / 버터맥주가 맛있어요 층마다 볼거리"
+      },
+      {
+        "name": "K현대미술관",
+        "body": "다양한 현대미술 작품과 인증샷 명소가 있는 강남의 대규모 미술관"
+      },
+      {
+        "name": "mk2",
+        "body": "리뷰랑 사진보고 엄청 기대하면서 갔어요! 저 들어오고나서 뒤에 분들은 자리가 없어서 대기하가도 하셨고요 라떼"
+      },
+      {
+        "name": "가고시포갤러리",
+        "body": "북촌 한옥 갤러리, 다양한 전시를 감상할 수 있는 문화 공간"
+      },
+      {
+        "name": "갤러리바톤",
+        "body": "한남동에 위치한 한국 대표 현대미술 갤러리, 신진 작가 발굴 및 지원."
+      }
+    ],
+    "operator_memos": []
+  }
+}

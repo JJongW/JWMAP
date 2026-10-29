@@ -11,7 +11,7 @@ export const locationFormSchema = z.object({
   lon: z.number().min(-180).max(180),
   memo: z.string().default(''),
   short_desc: z.string().nullable().optional(),
-  curation_level: z.number().min(1, '큐레이션 레벨을 선택하세요').max(5).nullable().optional(),
+  curation_level: z.number().min(1, '추천 강도를 선택하세요').max(5).nullable().optional(),
   price_level: z.number().min(1).max(4).nullable().optional(),
   imageUrl: z.string().default(''),
   naver_place_id: z.string().nullable().optional(),
