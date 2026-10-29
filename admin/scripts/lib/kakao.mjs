@@ -27,6 +27,9 @@ export function readEnv(file) {
   }
 }
 export const env = readEnv(path.join(REPO, 'project/.env'));
+/** 글자 수로 자르다 생긴 반쪽 이모지(짝 없는 서로게이트)를 없앤다. 남기면 DB 저장 요청 JSON이 깨진다 */
+export const cleanText = (s, max = 300) =>
+  [...(s ?? '')].slice(0, max).join('').replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '').trim();
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const squash = (s) => (s ?? '').normalize('NFC').replace(/\(.*?\)|[\s·\-_.,]/g, '').toLowerCase();
 
@@ -82,11 +85,11 @@ export async function keywordSearch(query, near) {
 export function summarize(p) {
   const s = p.summary ?? {};
   const reviews = (p.kakaomap_review?.reviews ?? [])
-    .map((r) => ({ id: String(r.review_id), excerpt: (r.contents ?? '').trim().slice(0, 300), rating: r.star_rating ?? null, written_at: r.registered_at?.slice(0, 10) ?? null }))
+    .map((r) => ({ id: String(r.review_id), excerpt: cleanText(r.contents), rating: r.star_rating ?? null, written_at: r.registered_at?.slice(0, 10) ?? null }))
     .filter((r) => r.excerpt);
   const blogs = (p.blog_review?.reviews ?? []).map((b) => ({
     id: String(b.review_id),
-    excerpt: [b.title, b.contents].filter(Boolean).join(' — ').trim().slice(0, 300),
+    excerpt: cleanText([b.title, b.contents].filter(Boolean).join(' — ')),
     url: b.outlink ?? b.url ?? b.link ?? null,
     written_at: b.date?.slice(0, 10) ?? null,
   }));
