@@ -15,6 +15,7 @@ import type { UiMode, Companion, TimeSlot, PriorityFeature } from './types/ui';
 import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
+import { getCuratorReason, isCuratorVisited } from './utils/curation';
 import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
 import { clearPlaceStates, getActivityScore, getSavedIds, getVisitedIds, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -195,12 +196,15 @@ export default function App() {
           (a.curation_level ?? 1) * 12 +
           getActivityScore(a) * 8 +
           (a.imageUrl ? 3 : 0) +
-          (a.short_desc ? 2 : 0);
+          (getCuratorReason(a) ? 2 : 0) +
+          // 먼저 볼 곳은 운영자가 직접 가본 곳을 앞에 둔다
+          (isCuratorVisited(a) ? 6 : 0);
         const bScore =
           (b.curation_level ?? 1) * 12 +
           getActivityScore(b) * 8 +
           (b.imageUrl ? 3 : 0) +
-          (b.short_desc ? 2 : 0);
+          (getCuratorReason(b) ? 2 : 0) +
+          (isCuratorVisited(b) ? 6 : 0);
         return bScore - aScore;
       })
       .slice(0, contentMode === 'space' ? 24 : 36);
@@ -698,12 +702,12 @@ function createFallbackDecisionResult(
       const aScore =
         (a.curation_level ?? 1) * 12 +
         getActivityScore(a) * 8 +
-        (a.short_desc || a.memo ? 3 : 0) +
+        (getCuratorReason(a) ? 3 : 0) +
         (a.imageUrl ? 2 : 0);
       const bScore =
         (b.curation_level ?? 1) * 12 +
         getActivityScore(b) * 8 +
-        (b.short_desc || b.memo ? 3 : 0) +
+        (getCuratorReason(b) ? 3 : 0) +
         (b.imageUrl ? 2 : 0);
       return bScore - aScore;
     })
@@ -716,7 +720,7 @@ function createFallbackDecisionResult(
     const prefix = contentMode === 'space'
       ? ['오늘 먼저 보기 좋은 후보예요.', '동선에 같이 넣기 좋은 곳이에요.', '가볍게 비교해볼 만한 선택지예요.']
       : ['오늘 먼저 먹어볼 만한 후보예요.', '같이 비교해볼 만한 곳이에요.', '부담 없이 후보에 넣기 좋아요.'];
-    reasons.set(location.id, location.short_desc || location.memo || prefix[index] || prefix[0]);
+    reasons.set(location.id, getCuratorReason(location) || prefix[index] || prefix[0]);
   });
 
   return {

@@ -15,6 +15,7 @@
 import type { Location, CategoryMain } from '../types/location';
 import { PROVINCES, inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
+import { getCuratorReason } from './curation';
 
 // ─────────────────────────────────────────────
 // 1. Companion → 태그 매핑
@@ -297,9 +298,10 @@ function generateReason(
 ): string {
   const loc = scored.location;
 
-  // short_desc가 있으면 활용
-  if (loc.short_desc) {
-    return loc.short_desc;
+  // 운영자 한 줄이 있으면 활용 (주소가 들어간 short_desc는 제외)
+  const curatorReason = getCuratorReason(loc);
+  if (curatorReason) {
+    return curatorReason;
   }
 
   const featureTexts = scored.matchedTags
@@ -371,8 +373,9 @@ export function getDifferentiator(
   }
 
   // short_desc fallback
-  if (secondary.short_desc) {
-    return secondary.short_desc;
+  const curatorReason = getCuratorReason(secondary);
+  if (curatorReason) {
+    return curatorReason;
   }
 
   const category = secondary.categorySub || secondary.categoryMain;

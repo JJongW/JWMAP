@@ -14,7 +14,17 @@ import { PlaceDetail } from './PlaceDetail';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useBrowseViewController } from '../hooks/useBrowseViewController';
 import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
-import { getCurationLabel, getCurationBadgeClass, getCurationDescription, ratingToCurationLevel } from '../utils/curation';
+import {
+  getCurationLabel,
+  getCurationBadgeClass,
+  getCurationDescription,
+  getCuratorReason,
+  getVisitInfoText,
+  getVisitStatusLabel,
+  isCuratorVisited,
+  isPracticalInfoTag,
+  ratingToCurationLevel,
+} from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { getSavedIds, getVisitedIds, recordActivity, toggleSaved, toggleVisited } from '../utils/activity';
 import type { Location } from '../types/location';
@@ -503,10 +513,11 @@ export function BrowseView({
 
 /**
  * 기존 LocationList의 "card" variant보다 가볍게:
- * - 썸네일, 이름·동네, 큐레이터 추천 이유 한 줄(short_desc 또는 메모 첫 줄)
+ * - 썸네일, 이름·동네·방문 상태, 운영자 추천 이유 한 줄(short_desc)
  * - tags, event tags 없음
  *
- * 메모 자체가 카드의 주인공이다. 메모가 없을 때만 큐레이션 설명으로 대신한다.
+ * 운영자 한 줄이 카드의 주인공이다. 없으면 큐레이션 설명으로 대신하고,
+ * 주차·분위기 같은 자동 생성 메모는 상세의 방문 정보에서만 보여준다.
  */
 
 interface BrowseListProps {
@@ -564,7 +575,8 @@ function BrowseList({
         const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
         const isSaved = savedIds.has(location.id);
         const isVisited = visitedIds.has(location.id);
-        const curatorNote = getCuratorNote(location);
+        const curatorNote = getCuratorReason(location);
+        const curatorVisited = isCuratorVisited(location);
         const reason = getRecommendationReason(location, level, savedView);
         const showsVisitState = savedView === 'visited' || savedView === 'revisit';
 
@@ -604,9 +616,6 @@ function BrowseList({
                   <p className="truncate text-sm font-semibold text-gray-800">
                     {location.name}
                   </p>
-                  {location.curator_visited !== false && (
-                    <CheckCircle2 size={13} className="shrink-0 text-emerald-500" />
-                  )}
                 </div>
                 <p className="mt-0.5 truncate text-xs text-gray-400">
                   {location.region}
@@ -616,6 +625,10 @@ function BrowseList({
                       {location.categorySub || location.categoryMain}
                     </span>
                   )}
+                  {' · '}
+                  <span className={curatorVisited ? 'font-semibold text-emerald-600' : 'text-gray-400'}>
+                    {getVisitStatusLabel(location)}
+                  </span>
                 </p>
                 {curatorNote ? (
                   <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-gray-700">
@@ -779,15 +792,9 @@ function getRecommendationReason(
         ? '방문 기록 있음'
         : getCurationDescription(level),
   ];
-  if (location.curator_visited !== false) reasonParts.push('직접 확인');
-  if (location.tags?.[0]) reasonParts.push(`#${location.tags[0]}`);
+  const moodTag = location.tags?.find((tag) => !isPracticalInfoTag(tag));
+  if (moodTag) reasonParts.push(`#${moodTag}`);
   return reasonParts.slice(0, 3).join(' · ');
-}
-
-/** 카드에 보여줄 큐레이터 추천 이유 한 줄: short_desc 우선, 없으면 메모 첫 줄 */
-function getCuratorNote(location: Location): string {
-  if (location.short_desc?.trim()) return location.short_desc.trim();
-  return location.memo?.split('\n').map((line) => line.trim()).find(Boolean) ?? '';
 }
 
 function getSavedViewGuide(view: 'saved' | 'visited' | 'revisit'): string {
@@ -885,7 +892,9 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
     onPlaceStateChange?.();
     showStateFeedback(nextVisited ? '다녀온 곳으로 기록했어요.' : '방문 기록을 해제했어요.');
   };
-  const previewText = location.short_desc || location.memo;
+  const curatorReason = getCuratorReason(location);
+  const visitInfoText = getVisitInfoText(location);
+  const curatorVisited = isCuratorVisited(location);
 
   return (
     <div className="fixed right-0 top-0 z-50 h-full w-96 border-l border-gray-100 bg-white shadow-lg">
@@ -901,7 +910,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
       </div>
 
       {/* 콘텐츠 — 중립적 톤, "추천" 언어 없음 */}
-      <div className="overflow-y-auto">
+      <div className="h-[calc(100%-57px)] overflow-y-auto">
         {/* 장소 이미지 — 상세 보기에서는 사진이 있어야 판단할 수 있다 */}
         {location.imageUrl && (
           <div className="aspect-[4/3] w-full overflow-hidden bg-gray-100">
@@ -939,6 +948,18 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
           <PriceLevelBadge priceLevel={location.price_level} size="sm" />
         </div>
 
+        <p className={`mt-3 flex items-center gap-1.5 text-sm font-medium ${curatorVisited ? 'text-emerald-600' : 'text-gray-500'}`}>
+          <CheckCircle2 size={15} className={curatorVisited ? '' : 'opacity-40'} />
+          {getVisitStatusLabel(location)}
+        </p>
+
+        {curatorReason && (
+          <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50/60 p-3">
+            <p className="text-xs font-semibold text-orange-700">추천 이유</p>
+            <p className="mt-1 text-sm font-medium leading-relaxed text-gray-800">{curatorReason}</p>
+          </div>
+        )}
+
         <div className="mt-4 space-y-2">
           <p className="text-xs font-semibold text-gray-400">내 상태</p>
           <div className="grid grid-cols-2 gap-2">
@@ -974,17 +995,15 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
           )}
         </div>
 
-        <p className="mt-4 text-sm text-gray-500">
-          {location.address}
-        </p>
-
-        {previewText && (
-          <p className="mt-3 text-sm leading-relaxed text-gray-600">
-            {previewText.length > 140
-              ? `${previewText.slice(0, 140)}...`
-              : previewText}
-          </p>
-        )}
+        <div className="mt-4 rounded-xl bg-gray-50 p-3">
+          <p className="text-xs font-semibold text-gray-400">방문 정보</p>
+          <p className="mt-1 text-sm text-gray-500">{location.address}</p>
+          {visitInfoText && (
+            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-600">
+              {visitInfoText}
+            </p>
+          )}
+        </div>
 
         {/* 지도 열기 버튼 — 중립적 스타일 */}
         <div className="mt-6 flex gap-2">

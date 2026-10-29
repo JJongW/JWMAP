@@ -19,7 +19,14 @@ import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
 import { getDifferentiator } from '../utils/decisionEngine';
 import { getCardImageUrl } from '../utils/image';
-import { getCurationLabel, getCurationBadgeClass, ratingToCurationLevel } from '../utils/curation';
+import {
+  getCurationLabel,
+  getCurationBadgeClass,
+  getCuratorReason,
+  getVisitStatusLabel,
+  isCuratorVisited,
+  ratingToCurationLevel,
+} from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 
 interface DecisionResultViewProps {
@@ -215,8 +222,8 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
           </div>
         </div>
 
-        {/* 지역 */}
-        <div className="mb-3 flex items-center gap-1 text-sm text-gray-400">
+        {/* 지역 · 방문 상태 */}
+        <div className="mb-3 flex flex-wrap items-center gap-1 text-sm text-gray-400">
           <MapPin size={13} />
           <span>{location.region}</span>
           {location.categoryMain && location.categoryMain !== '전체' && (
@@ -225,6 +232,10 @@ function PrimaryCard({ location, reason, onOpenDetail }: PrimaryCardProps) {
               <span>{location.categoryMain}</span>
             </>
           )}
+          <span className="text-gray-200">·</span>
+          <span className={isCuratorVisited(location) ? 'font-semibold text-emerald-600' : ''}>
+            {getVisitStatusLabel(location)}
+          </span>
         </div>
 
         {/* 이유 텍스트 */}
@@ -298,6 +309,9 @@ function SecondaryCard({ location, differentiator, onOpenDetail }: SecondaryCard
         <p className="mt-0.5 text-xs text-gray-500">
           {differentiator}
         </p>
+        <p className={`mt-0.5 text-[11px] ${isCuratorVisited(location) ? 'font-semibold text-emerald-600' : 'text-gray-400'}`}>
+          {getVisitStatusLabel(location)}
+        </p>
       </div>
     </button>
   );
@@ -342,24 +356,22 @@ interface DetailPreviewProps {
 
 function DetailPreview({ location, onOpenDetail }: DetailPreviewProps) {
   const previewTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])].slice(0, 6);
-  const summaryText = location.short_desc || location.memo;
+  const curatorReason = getCuratorReason(location);
 
   return (
     <div className="space-y-4">
-      {/* 주소 */}
+      {/* 추천 이유: 운영자 한 줄만 */}
+      {curatorReason && (
+        <p className="text-sm leading-relaxed text-gray-700">
+          {curatorReason}
+        </p>
+      )}
+
+      {/* 방문 정보 */}
       <div className="flex items-start gap-2 text-sm text-gray-500">
         <MapPin size={14} className="mt-0.5 shrink-0" />
         <span>{location.address}</span>
       </div>
-
-      {/* 메모 (짧게) */}
-      {summaryText && (
-        <p className="text-sm leading-relaxed text-gray-600">
-          {summaryText.length > 120
-            ? `${summaryText.slice(0, 120)}...`
-            : summaryText}
-        </p>
-      )}
 
       {previewTags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
