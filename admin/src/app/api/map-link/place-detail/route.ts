@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
         error: '장소를 찾을 수 없습니다',
         placeId,
         placeName,
-        hint: '장소명이 정확한지 확인하거나, PlaceSearch로 직접 검색해주세요.',
+        hint: '장소명이 정확한지 확인하거나, 카카오맵에서 직접 검색해주세요.',
       },
       { status: 404 },
     );
