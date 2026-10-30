@@ -59,7 +59,15 @@ export interface IntakeItem {
   status: IntakeStatus;
   unvisited_basis: string | null;
   place_id: string | null;
-  raw: { first_taken_at?: string | null; photo_count?: number; matched_visit_status?: string | null; memo?: string | null; folder?: string };
+  raw: {
+    first_taken_at?: string | null;
+    photo_count?: number;
+    matched_visit_status?: string | null;
+    memo?: string | null;
+    folder?: string;
+    /** scripts/intake-draft-text.mjs가 수집한 리뷰로 만든 추천 문장 초안 */
+    draft?: { body: string | null; fits_for: string | null } | null;
+  };
   collected_at: string;
   matched_place: { id: string; name: string; region: string | null; visit_status: string } | null;
   photos: IntakePhoto[];

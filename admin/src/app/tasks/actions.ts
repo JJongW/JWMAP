@@ -3,7 +3,7 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
-/** Oomap 작업 승인·거절: 권한 확인과 기록은 DB 함수(admin_decide_task)가 한다. 실행은 Mac mini에서 task_run */
+/** Oomap 작업 승인·거절: 권한 확인과 기록은 DB 함수(admin_decide_task)가 한다. 승인된 작업은 Mac mini가 1분마다 실행 (jmw-auto-engine oomapTaskJob) */
 export async function decideTask(input: {
   taskId: string;
   approve: boolean;
