@@ -192,7 +192,8 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
   const facts = curation?.facts ?? [];
   const visitInfoText = getVisitInfoText(location);
   // 운영자가 직접 쓴 메모와 자동 정리 문구를 같은 이름으로 보여주지 않는다
-  const memoIsOperatorNote = isFirstHandMemo(location);
+  // 추천 이유와 같은 문장이면 메모 칸을 한 번 더 보여주지 않는다
+  const memoIsOperatorNote = isFirstHandMemo(location) && visitInfoText?.trim() !== curatorReason?.trim();
   const placeTerms = describePlace(location, curatorReason);
 
   /** 장소 종류 · 추천하는 이유 · 이런 때 잘 맞아요 · 직접 가본 메모. 근거 없는 분류는 보여주지 않는다 */

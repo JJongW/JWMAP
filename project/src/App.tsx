@@ -18,7 +18,7 @@ import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { getCuratorReason, isCuratorVisited } from './utils/curation';
-import { EMPTY_CONDITIONS, inferConditionMode, resolveIntent, type IntentConditions } from './utils/intentChips';
+import { EMPTY_CONDITIONS, inferConditionMode, resolveIntent, unreadWords, type IntentConditions } from './utils/intentChips';
 import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
 import { clearPlaceStates, getActivityScore, getSavedIds, getVisitedIds, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -488,10 +488,13 @@ export default function App() {
   const handleRecommendText = useCallback(async (text: string) => {
     recordActivity('recommend_start', undefined, { contentType: contentMode });
     const { conditions: parsed, source } = await resolveIntent(text, regionOptions);
+    const unread = source === 'rules' ? unreadWords(text, regionOptions) : [];
     setIntentNotice(
       text.trim() && source === 'none'
         ? '문장에서 조건을 찾지 못했어요. 아래 칩으로 직접 골라주세요.'
-        : null
+        : unread.length
+          ? `'${unread.join("', '")}' 조건은 아직 읽지 못해서 빼고 골랐어요. 아래 칩에 있는 조건만 적용했어요.`
+          : null
     );
     runDecision(parsed);
   }, [contentMode, regionOptions, runDecision]);

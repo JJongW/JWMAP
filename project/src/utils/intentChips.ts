@@ -8,7 +8,7 @@
  * 갈아탈 신호: API 폴백 비율이 높아지면 사전을 넓히거나 API 우선으로 바꾼다.
  */
 
-import type { ContentMode } from '../types/location';
+import { PROVINCES, type ContentMode } from '../types/location';
 import type { Companion, PriorityFeature, TimeSlot } from '../types/ui';
 import { findTermsInText, getTerm } from './taxonomy';
 
@@ -140,6 +140,32 @@ export function matchRegion(text: string, regions: string[]): string | null {
   return best?.region ?? null;
 }
 
+/** 데이터 지역에 없으면 시/도 이름으로 ('제주 혼밥' → '제주'). 그 시/도에 장소가 없으면 결과 없음으로 보여준다 */
+function matchProvince(text: string): string | null {
+  return PROVINCES.find((province) => text.includes(province)) ?? null;
+}
+
+// 조건과 상관없는 말 (못 읽었다고 알리지 않는다)
+const FILLER = /^(곳|데|집|되는|되고|좋은|괜찮은|맛있는|있는|만한|갈|가기|가고|가볼|하기|할|먹기|먹고|추천|추천해줘|알려줘|찾아줘|어디|오늘|지금|싶어|싶은|싶다|근처|쪽|좀|같이|그리고|랑|하고|또는|맛집)$/;
+const JOSA = /(에서|으로|이랑|하고|로|에|이|가|은|는|을|를|랑|도|의)$/;
+
+/** 문장에서 조건으로 읽지 못한 낱말. 결과 화면에서 "이건 반영 못 했어요"로 알린다 */
+export function unreadWords(text: string, regions: string[]): string[] {
+  const rules = [...COMPANION_RULES, ...TIME_RULES, ...PRIORITY_RULES, ...KIND_RULES].map(([, pattern]) => pattern);
+  const read = (word: string) =>
+    FILLER.test(word) ||
+    rules.some((pattern) => pattern.test(word)) ||
+    matchRegion(word, regions) !== null ||
+    matchProvince(word) !== null ||
+    (['place_type', 'reason', 'situation'] as const).some((kind) => findTermsInText(word, kind).length > 0);
+  const words = text
+    .split(/[\s,.!?·~]+/)
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 2);
+  const unread = words.filter((word) => !read(word) && !read(word.replace(JOSA, '')));
+  return [...new Set(unread.map((word) => (word.replace(JOSA, '').length >= 2 ? word.replace(JOSA, '') : word)))];
+}
+
 export function parseIntentText(text: string, regions: string[]): IntentConditions {
   const normalized = text.trim();
   if (!normalized) return { ...EMPTY_CONDITIONS };
@@ -148,7 +174,7 @@ export function parseIntentText(text: string, regions: string[]): IntentConditio
   const priority = firstMatch(normalized, PRIORITY_RULES.filter(([key]) => key !== 'solo_ok'));
 
   return {
-    region: matchRegion(normalized, regions),
+    region: matchRegion(normalized, regions) ?? matchProvince(normalized),
     companion: firstMatch(normalized, COMPANION_RULES),
     timeSlot: firstMatch(normalized, TIME_RULES),
     priority,

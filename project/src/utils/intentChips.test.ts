@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getConditionLabels, mapSearchSlots, matchRegion, parseIntentText, resolveIntent, EMPTY_CONDITIONS } from './intentChips';
+import { getConditionLabels, mapSearchSlots, matchRegion, parseIntentText, resolveIntent, unreadWords, EMPTY_CONDITIONS } from './intentChips';
 
 // 장소 수가 많은 순
 const REGIONS = ['종로/중구', '강남', '홍대/합정/마포/연남', '건대/성수/왕십리', '용산/이태원/한남', '마포/홍대'];
@@ -28,6 +28,18 @@ describe('parseIntentText', () => {
   it('못 잡으면 빈 조건', () => {
     expect(parseIntentText('아무거나', REGIONS)).toEqual(EMPTY_CONDITIONS);
     expect(parseIntentText('   ', REGIONS)).toEqual(EMPTY_CONDITIONS);
+  });
+});
+
+describe('문장에서 못 읽은 조건', () => {
+  it('데이터 지역에 없는 시/도는 지우지 않고 그대로 조건으로 둔다', () => {
+    expect(parseIntentText('제주 혼자 심야 주차 되는 이자카야', REGIONS)).toMatchObject({ region: '제주', companion: 'solo', timeSlot: 'late' });
+  });
+
+  it('조건으로 못 읽은 낱말만 돌려준다', () => {
+    expect(unreadWords('제주 혼자 심야 주차 되는 이자카야', REGIONS)).toEqual(['주차', '이자카야']);
+    expect(unreadWords('종로에서 둘이 저녁, 조용한 곳', REGIONS)).toEqual([]);
+    expect(unreadWords('혼자 노트북 하기 좋은 카페', REGIONS)).not.toContain('카페');
   });
 });
 

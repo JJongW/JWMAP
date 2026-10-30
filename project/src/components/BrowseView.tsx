@@ -967,7 +967,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
           </div>
         )}
 
-        {visitInfoText && isFirstHandMemo(location) && (
+        {visitInfoText && isFirstHandMemo(location) && visitInfoText.trim() !== curatorReason?.trim() && (
           <div className="mt-3 rounded-xl border border-gray-100 p-3">
             <p className="text-xs font-semibold text-gray-500">직접 가본 메모</p>
             <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-700">{visitInfoText}</p>
