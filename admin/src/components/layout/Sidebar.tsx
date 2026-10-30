@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Inbox, MapPin, AlertTriangle, Sparkles, Route, Bot, BarChart2, CheckSquare, MessageSquare } from 'lucide-react';
+import { Inbox, MapPin, AlertTriangle, Sparkles, Route, Bot, BarChart2, CheckSquare, MessageSquare, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { href: '/locations', label: '맛집·카페', icon: MapPin },
   { href: '/attractions', label: '볼거리', icon: Sparkles },
   { href: '/locations/incomplete', label: '확인 필요', icon: AlertTriangle },
+  { href: '/tasks', label: '승인 대기', icon: ShieldCheck },
   { href: '/courses', label: '코스', icon: Route },
   { href: '/reviews', label: '방문자 리뷰', icon: MessageSquare },
   { href: '/content-engine', label: '콘텐츠 엔진', icon: Bot },

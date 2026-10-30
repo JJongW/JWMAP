@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Bot,
   CheckSquare,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ const primaryItems = [
 ];
 
 const secondaryItems = [
+  { href: '/tasks', label: '승인 대기', icon: ShieldCheck },
   { href: '/courses', label: '코스', icon: Route },
   { href: '/reviews', label: '방문자 리뷰', icon: MessageSquare },
   { href: '/content-engine', label: '콘텐츠 엔진', icon: Bot },
