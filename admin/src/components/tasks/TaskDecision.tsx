@@ -16,7 +16,7 @@ export function TaskDecision({ taskId }: { taskId: string }) {
     startTransition(async () => {
       const { error } = await decideTask({ taskId, approve, comment: approve ? null : comment });
       if (error) toast.error(`저장 실패: ${error}`);
-      else toast.success(approve ? '승인했어요. Mac mini에서 실행하면 반영돼요' : '거절했어요');
+      else toast.success(approve ? '승인했어요. 1분 안에 실행돼요' : '거절했어요');
     });
 
   if (rejecting) {

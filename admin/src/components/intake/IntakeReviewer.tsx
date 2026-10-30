@@ -1,8 +1,10 @@
 'use client';
 
 /**
- * 검토함: 한 곳씩 보고 키 하나로 정한다.
- *   1 가봤음 · 2 안 가봤지만 추천 · 3 나중에 · 4 제외 · ←/→ 이동
+ * 검토함: 한 곳씩 보고 숫자로 고른 뒤 Enter로 저장한다.
+ *   1 가봤음 · 2 안 가봤지만 추천 · 3 나중에 · 4 제외 → Enter 저장 · Esc 취소 · ←/→ 이동
+ * 가봤음·추천을 고르면 리뷰로 만든 추천 문장 초안(raw.draft)과 올라간 사진이 미리 채워진다.
+ * 문장은 '초안'으로 저장되고, 공개는 장소 화면에서 확인한 뒤 한다.
  * 이름이 같은 곳이 여러 개면 연결할 장소를 먼저 고른다 (새로 만들면 중복이 생긴다).
  */
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
@@ -25,7 +27,7 @@ const DECISIONS: { key: string; status: IntakeDecision; label: string; hint: str
   { key: '4', status: 'excluded', label: '제외', hint: '장소를 만들지 않아요', tone: 'bg-white border border-gray-200 text-gray-500 hover:text-red-500 hover:bg-red-50' },
 ];
 
-const BASIS_PRESETS = ['지인 추천', '직접 찾아봄', '가보고 싶음'];
+const BASIS_PRESETS = ['리뷰 참고', '지인 추천', '직접 찾아봄', '가보고 싶음'];
 const SPACE_HINT = /전시|미술관|박물관|갤러리|공원|산책|서점|도서관|공연|체험|전망|궁|사찰|시장|테마/;
 
 type PlaceOption = Awaited<ReturnType<typeof searchPlaces>>[number];
@@ -44,7 +46,11 @@ export function IntakeReviewer({ items: initialItems, total }: Props) {
   const [items, setItems] = useState(initialItems);
   const [index, setIndex] = useState(0);
   const [basis, setBasis] = useState('');
-  const [askBasis, setAskBasis] = useState(false);
+  const [choice, setChoice] = useState<IntakeDecision | null>(null);
+  const [text, setText] = useState('');
+  const [fitsFor, setFitsFor] = useState('');
+  const [textEdited, setTextEdited] = useState(false);
+  const [applyPhotos, setApplyPhotos] = useState(true);
   const [linked, setLinked] = useState<PlaceOption | null>(null);
   const [query, setQuery] = useState('');
   const [options, setOptions] = useState<PlaceOption[]>([]);
@@ -62,56 +68,72 @@ export function IntakeReviewer({ items: initialItems, total }: Props) {
   if ((item?.id ?? null) !== shownId) {
     setShownId(item?.id ?? null);
     setBasis('');
-    setAskBasis(false);
+    setChoice(null);
+    setText(item?.raw.draft?.body ?? '');
+    setFitsFor(item?.raw.draft?.fits_for ?? '');
+    setTextEdited(false);
+    setApplyPhotos(true);
     setLinked(null);
     setQuery(item?.name ?? '');
     setOptions([]);
     setMode(item?.category_hint && SPACE_HINT.test(item.category_hint) ? 'attractions' : 'locations');
   }
 
-  const decide = useCallback(
-    (status: IntakeDecision) => {
-      if (!item || isPending) return;
-      if (status === 'recommend_unvisited' && !askBasis) {
-        setAskBasis(true);
-        return;
-      }
-      if ((status === 'visited' || status === 'recommend_unvisited') && ambiguous && !linked) {
-        toast.error('같은 이름이 여러 곳이에요. 아래에서 연결할 장소를 먼저 골라주세요.');
-        return;
-      }
-      startTransition(async () => {
-        const result = await decideIntake({
-          intakeId: item.id,
-          status,
-          placeId: linked?.id ?? null,
-          mode,
-          basis: status === 'recommend_unvisited' ? basis : null,
-        });
-        if (result.error) {
-          toast.error(`저장 실패: ${result.error}`);
-          return;
-        }
-        toast.success(`${item.name}: ${DECISIONS.find((d) => d.status === status)?.label}`);
-        setItems((prev) => prev.filter((it) => it.id !== item.id));
-        setIndex((i) => Math.min(i, items.length - 2));
+  const recommends = choice === 'visited' || choice === 'recommend_unvisited';
+
+  const choose = useCallback((status: IntakeDecision) => {
+    setChoice(status);
+    if (status === 'recommend_unvisited') setBasis((b) => b || (item?.raw.draft?.body ? '리뷰 참고' : ''));
+  }, [item]);
+
+  const commit = useCallback(() => {
+    const status = choice;
+    if (!item || !status || isPending) return;
+    if ((status === 'visited' || status === 'recommend_unvisited') && ambiguous && !linked) {
+      toast.error('같은 이름이 여러 곳이에요. 아래에서 연결할 장소를 먼저 골라주세요.');
+      return;
+    }
+    const withText = status === 'visited' || status === 'recommend_unvisited';
+    startTransition(async () => {
+      const result = await decideIntake({
+        intakeId: item.id,
+        status,
+        placeId: linked?.id ?? null,
+        mode,
+        basis: status === 'recommend_unvisited' ? basis : null,
+        recommendation: withText && text.trim() ? { body: text, fitsFor: fitsFor || null, edited: textEdited } : null,
+        applyPhotos: withText && applyPhotos,
       });
-    },
-    [item, isPending, askBasis, ambiguous, linked, mode, basis, items.length],
-  );
+      if (result.error) {
+        toast.error(`저장 실패: ${result.error}`);
+        return;
+      }
+      if (result.warning) toast.warning(`${item.name}: ${result.warning}`);
+      else toast.success(`${item.name}: ${DECISIONS.find((d) => d.status === status)?.label}`);
+      (document.activeElement as HTMLElement | null)?.blur();
+      setItems((prev) => prev.filter((it) => it.id !== item.id));
+      setIndex((i) => Math.min(i, items.length - 2));
+    });
+  }, [item, choice, isPending, ambiguous, linked, mode, basis, text, fitsFor, textEdited, applyPhotos, items.length]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const el = event.target as HTMLElement;
       if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
       const decision = DECISIONS.find((d) => d.key === event.key);
-      if (decision) decide(decision.status);
+      if (decision) choose(decision.status);
+      if (event.key === 'Enter' && el.tagName !== 'BUTTON' && el.tagName !== 'A') {
+        event.preventDefault();
+        commit();
+      }
+      if (event.key === 'Escape') setChoice(null);
       if (event.key === 'ArrowRight') setIndex((i) => Math.min(i + 1, items.length - 1));
       if (event.key === 'ArrowLeft') setIndex((i) => Math.max(i - 1, 0));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [decide, items.length]);
+  }, [choose, commit, items.length]);
 
   const runSearch = () =>
     startTransition(async () => {
@@ -161,7 +183,7 @@ export function IntakeReviewer({ items: initialItems, total }: Props) {
           {index + 1} / {items.length}
           {total > items.length && ` (전체 ${total}곳 중)`}
         </span>
-        <span className="hidden md:inline">키보드: 1 가봤음 · 2 안 가봤지만 추천 · 3 나중에 · 4 제외 · ←/→ 이동</span>
+        <span className="hidden md:inline">키보드: 1 가봤음 · 2 안 가봤지만 추천 · 3 나중에 · 4 제외 → Enter 저장 · Esc 취소 · ←/→ 이동</span>
         <div className="flex gap-1">
           <button type="button" onClick={() => setIndex((i) => Math.max(i - 1, 0))} className="rounded-md border border-gray-200 p-1 hover:border-orange-300" aria-label="이전">
             <ChevronLeft className="h-4 w-4" />
@@ -322,52 +344,113 @@ export function IntakeReviewer({ items: initialItems, total }: Props) {
 
           <div className="space-y-2 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">정하기</p>
-            {DECISIONS.map((decision) => (
-              <div key={decision.status}>
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => decide(decision.status)}
-                  className={cn('flex h-10 w-full items-center justify-between rounded-lg px-3 text-sm font-medium transition-colors disabled:opacity-50', decision.tone)}
-                >
-                  <span>{decision.label}</span>
-                  <kbd className="rounded border border-current/20 px-1.5 text-[10px] opacity-70">{decision.key}</kbd>
-                </button>
-                <p className="mt-0.5 px-1 text-[11px] text-muted-foreground">{decision.hint}</p>
-                {decision.status === 'recommend_unvisited' && askBasis && (
-                  <div className="mt-2 space-y-1.5 rounded-lg bg-orange-50/60 p-2">
-                    <div className="flex flex-wrap gap-1">
-                      {BASIS_PRESETS.map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setBasis(preset)}
-                          className={cn('rounded-full px-2 py-0.5 text-xs', basis === preset ? 'bg-orange-500 text-white' : 'bg-white text-orange-700')}
-                        >
-                          {preset}
-                        </button>
-                      ))}
+            {DECISIONS.map((decision) => {
+              const selected = choice === decision.status;
+              return (
+                <div key={decision.status}>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={(event) => {
+                      choose(decision.status);
+                      // 버튼에 포커스가 남으면 Enter가 버튼을 다시 누르므로 풀어 둔다
+                      event.currentTarget.blur();
+                    }}
+                    aria-pressed={selected}
+                    className={cn(
+                      'flex h-10 w-full items-center justify-between rounded-lg px-3 text-sm font-medium transition-colors disabled:opacity-50',
+                      decision.tone,
+                      selected && 'ring-2 ring-orange-400 ring-offset-1',
+                      choice && !selected && 'opacity-50',
+                    )}
+                  >
+                    <span>{decision.label}</span>
+                    <kbd className="rounded border border-current/20 px-1.5 text-[10px] opacity-70">{decision.key}</kbd>
+                  </button>
+                  {!choice && <p className="mt-0.5 px-1 text-[11px] text-muted-foreground">{decision.hint}</p>}
+                  {selected && decision.status === 'recommend_unvisited' && (
+                    <div className="mt-2 space-y-1.5 rounded-lg bg-orange-50/60 p-2">
+                      <p className="text-[11px] text-orange-700">추천 근거</p>
+                      <div className="flex flex-wrap gap-1">
+                        {BASIS_PRESETS.map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setBasis(preset)}
+                            className={cn('rounded-full px-2 py-0.5 text-xs', basis === preset ? 'bg-orange-500 text-white' : 'bg-white text-orange-700')}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        value={basis}
+                        onChange={(event) => setBasis(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') { event.preventDefault(); commit(); }
+                        }}
+                        placeholder="왜 추천하나요? (예: 친구가 크루아상이 맛있대요)"
+                        className="h-8 w-full rounded-md border border-orange-200 bg-white px-2 text-sm"
+                      />
                     </div>
-                    <input
-                      autoFocus
-                      value={basis}
-                      onChange={(event) => setBasis(event.target.value)}
-                      onKeyDown={(event) => event.key === 'Enter' && decide('recommend_unvisited')}
-                      placeholder="왜 추천하나요? (예: 친구가 크루아상이 맛있대요)"
-                      className="h-8 w-full rounded-md border border-orange-200 bg-white px-2 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => decide('recommend_unvisited')}
-                      className="h-8 w-full rounded-md bg-orange-500 text-xs font-medium text-white hover:bg-orange-600"
-                    >
-                      이 근거로 저장 (Enter)
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
+
+          {choice && (
+            <div className="space-y-3 rounded-xl border border-orange-200 bg-white p-5 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {DECISIONS.find((d) => d.status === choice)?.label}로 저장
+              </p>
+              {recommends && (
+                <>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-muted-foreground">
+                      추천하는 이유 {item.raw.draft?.body && !textEdited ? '· 수집한 리뷰로 만든 초안이에요' : ''}
+                    </p>
+                    <textarea
+                      value={text}
+                      onChange={(event) => { setText(event.target.value); setTextEdited(true); }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); commit(); }
+                      }}
+                      rows={4}
+                      placeholder="비워 두면 문장 없이 저장해요"
+                      className="w-full rounded-md border border-gray-200 p-2 text-sm leading-relaxed"
+                    />
+                    <input
+                      value={fitsFor}
+                      onChange={(event) => { setFitsFor(event.target.value); setTextEdited(true); }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); commit(); }
+                      }}
+                      placeholder="이럴 때 좋아요 (선택)"
+                      className="h-8 w-full rounded-md border border-gray-200 px-2 text-xs"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      초안으로 저장돼요. 사이트에는 장소 화면에서 확인하고 공개해야 나가요. 줄바꿈은 Shift+Enter.
+                    </p>
+                  </div>
+                  {uploaded.length > 0 && (
+                    <label className="flex items-center gap-2 text-xs">
+                      <input type="checkbox" checked={applyPhotos} onChange={(event) => setApplyPhotos(event.target.checked)} />
+                      사진 {uploaded.length}장 사용 · 대표 사진이 없으면 첫 장을 대표로
+                    </label>
+                  )}
+                </>
+              )}
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={commit}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-orange-500 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+              >
+                저장 <kbd className="rounded border border-white/40 px-1.5 text-[10px]">Enter</kbd>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -140,7 +140,7 @@ function TaskOutcome({ task }: { task: OomapTask }) {
       }`,
     );
   }
-  if (task.status === 'approved') lines.push('Mac mini의 Claude Code에서 "실행해"라고 하면 task_run으로 실행돼요');
+  if (task.status === 'approved') lines.push('Mac mini가 1분 안에 실행해요');
   if (task.log?.finished_at) lines.push(`실행 ${task.log.success ? '성공' : '실패'} · ${formatTime(task.log.finished_at)}`);
   const detail = task.error ?? task.log?.error ?? (task.status === 'done' ? task.result ?? task.log?.output : null);
   if (!lines.length && !detail) return null;
@@ -175,7 +175,7 @@ export default async function TasksPage({ searchParams }: Props) {
         <div>
           <h1 className="text-xl font-bold tracking-tight">승인 대기</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            Claude가 MCP로 제안한 운영 DB 작업이에요. 승인한 작업만 Mac mini에서 실행돼요. 거절하면 실행되지 않아요.
+            Claude가 MCP로 제안한 운영 DB 작업이에요. 승인하면 Mac mini가 1분 안에 실행해요. 거절하면 실행되지 않아요.
           </p>
         </div>
 
