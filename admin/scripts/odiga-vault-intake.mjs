@@ -193,10 +193,13 @@ async function refreshPending(projectEnv, places) {
   const res = await fetch(`${url}/rest/v1/place_intake?select=id,source_key,name,province,region_hint,category_hint,address,lat,lon,kakao_place_id,matched_place_id,match_note,raw&source=eq.odiga_vault&status=eq.pending`, { headers });
   if (!res.ok) throw new Error(`place_intake ${res.status} ${await res.text()}`);
   const rows = await res.json();
+  // places는 anon으로 읽어 숨긴 장소가 없다. 숨긴 장소(중복 정리로 숨긴 쪽 등)에 연결된 항목은 다시 찾는다
+  const visible = new Set(places.map((p) => p.id));
   const items = rows.map((row) => {
     const info = describeFolder(row.source_key.split('/'));
     return { ...row, before: { region_hint: row.region_hint, category_hint: row.category_hint, lat: row.lat, matched: row.matched_place_id },
-             region_hint: regionHint(info), category_hint: info.category };
+             region_hint: regionHint(info), category_hint: info.category,
+             matched_place_id: visible.has(row.matched_place_id) ? row.matched_place_id : null };
   });
   await enrichAll(items.filter((i) => i.lat == null || !i.kakao_place_id || !i.matched_place_id), places);
 
