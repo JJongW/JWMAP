@@ -59,7 +59,7 @@ Supabase (운영)          admin 화면 (같은 데이터를 사람이 본다)
 | `photos_upload_plan(limit)` | 내 사진 업로드 (Cloudinary) |
 
 **승인하는 방법** (둘 중 하나)
-- admin 화면 "승인 대기" 목록에서 승인. 콘텐츠 엔진 승인 화면을 장소 작업에도 쓴다.
+- admin 화면 "승인 대기"(`/tasks`)에서 승인·거절. DB 함수 `admin_decide_task`(028)가 Oomap 작업이고 proposed인 것만 바꾼다. 실행은 Mac mini에서 `task_run`.
 - Claude Code 대화에서 운영자가 "승인"이라고 답하면, Claude가 `task_approve(task_id)`를 부른다. 이 도구는 Claude Code 권한 설정에서 매번 확인을 받게 둔다 (`permissions.ask`).
 
 **한 번에 바꿀 수 있는 양에 상한을 둔다.** 숨김은 50곳, 검토함 결정은 200곳까지. 넘으면 나눠서 계획한다.

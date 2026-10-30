@@ -29,6 +29,8 @@ export const MIGRATION_026 = read('migrations/026_search_views_from_curation.sql
 export const ROLLBACK_026 = read('rollback/026_search_views_from_curation_down.sql');
 export const MIGRATION_027 = read('migrations/027_intake_link_by_kakao_id.sql');
 export const ROLLBACK_027 = read('rollback/027_intake_link_by_kakao_id_down.sql');
+export const MIGRATION_028 = read('migrations/028_admin_task_approvals.sql');
+export const ROLLBACK_028 = read('rollback/028_admin_task_approvals_down.sql');
 
 export async function createBaseDb(): Promise<PGlite> {
   const db = new PGlite();
