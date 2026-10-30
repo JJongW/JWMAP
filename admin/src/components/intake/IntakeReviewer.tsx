@@ -3,6 +3,7 @@
 /**
  * 검토함: 한 곳씩 보고 숫자로 고른 뒤 Enter로 저장한다.
  *   1 가봤음 · 2 안 가봤지만 추천 · 3 나중에 · 4 제외 → Enter 저장 · Esc 취소 · ←/→ 이동
+ *   2를 고른 동안 ←/→는 추천 근거(리뷰 참고 · 지인 추천 · 직접 찾아봄 · 가보고 싶음)를 바꾼다
  * 가봤음·추천을 고르면 리뷰로 만든 추천 문장 초안(raw.draft)과 올라간 사진이 미리 채워진다.
  * 문장은 '초안'으로 저장되고, 공개는 장소 화면에서 확인한 뒤 한다.
  * 이름이 같은 곳이 여러 개면 연결할 장소를 먼저 고른다 (새로 만들면 중복이 생긴다).
@@ -128,12 +129,24 @@ export function IntakeReviewer({ items: initialItems, total }: Props) {
         commit();
       }
       if (event.key === 'Escape') setChoice(null);
-      if (event.key === 'ArrowRight') setIndex((i) => Math.min(i + 1, items.length - 1));
-      if (event.key === 'ArrowLeft') setIndex((i) => Math.max(i - 1, 0));
+      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        const step = event.key === 'ArrowRight' ? 1 : -1;
+        if (choice === 'recommend_unvisited') {
+          // 안 가봤지만 추천을 고른 동안에는 ←/→가 추천 근거를 바꾼다
+          event.preventDefault();
+          setBasis((b) => {
+            const at = BASIS_PRESETS.indexOf(b);
+            const next = at < 0 ? (step > 0 ? 0 : BASIS_PRESETS.length - 1) : (at + step + BASIS_PRESETS.length) % BASIS_PRESETS.length;
+            return BASIS_PRESETS[next];
+          });
+        } else {
+          setIndex((i) => Math.min(Math.max(i + step, 0), items.length - 1));
+        }
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [choose, commit, items.length]);
+  }, [choose, commit, choice, items.length]);
 
   const runSearch = () =>
     startTransition(async () => {
@@ -183,7 +196,7 @@ export function IntakeReviewer({ items: initialItems, total }: Props) {
           {index + 1} / {items.length}
           {total > items.length && ` (전체 ${total}곳 중)`}
         </span>
-        <span className="hidden md:inline">키보드: 1 가봤음 · 2 안 가봤지만 추천 · 3 나중에 · 4 제외 → Enter 저장 · Esc 취소 · ←/→ 이동</span>
+        <span className="hidden md:inline">키보드: 1 가봤음 · 2 안 가봤지만 추천(←/→ 근거) · 3 나중에 · 4 제외 → Enter 저장 · Esc 취소 · ←/→ 이동</span>
         <div className="flex gap-1">
           <button type="button" onClick={() => setIndex((i) => Math.max(i - 1, 0))} className="rounded-md border border-gray-200 p-1 hover:border-orange-300" aria-label="이전">
             <ChevronLeft className="h-4 w-4" />
@@ -370,7 +383,7 @@ export function IntakeReviewer({ items: initialItems, total }: Props) {
                   {!choice && <p className="mt-0.5 px-1 text-[11px] text-muted-foreground">{decision.hint}</p>}
                   {selected && decision.status === 'recommend_unvisited' && (
                     <div className="mt-2 space-y-1.5 rounded-lg bg-orange-50/60 p-2">
-                      <p className="text-[11px] text-orange-700">추천 근거</p>
+                      <p className="text-[11px] text-orange-700">추천 근거 · ←/→로 바꾸기</p>
                       <div className="flex flex-wrap gap-1">
                         {BASIS_PRESETS.map((preset) => (
                           <button
