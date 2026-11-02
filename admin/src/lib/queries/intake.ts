@@ -141,3 +141,72 @@ export async function getIntakeGroups(
   }
   return { sources, folders };
 }
+
+/** 볼거리로 만들 장소인지 분류로 짐작 (검토함·가본 곳 고르기 공통) */
+export const SPACE_HINT = /전시|미술관|박물관|갤러리|공원|산책|서점|도서관|공연|체험|전망|궁|사찰|시장|테마/;
+
+/** 가본 곳 고르기: 지역 탭으로 따로 보여줄 만큼 많은 곳의 기준. 나머지는 '그 밖'으로 묶는다 */
+const PICK_TAB_MIN = 20;
+export const PICK_OTHER = '그 밖';
+
+export interface IntakePickItem {
+  id: string;
+  name: string;
+  category_hint: string | null;
+  region_hint: string | null;
+  address: string | null;
+  kakao_place_id: string | null;
+  match_note: string | null;
+  draft_body: string | null;
+}
+
+/** 검토 전 장소의 지역(region_hint)별 개수. 적은 지역은 '그 밖'으로 묶는다 */
+export async function getIntakeRegions(
+  supabase: SupabaseClient,
+): Promise<{ tabs: { region: string; count: number }[]; other: { regions: string[]; count: number } }> {
+  const counts: Record<string, number> = {};
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from('place_intake')
+      .select('region_hint')
+      .eq('status', 'pending')
+      .range(from, from + 999);
+    if (error || !data) break;
+    for (const row of data as { region_hint: string | null }[]) {
+      const key = row.region_hint ?? '';
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    if (data.length < 1000) break;
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const tabs = sorted.filter(([region, n]) => region && n >= PICK_TAB_MIN).map(([region, count]) => ({ region, count }));
+  const rest = sorted.filter(([region, n]) => !region || n < PICK_TAB_MIN);
+  return { tabs, other: { regions: rest.map(([region]) => region), count: rest.reduce((sum, [, n]) => sum + n, 0) } };
+}
+
+/** 가본 곳 고르기 목록: 검토 전 장소를 이름순으로. region이 '그 밖'이면 탭에 없는 지역 전부 */
+export async function getIntakePickList(
+  supabase: SupabaseClient,
+  filters: { region: string; tabRegions: string[]; page: number; per_page: number },
+): Promise<{ data: IntakePickItem[]; count: number }> {
+  const from = (filters.page - 1) * filters.per_page;
+  let query = supabase
+    .from('place_intake')
+    .select('id, name, category_hint, region_hint, address, kakao_place_id, match_note, draft_body:raw->draft->>body', { count: 'exact' })
+    .eq('status', 'pending');
+  if (filters.region === PICK_OTHER) {
+    const quoted = filters.tabRegions.map((r) => `"${r.replace(/"/g, '\\"')}"`).join(',');
+    query = query.or(`region_hint.is.null,region_hint.not.in.(${quoted})`);
+  } else {
+    query = query.eq('region_hint', filters.region);
+  }
+  const { data, error, count } = await query
+    .order('name', { ascending: true })
+    .order('id', { ascending: true })
+    .range(from, from + filters.per_page - 1);
+  if (error) {
+    console.warn('[getIntakePickList] 쿼리 오류:', error);
+    return { data: [], count: 0 };
+  }
+  return { data: (data ?? []) as unknown as IntakePickItem[], count: count ?? 0 };
+}

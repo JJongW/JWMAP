@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import {
   INTAKE_SOURCE_LABEL,
   PHOTO_SOURCE_LABEL,
+  SPACE_HINT,
   type IntakeDecision,
   type IntakeItem,
 } from '@/lib/queries/intake';
@@ -29,7 +30,6 @@ const DECISIONS: { key: string; status: IntakeDecision; label: string; hint: str
 ];
 
 const BASIS_PRESETS = ['리뷰 참고', '지인 추천', '직접 찾아봄', '가보고 싶음'];
-const SPACE_HINT = /전시|미술관|박물관|갤러리|공원|산책|서점|도서관|공연|체험|전망|궁|사찰|시장|테마/;
 
 type PlaceOption = Awaited<ReturnType<typeof searchPlaces>>[number];
 
