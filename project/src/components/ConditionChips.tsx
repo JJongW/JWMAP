@@ -18,6 +18,7 @@ import {
   type PlaceKind,
 } from '../utils/intentChips';
 import { termLabel, termsOf } from '../utils/taxonomy';
+import { regionLabel } from '../utils/displayText';
 
 type SingleKey = 'region' | 'companion' | 'timeSlot' | 'priority' | 'kind' | 'placeType';
 type MultiKey = 'reasons' | 'situations';
@@ -57,7 +58,7 @@ export function ConditionChips({ conditions, onChange, regionOptions, contentMod
     termsOf(kind, contentMode).map((term) => ({ value: term.slug, label: term.label }));
 
   const options: Record<ChipKey, { value: string; label: string }[]> = {
-    region: regionOptions.map((region) => ({ value: region, label: region })),
+    region: regionOptions.map((region) => ({ value: region, label: regionLabel(region) })),
     companion: entries<Companion>(labels.companion),
     timeSlot: entries<TimeSlot>(labels.timeSlot),
     priority: entries<PriorityFeature>(labels.priority),

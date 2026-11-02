@@ -1,3 +1,4 @@
+import { categoryLabel } from '../utils/displayText';
 import { CategoryButton } from './CategoryButton';
 import type { Province, CategoryMain, CategorySub } from '../types/location';
 import { PROVINCES } from '../types/location';
@@ -94,7 +95,7 @@ export function FilterSection({
                   : 'bg-base text-accent/80'
               }`}
             >
-              {main}
+              {categoryLabel(main)}
             </button>
           ))}
         </div>

@@ -466,7 +466,7 @@ export default function App() {
       otherModeCache.current[mode] = pool;
     }
     if (mode !== contentMode) {
-      setIntentNotice(mode === 'space' ? '고른 장소 종류에 맞춰 볼거리에서 찾았어요.' : '고른 장소 종류에 맞춰 맛집·카페에서 찾았어요.');
+      setIntentNotice(mode === 'space' ? '고른 장소 종류에 맞춰 볼거리에서 찾았어요.' : '고른 장소 종류에 맞춰 맛집과 카페에서 찾았어요.');
     }
     setConditions(next);
     setDecisionMode(mode);

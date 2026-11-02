@@ -26,6 +26,7 @@ import {
 } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { RecommendBadge } from './RecommendBadge';
+import { categoryLabel, regionLabel } from '../utils/displayText';
 import { getSavedIds, getVisitedIds, recordActivity, toggleSaved, toggleVisited } from '../utils/activity';
 import type { Location } from '../types/location';
 import type { BrowseViewProps } from './browse/types';
@@ -471,7 +472,7 @@ export function BrowseView({
                 : savedOnly
                   ? getSavedViewCountLabel(savedView, searchFilteredLocations.length)
                   : isCuratedStart
-                    ? `먼저 볼 곳 ${searchFilteredLocations.length}곳 · 직접 방문한 곳부터`
+                    ? `먼저 볼 곳 ${searchFilteredLocations.length}곳 (직접 방문한 곳부터)`
                 : `장소 ${searchFilteredLocations.length}곳`
               }
             </p>
@@ -691,10 +692,12 @@ function BrowseList({
                   >
                     {getVisitStatusLabel(location)}
                   </span>
-                  <span className="min-w-0 truncate">
-                    {location.region}
-                    {(location.categorySub || location.categoryMain) && ` · ${location.categorySub || location.categoryMain}`}
-                  </span>
+                  <span className="min-w-0 truncate">{regionLabel(location.region)}</span>
+                  {(location.categorySub || location.categoryMain) && (
+                    <span className="whitespace-nowrap rounded bg-gray-100 px-1.5 py-px text-gray-600">
+                      {categoryLabel(location.categorySub || location.categoryMain)}
+                    </span>
+                  )}
                 </div>
                 {/* 추천 이유는 운영자 한 줄만. 없으면 비워 둔다 (일반 태그로 대신하지 않는다) */}
                 {curatorNote ? (
@@ -981,13 +984,13 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
         <div className="p-5">
         <h3 className="text-lg font-bold text-gray-800">{location.name}</h3>
 
-        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-          <span>{location.region}</span>
+        {/* 지역과 업종은 구분점으로 잇지 않고 각각 따로 */}
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-gray-600">
+          <span>{regionLabel(location.region)}</span>
           {(location.categorySub || location.categoryMain) && (
-            <>
-              <span className="text-gray-200">·</span>
-              <span>{location.categorySub || location.categoryMain}</span>
-            </>
+            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">
+              {categoryLabel(location.categorySub || location.categoryMain)}
+            </span>
           )}
         </div>
 
@@ -1005,7 +1008,7 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
           <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50/60 p-3">
             <p className="text-xs font-semibold text-orange-700">
               추천하는 이유
-              {getUnvisitedBasisLabel(location) && <span className="ml-1 font-normal text-gray-500">· {getUnvisitedBasisLabel(location)}</span>}
+              {getUnvisitedBasisLabel(location) && <span className="ml-1.5 font-normal text-gray-600">{getUnvisitedBasisLabel(location)}</span>}
             </p>
             <p className="mt-1 text-sm font-medium leading-relaxed text-gray-800">{curatorReason}</p>
           </div>

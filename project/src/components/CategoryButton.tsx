@@ -1,4 +1,5 @@
 import React from 'react';
+import { categoryLabel } from '../utils/displayText';
 import { clsx } from 'clsx';
 import type { Category } from '../types/location';
 
@@ -21,7 +22,7 @@ export function CategoryButton({ category, isActive, onClick, count }: CategoryB
           : 'bg-base text-accent/80 hover:bg-opacity-80'
       )}
     >
-      <span>{category}</span>
+      <span>{categoryLabel(category)}</span>
       <span
         className={clsx(
           'px-2 py-0.5 text-xs font-semibold rounded-lg',

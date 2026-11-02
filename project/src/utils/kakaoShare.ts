@@ -83,7 +83,7 @@ function buildDescription(location: Location): string {
   parts.push(location.address);
 
   if (location.tags && location.tags.length > 0) {
-    parts.push(location.tags.slice(0, 4).map((tag) => `#${tag}`).join(' · '));
+    parts.push(location.tags.slice(0, 4).map((tag) => `#${tag}`).join(' '));
   }
 
   // 원라이너 (short_desc)

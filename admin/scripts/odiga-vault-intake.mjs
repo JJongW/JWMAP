@@ -99,7 +99,8 @@ function describeFolder(segs) {
   };
 }
 
-const regionHint = (info) => [info.district, info.neighborhood].filter(Boolean).join(' · ') || null;
+// 사이트에 지역 이름으로 그대로 나가므로 가운데점 대신 공백으로 잇는다. 같은 이름이면 한 번만 ('의정부 의정부' 방지)
+const regionHint = (info) => [...new Set([info.district, info.neighborhood].filter(Boolean))].join(' ') || null;
 
 async function fetchPlaces(env) {
   const url = env.VITE_SUPABASE_URL;

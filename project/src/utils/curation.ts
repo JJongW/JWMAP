@@ -189,9 +189,9 @@ export function getRecommendBadge(
 
 const UNVISITED_BASIS_LABEL: Record<string, string> = { friend: '지인 추천', research: '직접 찾아봄', wishlist: '가보고 싶은 곳' };
 
-/** 안 가본 곳의 공개 추천이면 "아직 안 가봤어요 · 지인 추천" 같은 꼬리표. 가본 곳이거나 근거가 없으면 '' */
+/** 안 가본 곳의 공개 추천이면 "아직 안 가봤어요 (지인 추천)" 같은 꼬리표. 가본 곳이거나 근거가 없으면 '' */
 export function getUnvisitedBasisLabel(location: { recommend_basis?: string | null }): string {
   const basis = location.recommend_basis;
   if (!basis || basis === 'visited') return '';
-  return `아직 안 가봤어요 · ${UNVISITED_BASIS_LABEL[basis] ?? '추천'}`;
+  return `아직 안 가봤어요 (${UNVISITED_BASIS_LABEL[basis] ?? '추천'})`;
 }

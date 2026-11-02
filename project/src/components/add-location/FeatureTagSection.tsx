@@ -15,7 +15,7 @@ export function FeatureTagSection({
     <>
       <div>
         <label className="block text-sm font-medium text-gray-700">태그</label>
-        <p className="mb-2 mt-0.5 text-xs text-gray-400">추천하는 이유·이런 때 잘 맞아요·방문 정보(주차·예약 등)를 골라요. 여러 개 가능해요.</p>
+        <p className="mb-2 mt-0.5 text-xs text-gray-400">추천하는 이유, 이런 때 잘 맞아요, 방문 정보(주차, 예약 등)를 골라요. 여러 개 고를 수 있어요.</p>
         <div className="flex flex-wrap gap-2">
           {presetTags.map((tag) => (
             <button
