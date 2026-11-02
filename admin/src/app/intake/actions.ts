@@ -2,7 +2,7 @@
 
 import { createServerSupabase } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import type { IntakeDecision } from '@/lib/queries/intake';
+import { SPACE_HINT, type IntakeDecision } from '@/lib/queries/intake';
 
 /** 안 가봤지만 추천의 근거 문구 → recommendations.basis */
 function recommendationBasis(status: IntakeDecision, basis: string | null | undefined) {
@@ -81,6 +81,58 @@ export async function decideIntake(input: {
 
   revalidatePath('/intake');
   return { placeId, error: null, warning: warnings.length ? warnings.join(' · ') : null };
+}
+
+/**
+ * 가본 곳 고르기: 체크한 곳을 한 번에 '가봤음'으로. 한 곳씩 정할 때와 똑같이
+ * 미리 만든 문장(raw.draft)은 추천 문장 초안으로, 올라간 사진은 사이트에 쓸 사진으로 넣는다.
+ * 같은 이름이 여러 곳(ambiguous)이면 연결할 장소를 골라야 해서 건너뛴다.
+ */
+export async function markVisitedBulk(
+  intakeIds: string[],
+): Promise<{ saved: string[]; skipped: string[]; failed: { id: string; error: string }[]; warnings: string[] }> {
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from('place_intake')
+    .select('id, name, category_hint, match_note, draft:raw->draft')
+    .in('id', intakeIds)
+    .eq('status', 'pending');
+  if (error) return { saved: [], skipped: [], failed: intakeIds.map((id) => ({ id, error: error.message })), warnings: [] };
+  const rows = (data ?? []) as {
+    id: string;
+    name: string;
+    category_hint: string | null;
+    match_note: string | null;
+    draft: { body: string | null; fits_for: string | null } | null;
+  }[];
+
+  const result = { saved: [] as string[], skipped: [] as string[], failed: [] as { id: string; error: string }[], warnings: [] as string[] };
+  const found = new Set(rows.map((r) => r.id));
+  result.skipped.push(...intakeIds.filter((id) => !found.has(id)));
+  const queue = rows.filter((row) => {
+    if (!row.match_note?.startsWith('ambiguous')) return true;
+    result.skipped.push(row.id);
+    return false;
+  });
+
+  async function worker() {
+    for (let row = queue.shift(); row; row = queue.shift()) {
+      const body = row.draft?.body?.trim();
+      const r = await decideIntake({
+        intakeId: row.id,
+        status: 'visited',
+        mode: row.category_hint && SPACE_HINT.test(row.category_hint) ? 'attractions' : 'locations',
+        recommendation: body ? { body, fitsFor: row.draft?.fits_for ?? null, edited: false } : null,
+        applyPhotos: true,
+      });
+      if (r.error) result.failed.push({ id: row.id, error: r.error });
+      else result.saved.push(row.id);
+      if (r.warning) result.warnings.push(`${row.name}: ${r.warning}`);
+    }
+  }
+  await Promise.all(Array.from({ length: 4 }, worker));
+  revalidatePath('/intake/pick');
+  return result;
 }
 
 /** 사진 고르기: 대표 사진은 장소당 하나 (선택하면 기존 대표는 해제) */

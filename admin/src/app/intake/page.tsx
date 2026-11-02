@@ -41,11 +41,19 @@ export default async function IntakePage({ searchParams }: Props) {
   return (
     <AdminLayout>
       <div className="space-y-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">검토함</h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            수집한 장소를 하나씩 보고 가봤는지만 정해요. 주소·사진·리뷰는 수집기가 채워요.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">검토함</h1>
+            <p className="mt-1 text-xs text-muted-foreground">
+              수집한 장소를 하나씩 보고 가봤는지만 정해요. 주소·사진·리뷰는 수집기가 채워요.
+            </p>
+          </div>
+          <Link
+            href="/intake/pick"
+            className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium hover:border-orange-300 hover:text-orange-600"
+          >
+            가본 곳 고르기
+          </Link>
         </div>
 
         <div className="flex flex-wrap items-center gap-0.5 rounded-lg border bg-gray-50 p-0.5">
