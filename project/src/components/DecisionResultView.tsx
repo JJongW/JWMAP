@@ -24,6 +24,7 @@ import { getConditionLabels, KIND_LABEL, type IntentConditions } from '../utils/
 import { ConditionChips } from './ConditionChips';
 import { ResultMap } from './ResultMap';
 import { useBreakpoint } from '../hooks/useBreakpoint';
+import { categoryLabel, regionLabel } from '../utils/displayText';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { termLabel } from '../utils/taxonomy';
 import { getCardImageUrl } from '../utils/image';
@@ -137,7 +138,13 @@ export function DecisionResultView({
         {/* ── 넓은 화면 오른쪽: 추천과 대안 위치. 확인된 추천이 없을 때는 비워 둔다 ── */}
         <div className="hidden min-w-0 flex-1 pb-6 pt-20 lg:block">
           {!isWide ? null : result && (!onlyUnconfirmed || showUnconfirmed) ? (
-            <ResultMap places={[result.primary, ...result.secondary]} onOpenDetail={onOpenDetail} />
+            <ResultMap
+              places={[result.primary, ...result.secondary].map((location) => ({
+                location,
+                unconfirmed: getConditionMatches(location, conditions, contentMode).some((match) => match.status === 'unknown'),
+              }))}
+              onOpenDetail={onOpenDetail}
+            />
           ) : (
             <div className="flex h-full items-center justify-center rounded-2xl bg-gray-50 px-8 text-center text-sm text-gray-500">
               추천이 정해지면 여기에 위치를 보여 드려요.
@@ -231,7 +238,7 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: Re
               {showAlternatives ? `${copy.secondaryLabel} 접기` : `${copy.secondaryLabel} ${secondary.length}곳 보기`}
             </span>
             <span className="min-w-0 flex-1 truncate text-[13px] text-gray-600">
-              {secondary.map((loc) => loc.name).join(' · ')}
+              {secondary.map((loc) => loc.name).join(', ')}
             </span>
             <ChevronDown size={16} className={`shrink-0 text-gray-400 transition-transform ${showAlternatives ? 'rotate-180' : ''}`} />
           </button>
@@ -353,11 +360,16 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
             {/* 추천 강도는 운영자가 이유를 적은 곳에만. 이유 없이 배지만 있으면 개인 추천처럼 읽힌다 */}
             {reason && <RecommendBadge location={location} size="xs" />}
             {hasUnknown(matches) && <UnconfirmedBadge />}
+            {/* 지역과 업종은 구분점으로 잇지 않고 따로 */}
             <span className="inline-flex items-center gap-1 whitespace-nowrap">
               <MapPin size={13} />
-              {location.region}
-              {location.categoryMain && location.categoryMain !== '전체' && ` · ${location.categoryMain}`}
+              {regionLabel(location.region)}
             </span>
+            {location.categoryMain && location.categoryMain !== '전체' && (
+              <span className="whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">
+                {categoryLabel(location.categoryMain)}
+              </span>
+            )}
           </div>
 
           {/* 추천하는 이유: 운영자가 쓴 문장만. 없으면 지어내지 않고 중립 안내만 */}
@@ -365,7 +377,7 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
             <div className="mb-3">
               <p className="text-xs font-semibold text-orange-700">
                 운영자가 적은 추천 이유
-                {getUnvisitedBasisLabel(location) && <span className="ml-1 font-normal text-gray-500">· {getUnvisitedBasisLabel(location)}</span>}
+                {getUnvisitedBasisLabel(location) && <span className="ml-1.5 font-normal text-gray-600">{getUnvisitedBasisLabel(location)}</span>}
               </p>
               {/* 카드에서는 두 줄까지, 전체 문장은 상세에서 본다 */}
               <p className="mt-0.5 line-clamp-2 text-sm leading-relaxed text-gray-800" title={reason}>{reason}</p>
@@ -384,11 +396,19 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
             </div>
           )}
 
-          {/* 방문 정보: 추천 이유가 아니라 찾아갈 때 필요한 정보 */}
-          <p className="truncate text-[13px] text-gray-600">
-            <span className="font-semibold">방문 정보</span> · {location.address}
-            {practicalTags.length > 0 && ` · ${practicalTags.join(' · ')}`}
-          </p>
+          {/* 찾아갈 때 필요한 정보: 주소와 방문 정보(태그)를 라벨로 나눈다 */}
+          <dl className="space-y-0.5 text-[13px] text-gray-600">
+            <div className="flex gap-1.5">
+              <dt className="shrink-0 font-semibold">주소</dt>
+              <dd className="min-w-0 truncate">{location.address}</dd>
+            </div>
+            {practicalTags.length > 0 && (
+              <div className="flex gap-1.5">
+                <dt className="shrink-0 font-semibold">방문 정보</dt>
+                <dd>{practicalTags.join(', ')}</dd>
+              </div>
+            )}
+          </dl>
         </div>
     </article>
   );
@@ -439,9 +459,9 @@ function SecondaryCard({ location, reason, matches, onOpenDetail }: SecondaryCar
         </div>
         {/* 운영자 이유가 없으면 아무 문장도 채우지 않는다 (같은 안내를 반복하면 근거처럼 보인다) */}
         {reason && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-gray-700">{reason}</p>}
-        {matched.length > 0 && <p className="mt-1 text-[13px] text-gray-700"><span className="font-semibold text-emerald-700">일치</span> {matched.join(' · ')}</p>}
+        {matched.length > 0 && <p className="mt-1 text-[13px] text-gray-700"><span className="font-semibold text-emerald-700">일치:</span> {matched.join(', ')}</p>}
         {unknown.length > 0 && (
-          <p className="mt-0.5 text-[13px] text-amber-900"><span className="font-semibold">미확인</span> {unknown.join(' · ')}</p>
+          <p className="mt-0.5 text-[13px] text-amber-900"><span className="font-semibold">미확인:</span> {unknown.join(', ')}</p>
         )}
       </div>
     </button>
@@ -513,7 +533,9 @@ function UnconfirmedGate({ result, conditions, contentMode, onShow, onConditions
       {unknownEverywhere.length > 0 && (
         <ul className="mt-2 space-y-1 text-sm text-gray-700">
           {unknownEverywhere.map((match) => (
-            <li key={match.label}>· {match.text}</li>
+            <li key={match.label}>
+              <span className="font-semibold text-amber-900">확인 필요:</span> {match.text}
+            </li>
           ))}
         </ul>
       )}
@@ -598,9 +620,8 @@ function NoResult({ conditions, contentMode, onConditionsChange }: NoResultProps
   return (
     <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-6 text-center">
       <p className="text-sm leading-relaxed text-gray-600">
-        {applied.length > 0
-          ? `${applied.map((item) => `'${item.label}'`).join(' · ')} 조건을 모두 지키는 곳을 찾지 못했어요.`
-          : '추천할 장소를 찾지 못했어요.'}
+        {/* 조건은 위 칩에 이미 보이므로 문장 안에 다시 늘어놓지 않는다 */}
+        {applied.length > 0 ? '선택한 조건을 모두 만족하는 곳을 찾지 못했어요.' : '추천할 장소를 찾지 못했어요.'}
       </p>
       {applied.length > 0 && (
         <>
@@ -667,25 +688,23 @@ function ConditionMatchList({ matches, collapsible = false }: { matches: Conditi
       )}
       {expanded && (
         <>
+          {/* 조건마다 한 줄: 상태, 조건 종류, 내용. 구분점으로 이어 붙이지 않는다 */}
           <ul className={`space-y-1 ${collapsible ? 'mt-1' : ''}`}>
-            {groups.map(({ status, items }) => (
-              <li key={status} className="flex items-start gap-2">
-                <span className={`mt-px shrink-0 whitespace-nowrap rounded px-1.5 py-px text-xs font-semibold ${STATUS_STYLE[status].className}`}>
-                  {STATUS_STYLE[status].label}
-                </span>
-                <span className={status === 'match' ? 'text-gray-800' : 'text-amber-900'}>
-                  {status === 'match'
-                    ? items.map((match, i) => (
-                        <span key={match.label}>
-                          {i > 0 && <span className="text-gray-400"> · </span>}
-                          {match.text}
-                          {formatEvidence(match.evidence) && <span className="text-gray-600"> ({formatEvidence(match.evidence)})</span>}
-                        </span>
-                      ))
-                    : items.map((match) => match.text).join(' ')}
-                </span>
-              </li>
-            ))}
+            {(['match', 'unknown', 'mismatch'] as const).flatMap((status) =>
+              matches
+                .filter((match) => match.status === status)
+                .map((match) => (
+                  <li key={`${match.title}-${match.label}`} className="flex items-start gap-2">
+                    <span className={`mt-px shrink-0 whitespace-nowrap rounded px-1.5 py-px text-xs font-semibold ${STATUS_STYLE[status].className}`}>
+                      {STATUS_STYLE[status].label}
+                    </span>
+                    <span className={status === 'match' ? 'text-gray-800' : 'text-amber-900'}>
+                      <span className="font-semibold">{match.title}:</span> {match.text}
+                      {formatEvidence(match.evidence) && <span className="text-gray-600"> ({formatEvidence(match.evidence)})</span>}
+                    </span>
+                  </li>
+                )),
+            )}
           </ul>
           {usesHours && <p className="mt-1 text-xs text-gray-600">영업시간은 카카오맵 정보 기준이에요.</p>}
         </>

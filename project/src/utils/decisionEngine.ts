@@ -17,7 +17,8 @@ import { PROVINCES, inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
 import { getCuratorReason, isCuratorVisited } from './curation';
 import { getConditionLabels, KIND_LABEL, type IntentConditions } from './intentChips';
-import { findTermEvidence, termLabel } from './taxonomy';
+import { findTermEvidence, getTerm, termLabel } from './taxonomy';
+import { regionLabel } from './displayText';
 import { judgeOpenAt } from './hours';
 
 // ─────────────────────────────────────────────
@@ -364,6 +365,8 @@ function rankLocations(
 // ─────────────────────────────────────────────
 
 export interface ConditionMatch {
+  /** 조건 종류 이름 (예: '지역', '동행', '영업'). 카드에서 '동행: 둘이'처럼 앞에 붙인다 */
+  title: string;
   /** 사용자가 고른 조건 이름 (예: '조용한 곳') */
   label: string;
   status: MatchStatus;
@@ -397,6 +400,8 @@ const SPACE_TIME_UNKNOWN: Record<TimeSlot, string> = {
   late: '저녁에도 둘러볼 수 있는지는 확인되지 않았어요.',
 };
 
+const TERM_TITLE: Record<string, string> = { place_type: '장소 종류', reason: '이유', situation: '상황' };
+
 function unknownText(label: string) {
   return `'${label}' 조건은 확인되지 않았어요.`;
 }
@@ -414,18 +419,19 @@ export function getConditionMatches(
   const labels = getConditionLabels(mode);
 
   if (conditions.region) {
-    matches.push({ label: conditions.region, status: 'match', text: conditions.region, evidence: null });
+    matches.push({ title: '지역', label: conditions.region, status: 'match', text: regionLabel(conditions.region), evidence: null });
   }
   if (conditions.kind && mode === 'food') {
     const label = KIND_LABEL[conditions.kind];
     const fits = conditions.kind === 'cafe' ? isCafeLike(location) : !isCafeLike(location);
-    matches.push({ label, status: fits ? 'match' : 'mismatch', text: label, evidence: null });
+    matches.push({ title: '종류', label, status: fits ? 'match' : 'mismatch', text: label, evidence: null });
   }
 
   if (conditions.companion) {
     const judged = judgeCompanion(location, conditions.companion);
     const label = labels.companion[conditions.companion];
     matches.push({
+      title: '동행',
       label,
       status: judged.status,
       text: judged.status === 'match' ? label : COMPANION_UNKNOWN[conditions.companion],
@@ -437,6 +443,8 @@ export function getConditionMatches(
     const judged = judgeTimeSlot(location, conditions.timeSlot, mode);
     const copy = FOOD_TIME_TEXT[conditions.timeSlot];
     matches.push({
+      // 영업시간으로 확인했으면 '영업', 아니면 '시간'
+      title: judged.evidence === HOURS_SOURCE ? '영업' : '시간',
       label: labels.timeSlot[conditions.timeSlot],
       status: judged.status,
       text:
@@ -453,8 +461,8 @@ export function getConditionMatches(
     const label = labels.priority[conditions.priority];
     matches.push(
       tag
-        ? { label, status: 'match', text: label, evidence: `#${tag}` }
-        : { label, status: 'unknown', text: unknownText(label), evidence: null },
+        ? { title: '분위기', label, status: 'match', text: label, evidence: `#${tag}` }
+        : { title: '분위기', label, status: 'unknown', text: unknownText(label), evidence: null },
     );
   }
 
@@ -462,11 +470,12 @@ export function getConditionMatches(
   for (const slug of [conditions.placeType, ...conditions.reasons, ...conditions.situations]) {
     if (!slug) continue;
     const label = termLabel(slug);
+    const title = TERM_TITLE[getTerm(slug)?.kind ?? 'reason'];
     const evidence = findTermEvidence(location, slug, operatorText);
     matches.push(
       evidence
-        ? { label, status: 'match', text: label, evidence }
-        : { label, status: 'unknown', text: unknownText(label), evidence: null },
+        ? { title, label, status: 'match', text: label, evidence }
+        : { title, label, status: 'unknown', text: unknownText(label), evidence: null },
     );
   }
 

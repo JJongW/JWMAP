@@ -9,8 +9,8 @@ import { useEffect, useRef } from 'react';
 import type { Location } from '../types/location';
 
 interface ResultMapProps {
-  /** 0번이 추천 1곳, 나머지는 대안 순서 */
-  places: Location[];
+  /** 0번이 추천 1곳, 나머지는 대안 순서. unconfirmed면 고른 조건 중 확인 안 된 것이 있는 후보 */
+  places: { location: Location; unconfirmed: boolean }[];
   onOpenDetail: (location: Location) => void;
 }
 
@@ -23,24 +23,26 @@ export function ResultMap({ places, onOpenDetail }: ResultMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const openRef = useRef(onOpenDetail);
   openRef.current = onOpenDetail;
-  const placed = places.filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lon) && place.lat !== 0);
-  const key = placed.map((place) => place.id).join(',');
+  const placed = places.filter(({ location }) => Number.isFinite(location.lat) && Number.isFinite(location.lon) && location.lat !== 0);
+  const key = placed.map(({ location, unconfirmed }) => `${location.id}:${unconfirmed}`).join(',');
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container || !hasKakaoMaps() || placed.length === 0) return;
 
     const map = new kakao.maps.Map(container, {
-      center: new kakao.maps.LatLng(placed[0].lat, placed[0].lon),
+      center: new kakao.maps.LatLng(placed[0].location.lat, placed[0].location.lon),
       level: 5,
     });
     const bounds = new kakao.maps.LatLngBounds();
-    const overlays = placed.map((place, index) => {
+    const overlays = placed.map(({ location: place, unconfirmed }, index) => {
       const position = new kakao.maps.LatLng(place.lat, place.lon);
       bounds.extend(position);
       const label = document.createElement('button');
       label.type = 'button';
-      label.textContent = index === 0 ? `추천 · ${place.name}` : `대안 ${index} · ${place.name}`;
+      // 역할과 장소명을 '추천: 장소명'처럼 나눈다. 조건이 확인 안 된 곳은 지도에서도 '미확인 후보'로 부른다
+      const role = index === 0 ? (unconfirmed ? '미확인 후보' : '추천') : unconfirmed ? `미확인 대안 ${index}` : `대안 ${index}`;
+      label.textContent = `${role}: ${place.name}`;
       label.className =
         index === 0
           ? 'whitespace-nowrap rounded-full bg-orange-500 px-3 py-1.5 text-sm font-bold text-white shadow-md'

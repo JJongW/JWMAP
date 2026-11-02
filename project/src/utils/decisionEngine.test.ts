@@ -84,16 +84,17 @@ describe('getConditionMatches', () => {
     expect(
       getConditionMatches(loc, { ...EMPTY_CONDITIONS, region: '종로/중구', companion: 'pair', timeSlot: 'dinner', priority: 'quiet' }),
     ).toEqual([
-      { label: '종로/중구', status: 'match', text: '종로/중구', evidence: null },
-      { label: '둘이', status: 'unknown', text: '둘이 가기 좋은지는 확인되지 않았어요.', evidence: null },
-      { label: '저녁', status: 'match', text: '저녁에 열어요', evidence: '카카오맵 영업시간' },
-      { label: '조용한 곳', status: 'match', text: '조용한 곳', evidence: '#조용한 분위기' },
+      { title: '지역', label: '종로/중구', status: 'match', text: '종로/중구', evidence: null },
+      { title: '동행', label: '둘이', status: 'unknown', text: '둘이 가기 좋은지는 확인되지 않았어요.', evidence: null },
+      { title: '영업', label: '저녁', status: 'match', text: '저녁에 열어요', evidence: '카카오맵 영업시간' },
+      { title: '분위기', label: '조용한 곳', status: 'match', text: '조용한 곳', evidence: '#조용한 분위기' },
     ]);
   });
 
   it('영업시간이 없으면 밥집이어도 점심은 미확인', () => {
     const loc = place({ categoryMain: '밥' });
     expect(getConditionMatches(loc, { ...EMPTY_CONDITIONS, timeSlot: 'lunch' })[0]).toEqual({
+      title: '시간',
       label: '점심',
       status: 'unknown',
       text: '점심 이용 여부는 확인되지 않았어요.',
@@ -147,6 +148,7 @@ describe('조건 일치·불일치·미확인 (용산 · 혼자 · 점심)', () 
     expect(result.confirmedCount).toBe(0);
     expect(result.unconfirmedCount).toBe(1);
     expect(getConditionMatches(ojeje, soloLunch).find((m) => m.label === '혼자')).toEqual({
+      title: '동행',
       label: '혼자',
       status: 'unknown',
       text: '혼자 방문이 편한지는 확인되지 않았어요.',

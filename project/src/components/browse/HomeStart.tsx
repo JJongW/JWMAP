@@ -124,7 +124,7 @@ export function HomeStart({
             <h2 id="explore-heading" className="text-sm font-bold text-gray-700">
               직접 찾아보기
             </h2>
-            <p className="mt-0.5 text-xs text-gray-500">추천 대신 이름·지도·목록으로 둘러볼 수 있어요.</p>
+            <p className="mt-0.5 text-xs text-gray-500">이름으로 찾거나 지도와 목록으로 둘러볼 수 있어요.</p>
             <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-1">
               <ExploreTile icon={<Search size={15} />} label="이름으로 찾기" onClick={() => onExplore('search')} />
               <ExploreTile icon={<MapIcon size={15} />} label="지도에서 보기" onClick={() => onExplore('map')} />

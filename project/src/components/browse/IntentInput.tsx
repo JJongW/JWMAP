@@ -10,6 +10,7 @@ import { useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { ContentMode } from '../../types/location';
 import type { IntentConditions } from '../../utils/intentChips';
+import { regionLabel } from '../../utils/displayText';
 
 interface IntentInputProps {
   contentMode: ContentMode;
@@ -82,7 +83,7 @@ export function IntentInput({
 
       {examples && examples.length > 0 && (
         <div className="pt-1">
-          <p className="mb-1.5 text-xs font-semibold text-gray-500">이렇게 적어 보세요 · 누르면 바로 추천해요</p>
+          <p className="mb-1.5 text-xs font-semibold text-gray-500">예시를 누르면 바로 추천해 드려요.</p>
           <div className="flex flex-wrap gap-1.5">
             {examples.map((example) => (
               <button
@@ -145,7 +146,7 @@ export function IntentInput({
               }}
               className="rounded-full bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100"
             >
-              {region}
+              {regionLabel(region)}
             </button>
           ))}
         </div>

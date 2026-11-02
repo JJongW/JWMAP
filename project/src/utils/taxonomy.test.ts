@@ -82,7 +82,7 @@ describe('이유·상황으로 추천', () => {
     const conditions = { ...EMPTY_CONDITIONS, kind: 'cafe' as const, reasons: ['work'] };
     const result = decideLocations([workCafe, coffeeCafe], conditions)!;
     expect([result.primary, ...result.secondary].map((l) => l.name)).toEqual(['작업 카페']);
-    expect(getConditionMatches(workCafe, conditions)).toContainEqual({ label: '작업·공부', status: 'match', text: '작업·공부', evidence: '등록 분류: 카공카페' });
+    expect(getConditionMatches(workCafe, conditions)).toContainEqual({ title: '이유', label: '작업과 공부', status: 'match', text: '작업과 공부', evidence: '등록 분류: 카공카페' });
   });
 
   it('이유가 여러 개면 모두 맞아야 하고, 없으면 바꾸지 않고 null', () => {

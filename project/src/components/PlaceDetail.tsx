@@ -8,6 +8,7 @@ import { ProofBar } from './ProofBar';
 import { RECOMMEND_BADGES, VISIT_STATUS_LABEL, isFirstHandMemo, getCuratorReason, getVisitInfoText, isCuratorVisited, isPracticalInfoTag } from '../utils/curation';
 import { describePlace } from '../utils/taxonomy';
 import { RecommendBadge } from './RecommendBadge';
+import { categoryLabel, regionLabel } from '../utils/displayText';
 import { recordActivity, toggleSaved, toggleVisited, getSavedIds, getVisitedIds } from '../utils/activity';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { CommunityReviews } from './CommunityReviews';
@@ -205,7 +206,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
       <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-4">
         <p className="text-xs font-semibold text-orange-700">
           추천하는 이유
-          {unvisitedBasis && <span className="ml-1.5 font-normal text-gray-500">· 아직 안 가봤어요 ({unvisitedBasis})</span>}
+          {unvisitedBasis && <span className="ml-1.5 font-normal text-gray-600">아직 안 가봤어요 ({unvisitedBasis})</span>}
         </p>
         {curatorReason ? (
           <>
@@ -261,7 +262,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
           <p className="text-xs font-semibold text-accent/70">
             {FACT_LABEL[fact.field] ?? fact.field}
             <span className="ml-1 font-normal">
-              ({fact.source === 'kakao' ? '카카오맵 기준' : '운영자 확인'}{fact.checked_at ? ` · ${formatDay(fact.checked_at)} 확인` : ''})
+              ({fact.source === 'kakao' ? '카카오맵 기준' : '운영자 확인'}{fact.checked_at ? `, ${formatDay(fact.checked_at)} 확인` : ''})
             </span>
           </p>
           <p className="mt-0.5 text-sm text-accent/80 leading-relaxed">{fact.text}</p>
@@ -312,7 +313,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
             <X size={24} className="text-accent/80" />
           </button>
           <span className="text-sm font-medium text-accent/70">
-            {location.categorySub || location.categoryMain || '미분류'}
+            {categoryLabel(location.categorySub || location.categoryMain) || '미분류'}
           </span>
           <div className="w-10" /> {/* 공간 확보를 위한 빈 div */}
         </div>
@@ -343,7 +344,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
                   <PriceLevelBadge priceLevel={location.price_level} size="sm" />
                 </div>
               </div>
-              <p className="text-sm text-accent/70 mt-1">{location.region}</p>
+              <p className="text-sm text-accent/70 mt-1">{regionLabel(location.region)}</p>
 
             </div>
 
@@ -492,7 +493,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
               </div>
               <div className="absolute bottom-4 left-4">
                 <span className="px-3 py-1.5 bg-point text-white text-sm font-medium rounded-lg">
-                  {location.categorySub || location.categoryMain || '미분류'}
+                  {categoryLabel(location.categorySub || location.categoryMain) || '미분류'}
                 </span>
               </div>
             </div>
@@ -502,7 +503,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
           {(!location.imageUrl || imageError) && (
             <div className="flex items-center justify-between p-5 border-b border-base">
               <span className="px-3 py-1.5 bg-point text-white text-sm font-medium rounded-lg">
-                {location.categorySub || location.categoryMain || '미분류'}
+                {categoryLabel(location.categorySub || location.categoryMain) || '미분류'}
               </span>
               <button
                 onClick={onClose}
@@ -523,7 +524,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
                   <PriceLevelBadge priceLevel={location.price_level} size="sm" />
                 </div>
               </div>
-              <p className="text-sm text-accent/70 mt-1">{location.region}</p>
+              <p className="text-sm text-accent/70 mt-1">{regionLabel(location.region)}</p>
 
             </div>
 

@@ -19,6 +19,7 @@ import type { ContentMode, Province } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
 import { getConditionLabels } from '../utils/intentChips';
+import { regionLabel } from '../utils/displayText';
 
 interface DecisionEntryViewProps {
   contentMode: ContentMode;
@@ -150,7 +151,7 @@ export function DecisionEntryView({
                   options={[
                     { value: REGION_ANY_VALUE, label: '상관없어요' },
                     { value: expandedData.province, label: `${expandedData.province} 전체` },
-                    ...expandedData.districts.map((d) => ({ value: d, label: d })),
+                    ...expandedData.districts.map((d) => ({ value: d, label: regionLabel(d) })),
                   ]}
                 accent={modeText.accent}
                   selected={region}
