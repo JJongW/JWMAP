@@ -47,7 +47,7 @@ export function HomeStart({
 
   return (
     <div className="fixed inset-0 z-40 overflow-y-auto bg-white">
-      <div className="mx-auto w-full max-w-lg px-4 pb-10 pt-6 md:px-6 md:pt-14">
+      <div className="ko-text mx-auto w-full max-w-lg px-4 pb-10 pt-6 md:px-6 md:pt-14">
         <div className="flex items-center justify-between gap-4">
           <p className={`text-sm font-bold ${accentText}`}>오늘 오디가?</p>
           {onContentModeChange && (
@@ -77,8 +77,8 @@ export function HomeStart({
         <h1 className="mt-6 text-2xl font-bold tracking-tight text-gray-900 md:mt-10 md:text-3xl">
           {contentMode === 'space' ? '오늘 뭐 보러 갈까요?' : '오늘 어디 갈까요?'}
         </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-gray-500">
-          지역이나 상황을 한 줄로 적으면 추천 1곳과 대안 2곳을 골라드려요.
+        <p className="mt-1.5 text-sm leading-relaxed text-gray-600">
+          지역이나 상황을 한 줄로 적어 주세요. 운영자가 직접 가본 곳부터 골라 드려요.
         </p>
 
         <div className="mt-5">
@@ -95,22 +95,29 @@ export function HomeStart({
         <button
           type="button"
           onClick={onPickConditions}
-          className="mt-3 text-xs font-semibold text-gray-500 underline-offset-2 hover:text-gray-700 hover:underline"
+          className="mt-3 text-sm font-semibold text-gray-600 underline-offset-2 hover:text-gray-800 hover:underline"
         >
           문장 대신 하나씩 골라서 추천받기 →
         </button>
 
-        <p className="mt-4 rounded-xl bg-gray-50 px-3 py-2 text-[11px] leading-relaxed text-gray-500">
-          제가 다녀온 곳은 <span className="font-semibold text-emerald-600">운영자 직접 방문</span>, 아직 못 가본 곳은{' '}
-          <span className="font-semibold text-gray-600">아직 안 가본 후보</span>로 구분해서 보여드려요.
-        </p>
+        {/* 방문 표시 설명: 문장 속에 끼워 넣지 않고 배지 그대로 보여준다 */}
+        <dl className="mt-4 space-y-1.5 rounded-xl bg-gray-50 px-3 py-2.5 text-xs text-gray-600">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <dt className="whitespace-nowrap rounded bg-emerald-50 px-1.5 py-0.5 font-semibold text-emerald-700">운영자 직접 방문</dt>
+            <dd>운영자가 다녀온 곳</dd>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <dt className="whitespace-nowrap rounded border border-dashed border-gray-300 px-1.5 py-0.5 font-medium text-gray-600">아직 안 가본 후보</dt>
+            <dd>아직 못 가봐서 정보만 모아 둔 곳</dd>
+          </div>
+        </dl>
 
         {/* ── 보조 경로: 직접 찾아보기 ── */}
         <section className="mt-8 border-t border-gray-100 pt-5" aria-labelledby="explore-heading">
           <h2 id="explore-heading" className="text-sm font-bold text-gray-700">
             직접 찾아보기
           </h2>
-          <p className="mt-0.5 text-xs text-gray-400">추천 대신 이름·지도·목록으로 둘러볼 수 있어요.</p>
+          <p className="mt-0.5 text-xs text-gray-500">추천 대신 이름·지도·목록으로 둘러볼 수 있어요.</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <ExploreTile icon={<Search size={15} />} label="이름으로 찾기" onClick={() => onExplore('search')} />
             <ExploreTile icon={<MapIcon size={15} />} label="지도에서 보기" onClick={() => onExplore('map')} />

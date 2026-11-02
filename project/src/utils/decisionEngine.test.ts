@@ -84,9 +84,9 @@ describe('getConditionMatches', () => {
     expect(
       getConditionMatches(loc, { ...EMPTY_CONDITIONS, companion: 'pair', timeSlot: 'dinner', priority: 'quiet' }),
     ).toEqual([
-      { label: '둘이', evidence: null },
-      { label: '저녁', evidence: '저녁에 잘 맞는 양식·퓨전' },
-      { label: '조용한 곳', evidence: '#조용한 분위기' },
+      { label: '둘이', status: 'unknown', text: '둘이 가기 좋은지는 아직 확인되지 않았어요.', evidence: null },
+      { label: '저녁', status: 'match', text: '저녁 식사에 어울리는 양식·퓨전', evidence: null },
+      { label: '조용한 곳', status: 'match', text: '조용한 곳', evidence: '#조용한 분위기' },
     ]);
   });
 });
@@ -103,15 +103,53 @@ describe('볼거리 조건 (둘이 · 가볍게 · 실내 위주)', () => {
   });
 
   it('근거 라벨이 고른 볼거리 라벨과 같다', () => {
-    expect(getConditionMatches(indoor, conditions, 'space')).toEqual([
-      { label: '둘이', evidence: '#데이트' },
-      { label: '가볍게', evidence: null },
-      { label: '실내 위주', evidence: '#실내' },
+    expect(getConditionMatches(indoor, conditions, 'space').map(({ label, status, evidence }) => ({ label, status, evidence }))).toEqual([
+      { label: '둘이', status: 'match', evidence: '#데이트' },
+      { label: '가볍게', status: 'unknown', evidence: null },
+      { label: '실내 위주', status: 'match', evidence: '#실내' },
     ]);
   });
 
   it('맞는 곳이 없으면 조건을 바꾸지 않고 null', () => {
     expect(decideLocations([outdoor], conditions, 'space')).toBeNull();
+  });
+});
+
+describe('조건 일치·불일치·미확인 (용산 · 혼자 · 점심)', () => {
+  const region = '용산/이태원/한남';
+  // 실제 재현: 혼자 근거가 없는 직접 방문 밥집 (데이트 태그만 있음)
+  const ojeje = place({ name: '오제제 신용산점', region, categoryMain: '밥', tags: ['데이트', '웨이팅'], curator_visited: true, rating: 5 });
+  const soloRamen = place({ name: '혼밥 라멘', region, categoryMain: '면', tags: ['혼밥'], rating: 3 });
+  const bar = place({ name: '점심엔 안 여는 술집', region, categoryMain: '술안주', tags: ['혼밥'] });
+  const soloLunch = { ...EMPTY_CONDITIONS, region, companion: 'solo' as const, timeSlot: 'lunch' as const };
+
+  it('조용한 곳만 빼도 혼자·점심은 그대로이고, 혼자가 확인된 곳이 미확인 곳보다 먼저 나온다', () => {
+    const result = decideLocations([ojeje, soloRamen], soloLunch)!;
+    expect(result.primary.name).toBe('혼밥 라멘');
+    expect(result.confirmedCount).toBe(1);
+    expect(result.secondary.map((l) => l.name)).toEqual(['오제제 신용산점']);
+  });
+
+  it('확인된 곳이 없으면 confirmedCount 0 — 화면이 완전 일치처럼 보여주지 않는다', () => {
+    const result = decideLocations([ojeje], soloLunch)!;
+    expect(result.confirmedCount).toBe(0);
+    expect(result.unconfirmedCount).toBe(1);
+    expect(getConditionMatches(ojeje, soloLunch)[0]).toEqual({
+      label: '혼자',
+      status: 'unknown',
+      text: '혼자 방문이 편한지는 아직 확인되지 않았어요.',
+      evidence: null,
+    });
+  });
+
+  it('데이터가 반대를 말하는 곳(점심의 술집, 둘이인데 혼밥 가게)은 후보에서 뺀다', () => {
+    expect(decideLocations([bar], soloLunch)).toBeNull();
+    expect(decideLocations([soloRamen], { ...soloLunch, companion: 'pair' })).toBeNull();
+  });
+
+  it('미확인 조건은 점수로 일치 취급하지 않는다: 평점이 높아도 확인된 곳 뒤', () => {
+    const result = decideLocations([ojeje, soloRamen], soloLunch)!;
+    expect(result.primary.rating).toBeLessThan(ojeje.rating);
   });
 });
 

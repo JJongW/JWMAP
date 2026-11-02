@@ -82,7 +82,7 @@ export function IntentInput({
 
       {examples && examples.length > 0 && (
         <div className="pt-1">
-          <p className="mb-1.5 text-[11px] font-semibold text-gray-400">이렇게 적어보세요 · 누르면 바로 추천해요</p>
+          <p className="mb-1.5 text-xs font-semibold text-gray-500">이렇게 적어 보세요 · 누르면 바로 추천해요</p>
           <div className="flex flex-wrap gap-1.5">
             {examples.map((example) => (
               <button

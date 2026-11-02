@@ -204,7 +204,7 @@ export function BrowseView({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-white">
+    <div className="ko-text fixed inset-0 z-40 flex flex-col bg-white">
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(360px,440px)_1fr]">
         {showsList && (
         <section className="flex min-h-0 flex-1 flex-col border-r border-gray-100 bg-white lg:flex-none">
@@ -230,7 +230,7 @@ export function BrowseView({
                   오늘 어디 갈까요?
                 </h1>
                 <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
-                  지역·상황·하고 싶은 일을 적으면 추천 1곳과 대안을 골라드려요.
+                  지역이나 상황을 적으면 운영자가 가본 곳부터 골라 드려요.
                 </p>
               </div>
               {onContentModeChange && (
@@ -265,7 +265,7 @@ export function BrowseView({
                 />
               </div>
             )}
-            <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+            <p className="mt-2 text-xs leading-relaxed text-gray-500">
               제가 다녀온 곳은 <span className="font-semibold text-emerald-600">운영자 직접 방문</span>, 아직 못 가본 곳은{' '}
               <span className="font-semibold text-gray-500">아직 안 가본 후보</span>로 구분해요.
             </p>
@@ -680,19 +680,22 @@ function BrowseList({
                     {location.name}
                   </p>
                 </div>
-                <p className="mt-0.5 truncate text-xs text-gray-400">
-                  {location.region}
-                  {(location.categorySub || location.categoryMain) && (
-                    <span>
-                      {' · '}
-                      {location.categorySub || location.categoryMain}
-                    </span>
-                  )}
-                  {' · '}
-                  <span className={curatorVisited ? 'font-semibold text-emerald-600' : 'font-medium text-gray-500'}>
+                {/* 방문 상태는 지역·업종과 한 줄에 몰면 잘려서, 줄바꿈되는 배지로 따로 둔다 */}
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-gray-500">
+                  <span
+                    className={`whitespace-nowrap rounded px-1.5 py-px ${
+                      curatorVisited
+                        ? 'bg-emerald-50 font-semibold text-emerald-700'
+                        : 'border border-dashed border-gray-300 font-medium text-gray-600'
+                    }`}
+                  >
                     {getVisitStatusLabel(location)}
                   </span>
-                </p>
+                  <span className="min-w-0 truncate">
+                    {location.region}
+                    {(location.categorySub || location.categoryMain) && ` · ${location.categorySub || location.categoryMain}`}
+                  </span>
+                </div>
                 {/* 추천 이유는 운영자 한 줄만. 없으면 비워 둔다 (일반 태그로 대신하지 않는다) */}
                 {curatorNote ? (
                   <p className="mt-1 line-clamp-2 text-sm font-medium leading-snug text-gray-700">
@@ -1051,11 +1054,11 @@ function DesktopDetailPanel({ location, onClose, onPlaceStateChange }: DesktopDe
         </div>
 
         <div className="mt-4 rounded-xl bg-gray-50 p-3">
-          <p className="text-xs font-semibold text-gray-400">방문 정보</p>
+          <p className="text-xs font-semibold text-gray-500">방문 정보</p>
           <p className="mt-1 text-sm text-gray-500">{location.address}</p>
           {visitInfoText && !isFirstHandMemo(location) && (
             <>
-              <p className="mt-2 text-[11px] font-semibold text-gray-400">참고 정보 (운영자 확인 전)</p>
+              <p className="mt-2 text-xs font-semibold text-gray-500">참고 정보 (운영자 확인 전)</p>
               <p className="mt-0.5 whitespace-pre-line text-sm leading-relaxed text-gray-600">
                 {visitInfoText}
               </p>

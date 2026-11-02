@@ -173,7 +173,7 @@ export function ConditionChips({ conditions, onChange, regionOptions, contentMod
 
       {openKey && openKey !== 'more' && (
         <div className="mt-2 rounded-xl border border-gray-100 bg-white p-2 shadow-sm">
-          <p className="px-1 pb-1.5 text-[11px] font-semibold text-gray-400">
+          <p className="px-1 pb-1.5 text-xs font-semibold text-gray-500">
             {CHIP_TITLE[openKey]} {isMulti(openKey) ? '고르기 (여러 개 가능)' : '고르기'}
           </p>
           <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
