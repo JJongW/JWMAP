@@ -193,6 +193,8 @@ export interface Location {
   curator_visited_at?: string;  // 큐레이터 방문 일시 (visit_date와 매핑)
   /** 공개 추천의 근거 (검색 뷰 recommend_basis). visited가 아니면 안 가본 곳 추천 */
   recommend_basis?: 'visited' | 'friend' | 'research' | 'wishlist' | null;
+  /** 카카오맵 영업시간 원문 (place_facts.hours). 점심·저녁·늦은 밤 판정 근거. 없으면 판정하지 않는다 */
+  hours_text?: string;
   curator_visit_slot?: string;  // 방문 시간대 (점심/저녁/심야 등)
   disclosure?: DisclosureType;  // 내돈내산/초대/협찬
 }

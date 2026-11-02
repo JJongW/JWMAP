@@ -76,7 +76,7 @@ export function IntentInput({
             contentMode === 'space' ? 'bg-violet-600' : 'bg-orange-500 hover:bg-orange-600'
           }`}
         >
-          {isResolving ? '읽는 중' : '추천받기'}
+          {isResolving ? '찾는 중' : '추천받기'}
         </button>
       </form>
 

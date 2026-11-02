@@ -19,7 +19,7 @@ import { useState } from 'react';
 import { MapPin, ChevronDown, ChevronRight, Navigation } from 'lucide-react';
 import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
-import { getConditionMatches, type ConditionMatch } from '../utils/decisionEngine';
+import { getConditionMatches, HOURS_SOURCE, type ConditionMatch } from '../utils/decisionEngine';
 import { getConditionLabels, KIND_LABEL, type IntentConditions } from '../utils/intentChips';
 import { ConditionChips } from './ConditionChips';
 import { termLabel } from '../utils/taxonomy';
@@ -74,7 +74,7 @@ export function DecisionResultView({
     : !onlyUnconfirmed
       ? copy.title
       : showUnconfirmed
-        ? '일부 조건이 확인 안 된 후보예요.'
+        ? '일부 조건을 확인하지 못한 후보예요.'
         : '조건이 모두 확인된 곳은 아직 없어요.';
 
   return (
@@ -294,12 +294,15 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
     <button
       type="button"
       aria-label={`${location.name} 상세 보기`}
-      className="w-full cursor-pointer overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md text-left"
+      // 미확인 후보는 완전 일치 추천과 테두리부터 다르게
+      className={`w-full cursor-pointer overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-shadow hover:shadow-md ${
+        hasUnknown(matches) ? 'border-amber-300 border-dashed' : 'border-gray-100'
+      }`}
       onClick={() => onOpenDetail(location)}
     >
-      {/* 이미지: 낮은 화면에서도 카드와 지도 버튼이 한 번에 보이도록 높이를 화면 비율로 묶는다 */}
+      {/* 이미지: 낮은 화면(700px 이하)에서는 이유·조건 확인·지도 버튼이 먼저 보이도록 숨긴다 */}
       {location.imageUrl && !imageError && (
-        <div className="relative h-[min(15vh,13rem)] w-full overflow-hidden bg-gray-50 [@media(max-height:700px)]:h-[10vh]">
+        <div className="relative h-[min(15vh,13rem)] w-full overflow-hidden bg-gray-50 [@media(max-height:700px)]:hidden">
           <img
             src={getCardImageUrl(location.imageUrl)}
             alt={location.name}
@@ -336,7 +339,7 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
         {reason ? (
           <div className="mb-3">
             <p className="text-xs font-semibold text-orange-700">
-              추천하는 이유
+              운영자가 적은 추천 이유
               {getUnvisitedBasisLabel(location) && <span className="ml-1 font-normal text-gray-500">· {getUnvisitedBasisLabel(location)}</span>}
             </p>
             {/* 카드에서는 두 줄까지, 전체 문장은 상세에서 본다 */}
@@ -408,9 +411,9 @@ function SecondaryCard({ location, reason, matches, onOpenDetail }: SecondaryCar
         </div>
         {/* 운영자 이유가 없으면 아무 문장도 채우지 않는다 (같은 안내를 반복하면 근거처럼 보인다) */}
         {reason && <p className="mt-1 line-clamp-2 text-xs text-gray-700">{reason}</p>}
-        {matched.length > 0 && <p className="mt-1 text-xs text-gray-600">✓ {matched.join(' · ')}</p>}
+        {matched.length > 0 && <p className="mt-1 text-xs text-gray-700">일치: {matched.join(' · ')}</p>}
         {unknown.length > 0 && (
-          <p className="mt-0.5 text-xs text-amber-800">확인 안 된 조건: {unknown.join(' · ')}</p>
+          <p className="mt-0.5 text-xs text-amber-800">미확인: {unknown.join(' · ')}</p>
         )}
       </div>
     </button>
@@ -418,7 +421,7 @@ function SecondaryCard({ location, reason, matches, onOpenDetail }: SecondaryCar
 }
 
 /** 운영자 이유가 없을 때: 추천처럼 꾸미지 않고 중립으로 알린다 (1순위 카드에만, 반복하지 않는다) */
-const NO_REASON_TEXT = '운영자 메모가 아직 없는 곳이에요. 아래 조건 확인 결과만 참고해 주세요.';
+const NO_REASON_TEXT = '아직 운영자가 추천 이유를 적지 않았어요.';
 
 function hasUnknown(matches: ConditionMatch[]) {
   return matches.some((match) => match.status === 'unknown');
@@ -474,7 +477,7 @@ function UnconfirmedGate({ result, conditions, contentMode, onShow, onConditions
   return (
     <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-5">
       <p className="text-sm font-medium leading-relaxed text-gray-800">
-        고른 조건은 바꾸지 않았어요. 이런 점이 아직 확인되지 않았어요.
+        고른 조건은 그대로 두었어요. 아래 내용은 아직 확인되지 않았어요.
       </p>
       {unknownEverywhere.length > 0 && (
         <ul className="mt-2 space-y-1 text-sm text-gray-700">
@@ -492,7 +495,7 @@ function UnconfirmedGate({ result, conditions, contentMode, onShow, onConditions
       </button>
       {removable.length > 0 && (
         <>
-          <p className="mt-4 text-center text-xs text-gray-600">또는 확인 안 된 조건을 직접 빼고 다시 찾을 수 있어요.</p>
+          <p className="mt-4 text-center text-xs text-gray-600">확인되지 않은 조건을 빼고 다시 찾을 수도 있어요.</p>
           <RemoveConditionButtons items={removable} onConditionsChange={onConditionsChange} />
         </>
       )}
@@ -579,31 +582,46 @@ function NoResult({ conditions, contentMode, onConditionsChange }: NoResultProps
 }
 
 // ─────────────────────────────────────────────
-// ConditionMatchList: 조건별 확인 결과. 근거가 없으면 지어내지 않고 '아직 확인되지 않았어요'
+// ConditionMatchList: 선택 조건별 일치·미확인. 근거가 없으면 지어내지 않고 '확인되지 않았어요'
 // ─────────────────────────────────────────────
 
+const STATUS_STYLE: Record<ConditionMatch['status'], { label: string; className: string }> = {
+  match: { label: '일치', className: 'bg-emerald-50 text-emerald-700' },
+  unknown: { label: '미확인', className: 'bg-amber-50 text-amber-800' },
+  mismatch: { label: '불일치', className: 'bg-red-50 text-red-700' },
+};
+
+/** 조건마다 상태를 한곳에: 일치는 한 줄로 이어 쓰고, 미확인·불일치는 문장으로 따로 */
 function ConditionMatchList({ matches }: { matches: ConditionMatch[] }) {
-  const matched = matches.filter((match) => match.status === 'match');
-  const unknown = matches.filter((match) => match.status === 'unknown');
+  const groups = (['match', 'unknown', 'mismatch'] as const)
+    .map((status) => ({ status, items: matches.filter((match) => match.status === status) }))
+    .filter((group) => group.items.length > 0);
+  const usesHours = matches.some((match) => match.evidence === HOURS_SOURCE);
+
   return (
-    <div className="text-xs" aria-label="고른 조건 확인 결과">
-      {matched.length > 0 && (
-        <ul className="flex flex-wrap gap-x-3 gap-y-0.5 text-gray-700">
-          {matched.map((match) => (
-            <li key={match.label}>
-              <span className="font-semibold">✓ {match.text}</span>
-              {match.evidence && <span className="text-gray-500"> {match.evidence}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-      {unknown.length > 0 && (
-        <ul className={`text-amber-800 ${matched.length > 0 ? 'mt-1' : ''}`}>
-          {unknown.map((match) => (
-            <li key={match.label}>? {match.text}</li>
-          ))}
-        </ul>
-      )}
+    <div className="text-xs" aria-label="선택 조건 확인">
+      <p className="mb-1 font-semibold text-gray-600">선택 조건 확인</p>
+      <ul className="space-y-1">
+        {groups.map(({ status, items }) => (
+          <li key={status} className="flex items-start gap-2">
+            <span className={`mt-px shrink-0 whitespace-nowrap rounded px-1.5 py-px font-semibold ${STATUS_STYLE[status].className}`}>
+              {STATUS_STYLE[status].label}
+            </span>
+            <span className={status === 'match' ? 'text-gray-800' : 'text-amber-900'}>
+              {status === 'match'
+                ? items.map((match, i) => (
+                    <span key={match.label}>
+                      {i > 0 && <span className="text-gray-400"> · </span>}
+                      {match.text}
+                      {match.evidence?.startsWith('#') && <span className="text-gray-500"> {match.evidence}</span>}
+                    </span>
+                  ))
+                : items.map((match) => match.text).join(' ')}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {usesHours && <p className="mt-1 text-gray-500">영업시간은 카카오맵 정보 기준이에요.</p>}
     </div>
   );
 }
