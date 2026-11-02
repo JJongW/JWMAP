@@ -258,7 +258,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
       </div>
       {facts.map((fact) => (
         <div key={fact.field} className="mt-2">
-          <p className="text-[11px] font-semibold text-accent/50">
+          <p className="text-xs font-semibold text-accent/70">
             {FACT_LABEL[fact.field] ?? fact.field}
             <span className="ml-1 font-normal">
               ({fact.source === 'kakao' ? '카카오맵 기준' : '운영자 확인'}{fact.checked_at ? ` · ${formatDay(fact.checked_at)} 확인` : ''})
@@ -278,7 +278,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
       )}
       {visitInfoText && !memoIsOperatorNote && (
         <div className="mt-2">
-          <p className="text-[11px] font-semibold text-accent/50">참고 정보 (운영자 확인 전)</p>
+          <p className="text-xs font-semibold text-accent/70">참고 정보 (운영자 확인 전)</p>
           <p className="mt-0.5 text-sm text-accent/80 leading-relaxed whitespace-pre-line">{visitInfoText}</p>
         </div>
       )}
@@ -301,7 +301,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
   // 모바일 레이아웃
   if (isMobile) {
     return (
-      <div className="fixed inset-0 z-50 bg-white overflow-hidden flex flex-col">
+      <div className="ko-text fixed inset-0 z-50 bg-white overflow-hidden flex flex-col">
         {/* 상단 헤더 */}
         <div className="bg-white border-b border-base px-4 py-3 flex items-center justify-between flex-shrink-0">
           <button
@@ -468,7 +468,7 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
 
   // PC 레이아웃 (2컬럼)
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+    <div className="ko-text fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex">
         {/* 왼쪽: 컨텐츠 */}
         <div className="flex-1 overflow-y-auto">

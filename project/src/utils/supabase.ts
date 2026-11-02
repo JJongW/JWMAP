@@ -29,6 +29,21 @@ function getLocationSearchView(mode: ContentMode): string {
   return mode === 'space' ? 'attractions_search' : 'locations_search';
 }
 
+const PAGE_SIZE = 1000;
+
+/** range로 나눠 받은 행을 이어 붙인다. 한 페이지라도 실패하면 그 오류를 그대로 돌려준다 */
+async function fetchAllPages(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>,
+): Promise<{ data: unknown[]; error: unknown }> {
+  const rows: unknown[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+    if (error) return { data: rows, error };
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) return { data: rows, error: null };
+  }
+}
+
 // 장소 관련 API 함수들
 export const locationApi = {
   // 모든 장소 가져오기 (locations_search: popularity_score for ranking)
@@ -42,23 +57,33 @@ export const locationApi = {
       'address', 'memo', 'short_desc', 'price_level', 'event_tags', 'content_type',
       'naver_place_id', 'kakao_place_id', 'visit_date', 'created_at',
     ].join(', ');
-    let result = await supabase
-      .from(searchView)
-      .select(columns)
-      .order('curation_level', { ascending: false, nullsFirst: false })
-      .order('popularity_score', { ascending: false, nullsFirst: false });
+    // 서버가 한 번에 최대 1000행만 돌려줘서(1078곳 중 78곳이 빠졌었다) 끝까지 나눠 받는다.
+    // 페이지 사이에 순서가 흔들리지 않게 id를 마지막 정렬 기준으로 둔다.
+    let result = await fetchAllPages((from, to) =>
+      supabase
+        .from(searchView)
+        .select(columns)
+        .order('curation_level', { ascending: false, nullsFirst: false })
+        .order('popularity_score', { ascending: false, nullsFirst: false })
+        .order('id')
+        .range(from, to),
+    );
 
     if (result.error) {
-      const fallback = await supabase
-        .from(table)
-        .select('*')
-        .order('rating', { ascending: false });
+      const fallback = await fetchAllPages((from, to) =>
+        supabase
+          .from(table)
+          .select('*')
+          .order('rating', { ascending: false })
+          .order('id')
+          .range(from, to),
+      );
       if (fallback.error) throw fallback.error;
       result = fallback;
     }
 
     const data = result.data;
-    
+
     return ((data || []) as unknown as Record<string, unknown>[]).map((item) => mapRowToLocation(item));
   },
 

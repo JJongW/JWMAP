@@ -89,6 +89,24 @@
   }
 }
 
+/*
+ * 한국어 본문·설명: 단어 중간에서 끊지 않는다 ('구/분해서' 방지).
+ * 칸보다 긴 영문·URL은 overflow-wrap으로 그때만 끊어 레이아웃이 넘치지 않게 한다.
+ * 짧은 안내 문장은 text-wrap: pretty로 마지막 줄에 한 글자만 남지 않게 한다.
+ */
+@layer utilities {
+  .ko-text {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .ko-text p,
+  .ko-text li,
+  .ko-text h1,
+  .ko-text h2 {
+    text-wrap: pretty;
+  }
+}
+
 /* 스크롤 컨테이너에서 overscroll 방지 */
 @layer utilities {
   .overscroll-none {

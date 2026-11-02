@@ -127,9 +127,47 @@ interface ScoredLocation {
   location: Location;
   score: number;
   matchedTags: string[];
+  /** 고른 조건이 모두 데이터로 확인됐는지. 미확인이 하나라도 있으면 false */
+  confirmed: boolean;
   companion: Companion | null;
   timeSlot: TimeSlot | null;
   priorityFeature: PriorityFeature | null;
+}
+
+// ─────────────────────────────────────────────
+// 3-1. 누구와·시간 조건 판정: 일치 / 불일치 / 미확인
+// ─────────────────────────────────────────────
+
+/** match: 데이터가 뒷받침함 · mismatch: 데이터가 반대를 말함 · unknown: 근거가 없음 (일치로 치지 않는다) */
+export type MatchStatus = 'match' | 'mismatch' | 'unknown';
+
+interface Judged {
+  status: MatchStatus;
+  /** 근거 (예: '#혼밥', '양식·퓨전'). 미확인·불일치면 null */
+  evidence: string | null;
+}
+
+function judgeCompanion(location: Location, companion: Companion): Judged {
+  const tag = findTag(location, getCompanionTagKeywords(companion));
+  if (tag) return { status: 'match', evidence: `#${tag}` };
+  // 둘이·여럿이인데 혼밥 위주 가게는 데이터가 반대를 말한다
+  if (companion !== 'solo' && hasTagKeyword(location, ['혼밥', '혼자'])) return { status: 'mismatch', evidence: null };
+  return { status: 'unknown', evidence: null };
+}
+
+/** 시간 근거는 맛집 카테고리·심야 태그로만 판단한다. 볼거리는 근거 데이터가 없어 늘 미확인이다 */
+function judgeTimeSlot(location: Location, timeSlot: TimeSlot, mode: ContentMode): Judged {
+  if (mode !== 'food') return { status: 'unknown', evidence: null };
+  if (timeSlot === 'late') {
+    const lateTag = findTag(location, ['심야', '야식', '늦게']);
+    if (lateTag) return { status: 'match', evidence: `#${lateTag}` };
+  }
+  const categoryMain = location.categoryMain as CategoryMain | undefined;
+  if (!categoryMain || categoryMain === '전체') return { status: 'unknown', evidence: null };
+  const weight = TIME_CATEGORY_WEIGHT[timeSlot][categoryMain] ?? 1;
+  if (weight >= 2) return { status: 'match', evidence: categoryMain };
+  if (weight === 0) return { status: 'mismatch', evidence: null };
+  return { status: 'unknown', evidence: null };
 }
 
 function addMatchedTag(tags: string[], tag: string) {
@@ -155,16 +193,17 @@ function scoreLocation(
     addMatchedTag(matchedTags, priorityKeywords[0]);
   }
 
-  // ── 보너스: Companion 태그 매칭 ──
-  const companionKeywords = companion ? getCompanionTagKeywords(companion) : [];
-  if (hasTagKeyword(location, companionKeywords)) {
-    score += 30;
-    addMatchedTag(matchedTags, companionKeywords[0]);
-  }
+  // ── 누구와·시간: 불일치면 빼고, 미확인이면 '일부 조건 미확인'으로 확인된 곳 뒤에 둔다 ──
+  const judged = [
+    companion ? judgeCompanion(location, companion) : null,
+    timeSlot ? judgeTimeSlot(location, timeSlot, mode) : null,
+  ].filter((item): item is Judged => item !== null);
+  if (judged.some((item) => item.status === 'mismatch')) return null;
+  const confirmed = judged.every((item) => item.status === 'match');
 
-  // 둘이·여럿이인데 혼밥 위주 가게면 뒤로 민다 (혼밥 태그가 데이트·모임 후보로 섞이지 않게)
-  if (companion && companion !== 'solo' && hasTagKeyword(location, ['혼밥', '혼자'])) {
-    score -= 40;
+  if (companion && judged[0]?.status === 'match') {
+    score += 30;
+    addMatchedTag(matchedTags, getCompanionTagKeywords(companion)[0]);
   }
 
   // ── 보너스: 운영자가 직접 다녀온 곳을 먼저 (미방문 후보는 맞는 곳이 없을 때만 앞에 온다) ──
@@ -208,7 +247,7 @@ function scoreLocation(
   const rating = location.rating ?? 0;
   score += Math.round((rating / 5) * 20);
 
-  return { location, score, matchedTags, companion, timeSlot, priorityFeature };
+  return { location, score, matchedTags, confirmed, companion, timeSlot, priorityFeature };
 }
 
 // ─────────────────────────────────────────────
@@ -216,6 +255,13 @@ function scoreLocation(
 // ─────────────────────────────────────────────
 
 export interface DecisionResult {
+  /**
+   * 고른 조건이 모두 확인된 곳 수. 0이면 primary·secondary는 전부 '일부 조건 미확인' 후보라
+   * 화면은 그 사실을 먼저 말하고, 사용자가 원할 때만 후보를 보여준다 (조건을 몰래 빼지 않는다)
+   */
+  confirmedCount: number;
+  /** 미확인 조건이 있는 후보 수 (불일치는 처음부터 뺀다) */
+  unconfirmedCount: number;
   /** 1순위 추천 */
   primary: Location;
   /** 2~3순위 보조 추천 */
@@ -263,7 +309,8 @@ export function decideLocations(
   const scored = rankLocations(candidates, companion, timeSlot, priorityFeature, mode);
   if (scored.length === 0) return null;
 
-  // 상위 3개 선정 (최소 1개)
+  // 상위 3개 선정 (최소 1개). 확인된 곳이 먼저, 미확인 후보는 그 뒤에
+  const confirmedCount = scored.filter((item) => item.confirmed).length;
   const top = scored.slice(0, 3);
   const primary = top[0].location;
   const secondary = top.slice(1).map(s => s.location);
@@ -279,7 +326,7 @@ export function decideLocations(
     afterCafe = rankLocations(cafes, companion, null, priorityFeature, mode)[0]?.location;
   }
 
-  return { primary, secondary, reasons, afterCafe };
+  return { confirmedCount, unconfirmedCount: scored.length - confirmedCount, primary, secondary, reasons, afterCafe };
 }
 
 function matchesTerms(location: Location, conditions: IntentConditions): boolean {
@@ -302,6 +349,7 @@ function rankLocations(
     .map((loc) => scoreLocation(loc, companion, timeSlot, priorityFeature, mode))
     .filter((item): item is ScoredLocation => item !== null);
   return scored.sort((a, b) => {
+    if (a.confirmed !== b.confirmed) return a.confirmed ? -1 : 1;
     if (b.score !== a.score) return b.score - a.score;
     return (b.location.rating ?? 0) - (a.location.rating ?? 0);
   });
@@ -314,6 +362,9 @@ function rankLocations(
 export interface ConditionMatch {
   /** 사용자가 고른 조건 이름 (예: '조용한 곳') */
   label: string;
+  status: MatchStatus;
+  /** 카드에 보여줄 문장. 일치면 '둘이 가기 좋아요', 미확인이면 '…아직 확인되지 않았어요.' */
+  text: string;
   /** 맞는 근거. 데이터로 확인 못 하면 null — 지어내지 않는다 */
   evidence: string | null;
 }
@@ -323,7 +374,25 @@ function findTag(location: Location, keywords: string[]): string | null {
   return location.tags?.find((tag) => lowered.some((keyword) => tag.toLowerCase().includes(keyword))) ?? null;
 }
 
-/** 누구와·시간·분위기 조건마다 이 장소가 왜 맞는지 근거를 찾는다 (지역·종류는 이미 필터로 걸러짐) */
+const COMPANION_TEXT: Record<Companion, { match: string; unknown: string }> = {
+  solo: { match: '혼자 가기 편해요', unknown: '혼자 방문이 편한지는 아직 확인되지 않았어요.' },
+  pair: { match: '둘이 가기 좋아요', unknown: '둘이 가기 좋은지는 아직 확인되지 않았어요.' },
+  group: { match: '여럿이 가기 좋아요', unknown: '여럿이 가기 좋은지는 아직 확인되지 않았어요.' },
+};
+
+const FOOD_TIME_TEXT: Record<TimeSlot, { match: string; unknown: string }> = {
+  lunch: { match: '점심 식사에 어울리는', unknown: '점심에 어울리는지는 아직 확인되지 않았어요.' },
+  dinner: { match: '저녁 식사에 어울리는', unknown: '저녁에 어울리는지는 아직 확인되지 않았어요.' },
+  late: { match: '늦은 밤에 어울리는', unknown: '늦은 밤에 가기 좋은지는 아직 확인되지 않았어요.' },
+};
+
+const SPACE_TIME_UNKNOWN: Record<TimeSlot, string> = {
+  lunch: '가볍게 둘러볼 만한지는 아직 확인되지 않았어요.',
+  dinner: '반나절 코스로 맞는지는 아직 확인되지 않았어요.',
+  late: '저녁에도 둘러볼 수 있는지는 아직 확인되지 않았어요.',
+};
+
+/** 조건마다 일치·미확인과 근거를 판정한다 (지역·종류는 이미 필터로 걸러짐) */
 export function getConditionMatches(
   location: Location,
   conditions: IntentConditions,
@@ -333,35 +402,52 @@ export function getConditionMatches(
   const labels = getConditionLabels(mode);
 
   if (conditions.companion) {
-    const tag = findTag(location, getCompanionTagKeywords(conditions.companion));
-    matches.push({ label: labels.companion[conditions.companion], evidence: tag ? `#${tag}` : null });
-  }
-
-  if (conditions.timeSlot) {
-    // 시간 근거는 맛집 카테고리로만 판단할 수 있다. 볼거리는 근거 데이터가 없어 지어내지 않는다
-    const categoryMain = mode === 'food' ? (location.categoryMain as CategoryMain | undefined) : undefined;
-    const weight = categoryMain ? TIME_CATEGORY_WEIGHT[conditions.timeSlot][categoryMain] ?? 0 : 0;
-    const lateTag = mode === 'food' && conditions.timeSlot === 'late' ? findTag(location, ['심야', '야식', '늦게']) : null;
-    const timeLabel = labels.timeSlot[conditions.timeSlot];
+    const judged = judgeCompanion(location, conditions.companion);
+    const copy = COMPANION_TEXT[conditions.companion];
     matches.push({
-      label: timeLabel,
-      evidence: lateTag
-        ? `#${lateTag}`
-        : weight >= 2 && categoryMain
-          ? `${timeLabel}에 잘 맞는 ${categoryMain}`
-          : null,
+      label: labels.companion[conditions.companion],
+      status: judged.status,
+      text: judged.status === 'match' ? copy.match : copy.unknown,
+      evidence: judged.evidence,
     });
   }
 
+  if (conditions.timeSlot) {
+    const judged = judgeTimeSlot(location, conditions.timeSlot, mode);
+    const timeLabel = labels.timeSlot[conditions.timeSlot];
+    const copy = FOOD_TIME_TEXT[conditions.timeSlot];
+    matches.push({
+      label: timeLabel,
+      status: judged.status,
+      text:
+        judged.status !== 'match'
+          ? mode === 'food' ? copy.unknown : SPACE_TIME_UNKNOWN[conditions.timeSlot]
+          : judged.evidence?.startsWith('#') ? `${timeLabel}에 가기 좋아요` : `${copy.match} ${judged.evidence}`,
+      evidence: judged.evidence?.startsWith('#') ? judged.evidence : null,
+    });
+  }
+
+  // 우선 조건·종류·이유·상황은 근거가 있는 곳만 후보에 남으므로, 여기서 근거가 없으면 미확인으로 둔다
   if (conditions.priority) {
     const tag = findTag(location, getPriorityTagKeywords(conditions.priority, mode));
-    matches.push({ label: labels.priority[conditions.priority], evidence: tag ? `#${tag}` : null });
+    const label = labels.priority[conditions.priority];
+    matches.push(
+      tag
+        ? { label, status: 'match', text: label, evidence: `#${tag}` }
+        : { label, status: 'unknown', text: `'${label}'인지는 아직 확인되지 않았어요.`, evidence: null },
+    );
   }
 
   const operatorText = getCuratorReason(location);
   for (const slug of [conditions.placeType, ...conditions.reasons, ...conditions.situations]) {
     if (!slug) continue;
-    matches.push({ label: termLabel(slug), evidence: findTermEvidence(location, slug, operatorText) });
+    const label = termLabel(slug);
+    const evidence = findTermEvidence(location, slug, operatorText);
+    matches.push(
+      evidence
+        ? { label, status: 'match', text: label, evidence }
+        : { label, status: 'unknown', text: `'${label}'인지는 아직 확인되지 않았어요.`, evidence: null },
+    );
   }
 
   return matches;

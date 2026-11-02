@@ -103,7 +103,8 @@ export function DecisionEntryView({
       return {
         step1: '어디로 나들이 갈래?',
         step3: '얼마나 머물래?',
-        step4: '어떤 시간이 좋아?',
+        step4: '어떤 게 중요해?',
+        hint3: '머무는 시간을 골라 주세요',
         cta: '지금 바로 정해줘',
         browse: '돌아가기',
         accent: 'violet' as const,
@@ -114,6 +115,7 @@ export function DecisionEntryView({
       step1: '어디서 먹고 싶어?',
       step3: '언제?',
       step4: '가장 중요한 건?',
+      hint3: '시간대를 골라 주세요',
       cta: '지금 바로 정해줘',
       browse: '돌아가기',
       accent: 'orange' as const,
@@ -123,11 +125,11 @@ export function DecisionEntryView({
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
       {/* ── 스크롤 가능한 메인 콘텐츠 영역 ── */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-lg px-6 pb-44 pt-16 md:pb-40 md:pt-24">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="ko-text mx-auto w-full max-w-lg px-6 pb-8 pt-10 md:pt-16 [@media(max-height:700px)]:pt-6">
 
           {/* ── Hero 텍스트 ── */}
-          <div className="mb-12 md:mb-16">
+          <div className="mb-8 md:mb-12 [@media(max-height:700px)]:mb-6">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
               {contentMode === 'space' ? '오늘 뭐 보지?' : '오늘 오디가?'}
             </h1>
@@ -230,54 +232,58 @@ export function DecisionEntryView({
         </div>
       </div>
 
-      {/* ── 하단 CTA 영역 (Fixed bottom) ── */}
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-100 bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-lg flex-col items-center gap-3 px-6 pb-8 pt-4 md:pb-6">
-          <button
-            onClick={handleDecide}
-            disabled={!isComplete}
-            aria-disabled={!isComplete}
-            className={`
-              w-full rounded-2xl py-4 text-base font-semibold tracking-tight transition-all duration-200
-              ${isComplete
-                ? modeText.accent === 'violet'
-                  ? 'bg-violet-600 text-white active:scale-[0.98]'
-                  : 'bg-orange-500 text-white active:scale-[0.98]'
-                : 'cursor-not-allowed bg-gray-100 text-gray-300'
-              }
-            `}
-          >
-            {modeText.cta}
-          </button>
-          {/* 진행 dots: 3칸 기준 (동행·시간·조건) */}
-          <div className="flex items-center gap-1.5" role="status" aria-label={`${completedCount}/3 선택 완료`}>
-            {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                className={`h-1.5 w-1.5 rounded-full transition-colors duration-200 ${
-                  i < completedCount
-                    ? modeText.accent === 'violet' ? 'bg-violet-500' : 'bg-orange-400'
-                    : 'bg-gray-200'
-                }`}
-              />
-            ))}
-          </div>
-          {!isComplete && (
-            <p className="text-xs text-gray-400" role="status" aria-live="polite">
-              {!companion ? '동행을 선택해주세요' : !timeSlot ? '시간대를 선택해주세요' : '우선 조건을 선택해주세요'}
-            </p>
-          )}
+      {/* ── 하단 CTA 영역: 본문을 덮지 않게 흐름 안에 두고, 한 줄 버튼 + 한 줄 안내로 낮게 ── */}
+      <div className="shrink-0 border-t border-gray-100 bg-white">
+        <div className="mx-auto flex w-full max-w-lg flex-col gap-2 px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
           {noResultMessage && (
-            <p className="w-full rounded-xl bg-amber-50 px-4 py-2.5 text-center text-xs text-amber-700" role="alert" aria-live="assertive">
+            <p className="w-full rounded-xl bg-amber-50 px-4 py-2.5 text-center text-xs text-amber-800" role="alert" aria-live="assertive">
               {noResultMessage}
             </p>
           )}
-          <button
-            onClick={onBrowse}
-            className="min-h-[44px] px-4 text-sm text-gray-400 transition-colors hover:text-gray-600"
-          >
-            {modeText.browse}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onBrowse}
+              className="min-h-[44px] shrink-0 rounded-2xl border border-gray-200 px-4 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400"
+            >
+              {modeText.browse}
+            </button>
+            <button
+              onClick={handleDecide}
+              disabled={!isComplete}
+              aria-disabled={!isComplete}
+              className={`
+                flex-1 rounded-2xl py-3.5 text-base font-semibold tracking-tight transition-all duration-200
+                ${isComplete
+                  ? modeText.accent === 'violet'
+                    ? 'bg-violet-600 text-white active:scale-[0.98]'
+                    : 'bg-orange-500 text-white active:scale-[0.98]'
+                  : 'cursor-not-allowed bg-gray-100 text-gray-400'
+                }
+              `}
+            >
+              {modeText.cta}
+            </button>
+          </div>
+          {/* 진행 dots(동행·시간·조건 3칸)와 다음에 고를 것을 한 줄로 */}
+          <div className="flex items-center justify-center gap-2" role="status" aria-live="polite" aria-label={`${completedCount}/3 선택 완료`}>
+            <span className="flex items-center gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className={`h-1.5 w-1.5 rounded-full transition-colors duration-200 ${
+                    i < completedCount
+                      ? modeText.accent === 'violet' ? 'bg-violet-500' : 'bg-orange-400'
+                      : 'bg-gray-200'
+                  }`}
+                />
+              ))}
+            </span>
+            {!isComplete && (
+              <span className="text-xs text-gray-500">
+                {!companion ? '누구랑 가는지 골라 주세요' : !timeSlot ? modeText.hint3 : '가장 중요한 걸 골라 주세요'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -298,7 +304,7 @@ interface StepSectionProps {
 function StepSection({ step, label, isActive, children }: StepSectionProps) {
   return (
     <div
-      className={`mb-10 transition-opacity duration-300 ${
+      className={`mb-8 transition-opacity duration-300 ${
         isActive ? 'opacity-100' : 'pointer-events-none opacity-30'
       }`}
     >

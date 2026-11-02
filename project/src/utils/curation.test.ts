@@ -48,14 +48,21 @@ describe('getRecommendBadge', () => {
     expect(getRecommendBadge({ curator_visited: false, curation_level: 5 })).toBeNull();
   });
 
+  const reason = { short_desc: '돈카츠가 두꺼운데 부드러워요' };
+
   it('직접 방문한 곳만 3단계 운영자 추천, 4단계 이상 대표픽', () => {
-    expect(getRecommendBadge({ curator_visited: true, curation_level: 2 })).toBeNull();
-    expect(getRecommendBadge({ curator_visited: true, curation_level: 3 })?.label).toBe('운영자 추천');
-    expect(getRecommendBadge({ curator_visited: true, curation_level: 4 })?.label).toBe('대표픽');
+    expect(getRecommendBadge({ ...reason, curator_visited: true, curation_level: 2 })).toBeNull();
+    expect(getRecommendBadge({ ...reason, curator_visited: true, curation_level: 3 })?.label).toBe('운영자 추천');
+    expect(getRecommendBadge({ ...reason, curator_visited: true, curation_level: 4 })?.label).toBe('대표픽');
+  });
+
+  it('운영자 추천 이유가 없으면 직접 방문·높은 단계여도 추천 강도 배지가 없다', () => {
+    expect(getRecommendBadge({ curator_visited: true, curation_level: 5 })).toBeNull();
+    expect(getRecommendBadge({ curator_visited: true, curation_level: 5, short_desc: '서울 용산구 한강대로 1 2층' })).toBeNull();
   });
 
   it("'검증됨'처럼 방문으로 오해될 라벨을 쓰지 않는다", () => {
-    const labels = [3, 4, 5].map((level) => getRecommendBadge({ curator_visited: true, curation_level: level })?.label);
+    const labels = [3, 4, 5].map((level) => getRecommendBadge({ ...reason, curator_visited: true, curation_level: level })?.label);
     expect(labels).not.toContain('검증됨');
   });
 });

@@ -22,14 +22,14 @@ export interface CurationTier {
 const CURATION_TIERS: CurationTier[] = [
   { level: 1, label: '후보', description: '궁금해서 저장해둔 곳', color: 'slate', bgClass: 'bg-slate-100', textClass: 'text-slate-700', badgeClass: 'bg-slate-100 text-slate-700' },
   { level: 2, label: '가볼만함', description: '조건이 맞으면 들러볼 만한 곳', color: 'sky', bgClass: 'bg-sky-100', textClass: 'text-sky-700', badgeClass: 'bg-sky-100 text-sky-700' },
-  { level: 3, label: '검증됨', description: '믿고 후보에 넣기 좋은 곳', color: 'emerald', bgClass: 'bg-emerald-100', textClass: 'text-emerald-700', badgeClass: 'bg-emerald-100 text-emerald-700' },
+  { level: 3, label: '추천', description: '믿고 후보에 넣기 좋은 곳 (추천 강도이고 방문 여부와는 별개)', color: 'emerald', bgClass: 'bg-emerald-100', textClass: 'text-emerald-700', badgeClass: 'bg-emerald-100 text-emerald-700' },
   { level: 4, label: '강력추천', description: '먼저 봐도 좋은 우선 후보', color: 'orange', bgClass: 'bg-orange-100', textClass: 'text-orange-700', badgeClass: 'bg-orange-100 text-orange-700' },
   { level: 5, label: '대표픽', description: '이 지도에서 특히 기억할 만한 곳', color: 'rose', bgClass: 'bg-rose-100', textClass: 'text-rose-700', badgeClass: 'bg-rose-100 text-rose-700' },
 ];
 
 const DISPLAY_CURATION_TIERS: CurationTier[] = [
   { level: 1, label: '후보', description: '가볍게 비교해볼 후보', color: 'slate', bgClass: 'bg-slate-100', textClass: 'text-slate-700', badgeClass: 'bg-slate-100 text-slate-700' },
-  { level: 3, label: '검증됨', description: '믿고 후보에 넣기 좋은 곳', color: 'emerald', bgClass: 'bg-emerald-100', textClass: 'text-emerald-700', badgeClass: 'bg-emerald-100 text-emerald-700' },
+  { level: 3, label: '추천', description: '믿고 후보에 넣기 좋은 곳 (추천 강도이고 방문 여부와는 별개)', color: 'emerald', bgClass: 'bg-emerald-100', textClass: 'text-emerald-700', badgeClass: 'bg-emerald-100 text-emerald-700' },
   { level: 5, label: '대표픽', description: '먼저 봐도 좋은 우선 후보', color: 'orange', bgClass: 'bg-orange-100', textClass: 'text-orange-700', badgeClass: 'bg-orange-100 text-orange-700' },
 ];
 
@@ -172,13 +172,14 @@ export const RECOMMEND_BADGES: RecommendBadge[] = [
 ];
 
 /**
- * 직접 방문 + 큐레이션 3단계 이상일 때만 추천 강도 배지를 준다.
+ * 직접 방문 + 큐레이션 3단계 이상 + 운영자가 적은 추천 이유가 있을 때만 추천 강도 배지를 준다.
  * 아직 안 가본 후보는 curation_level이 높아도 배지를 달지 않는다 (방문·검증 주장이 되지 않게).
+ * 이유 없이 배지만 있으면 근거 없는 개인 추천처럼 읽혀서, 이유가 없으면 배지도 없다.
  */
 export function getRecommendBadge(
   location: CuratorFields & Partial<Pick<Location, 'curation_level' | 'rating'>>,
 ): RecommendBadge | null {
-  if (!isCuratorVisited(location)) return null;
+  if (!isCuratorVisited(location) || !getCuratorReason(location)) return null;
   const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
   if (level >= 4) return RECOMMEND_BADGES[1];
   if (level >= 3) return RECOMMEND_BADGES[0];
