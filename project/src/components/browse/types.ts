@@ -69,4 +69,7 @@ export interface BrowseViewProps {
   regionOptions?: string[];
   onRecommendText?: (text: string) => Promise<void> | void;
   onQuickStart?: (partial: Partial<IntentConditions>) => void;
+  /** false면 첫 화면(추천받기 중심)을, true면 이름 검색·목록·지도 탐색을 보여준다 */
+  exploring?: boolean;
+  onExploringChange?: (exploring: boolean) => void;
 }

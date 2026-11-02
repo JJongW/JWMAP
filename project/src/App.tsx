@@ -18,7 +18,7 @@ import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { getCuratorReason, isCuratorVisited } from './utils/curation';
-import { EMPTY_CONDITIONS, inferConditionMode, resolveIntent, type IntentConditions } from './utils/intentChips';
+import { EMPTY_CONDITIONS, inferConditionMode, resolveIntent, unreadWords, type IntentConditions } from './utils/intentChips';
 import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
 import { clearPlaceStates, getActivityScore, getSavedIds, getVisitedIds, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -33,8 +33,9 @@ export default function App() {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
 
   // UI Mode state
-  // 지도 탐색을 기본 진입으로 두고, 결정 플로우는 보조 기능으로 제공한다.
+  // 첫 화면(browse + 탐색 닫힘)은 추천받기가 대표 행동이고, 이름 검색·지도·목록은 '직접 찾아보기'로 연다.
   const [uiMode, setUiMode] = useState<UiMode>('browse');
+  const [browseExploring, setBrowseExploring] = useState(false);
 
   // Decision flow state
   const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
@@ -488,10 +489,13 @@ export default function App() {
   const handleRecommendText = useCallback(async (text: string) => {
     recordActivity('recommend_start', undefined, { contentType: contentMode });
     const { conditions: parsed, source } = await resolveIntent(text, regionOptions);
+    const unread = source === 'rules' ? unreadWords(text, regionOptions) : [];
     setIntentNotice(
       text.trim() && source === 'none'
         ? '문장에서 조건을 찾지 못했어요. 아래 칩으로 직접 골라주세요.'
-        : null
+        : unread.length
+          ? `'${unread.join("', '")}' 조건은 아직 읽지 못해서 빼고 골랐어요. 아래 칩에 있는 조건만 적용했어요.`
+          : null
     );
     runDecision(parsed);
   }, [contentMode, regionOptions, runDecision]);
@@ -509,9 +513,16 @@ export default function App() {
     runDecision(next);
   }, [runDecision]);
 
+  /** 추천 결과·질문형 화면의 "지도로 보기" → 첫 화면이 아니라 지도·목록 탐색으로 */
   const handleSwitchToBrowse = useCallback(() => {
+    setBrowseExploring(true);
     setUiMode('browse');
     setDecisionResult(null);
+  }, []);
+
+  /** 질문형 화면의 "돌아가기" → 들어오기 전 화면(첫 화면이든 직접 찾아보기든)으로 */
+  const handleBackFromEntry = useCallback(() => {
+    setUiMode('browse');
   }, []);
 
   /** 지도 탐색 중 추천이 필요할 때 Decision 화면으로 이동 */
@@ -675,7 +686,7 @@ export default function App() {
           contentMode={contentMode}
           availableProvincesWithDistricts={availableProvincesWithDistricts}
           onDecide={handleDecide}
-          onBrowse={handleSwitchToBrowse}
+          onBrowse={handleBackFromEntry}
         />
       )}
 
@@ -754,6 +765,8 @@ export default function App() {
           regionOptions={regionOptions.slice(0, 20)}
           onRecommendText={handleRecommendText}
           onQuickStart={handleQuickStart}
+          exploring={browseExploring}
+          onExploringChange={setBrowseExploring}
         />
       )}
 
