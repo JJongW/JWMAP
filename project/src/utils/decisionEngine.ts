@@ -378,16 +378,17 @@ function findTag(location: Location, keywords: string[]): string | null {
   return location.tags?.find((tag) => lowered.some((keyword) => tag.toLowerCase().includes(keyword))) ?? null;
 }
 
-const COMPANION_TEXT: Record<Companion, { match: string; unknown: string }> = {
-  solo: { match: '혼자 가기 편해요', unknown: '혼자 방문이 편한지는 확인되지 않았어요.' },
-  pair: { match: '둘이 가기 좋아요', unknown: '둘이 가기 좋은지는 확인되지 않았어요.' },
-  group: { match: '여럿이 가기 좋아요', unknown: '여럿이 가기 좋은지는 확인되지 않았어요.' },
+/** 일치일 때는 '둘이 가기 좋아요'처럼 단정하지 않고 조건 이름만 쓴다. 근거(태그)는 evidence로 따로 보여준다 */
+const COMPANION_UNKNOWN: Record<Companion, string> = {
+  solo: '혼자 방문이 편한지는 확인되지 않았어요.',
+  pair: '둘이 가기 좋은지는 확인되지 않았어요.',
+  group: '여럿이 가기 좋은지는 확인되지 않았어요.',
 };
 
-const FOOD_TIME_TEXT: Record<TimeSlot, { match: string; tag: string; unknown: string }> = {
-  lunch: { match: '점심에 열어요', tag: '점심에 가기 좋아요', unknown: '점심 이용 여부는 확인되지 않았어요.' },
-  dinner: { match: '저녁에 열어요', tag: '저녁에 가기 좋아요', unknown: '저녁 이용 여부는 확인되지 않았어요.' },
-  late: { match: '밤 11시 넘어서도 열어요', tag: '늦은 밤에 가기 좋아요', unknown: '늦은 밤 영업 여부는 확인되지 않았어요.' },
+const FOOD_TIME_TEXT: Record<TimeSlot, { match: string; unknown: string }> = {
+  lunch: { match: '점심에 열어요', unknown: '점심 이용 여부는 확인되지 않았어요.' },
+  dinner: { match: '저녁에 열어요', unknown: '저녁 이용 여부는 확인되지 않았어요.' },
+  late: { match: '밤 11시 넘어서도 열어요', unknown: '늦은 밤 영업 여부는 확인되지 않았어요.' },
 };
 
 const SPACE_TIME_UNKNOWN: Record<TimeSlot, string> = {
@@ -423,11 +424,11 @@ export function getConditionMatches(
 
   if (conditions.companion) {
     const judged = judgeCompanion(location, conditions.companion);
-    const copy = COMPANION_TEXT[conditions.companion];
+    const label = labels.companion[conditions.companion];
     matches.push({
-      label: labels.companion[conditions.companion],
+      label,
       status: judged.status,
-      text: judged.status === 'match' ? copy.match : copy.unknown,
+      text: judged.status === 'match' ? label : COMPANION_UNKNOWN[conditions.companion],
       evidence: judged.evidence,
     });
   }
@@ -441,7 +442,7 @@ export function getConditionMatches(
       text:
         judged.status !== 'match'
           ? mode === 'food' ? copy.unknown : SPACE_TIME_UNKNOWN[conditions.timeSlot]
-          : judged.evidence === HOURS_SOURCE ? copy.match : copy.tag,
+          : judged.evidence === HOURS_SOURCE ? copy.match : labels.timeSlot[conditions.timeSlot],
       evidence: judged.evidence,
     });
   }

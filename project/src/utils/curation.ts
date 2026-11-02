@@ -166,9 +166,12 @@ export interface RecommendBadge {
   badgeClass: string;
 }
 
+/**
+ * 추천 강도 배지는 하나만 쓴다. 예전의 '운영자 추천'(3단계)·'대표픽'(4단계 이상)은
+ * 화면에서 차이를 알 수 없어 사용자가 두 단계를 추측해야 했다. 단계는 추천 순서에만 쓴다.
+ */
 export const RECOMMEND_BADGES: RecommendBadge[] = [
-  { label: '운영자 추천', description: '직접 다녀와서 추천하는 곳', badgeClass: 'bg-emerald-50 text-emerald-700' },
-  { label: '대표픽', description: '직접 다녀온 곳 중 특히 추천하는 곳', badgeClass: 'bg-orange-100 text-orange-700' },
+  { label: '운영자 추천', description: '직접 다녀와서 추천 이유를 적어 둔 곳', badgeClass: 'bg-orange-50 text-orange-700' },
 ];
 
 /**
@@ -181,9 +184,7 @@ export function getRecommendBadge(
 ): RecommendBadge | null {
   if (!isCuratorVisited(location) || !getCuratorReason(location)) return null;
   const level = location.curation_level ?? ratingToCurationLevel(location.rating ?? 0);
-  if (level >= 4) return RECOMMEND_BADGES[1];
-  if (level >= 3) return RECOMMEND_BADGES[0];
-  return null;
+  return level >= 3 ? RECOMMEND_BADGES[0] : null;
 }
 
 const UNVISITED_BASIS_LABEL: Record<string, string> = { friend: '지인 추천', research: '직접 찾아봄', wishlist: '가보고 싶은 곳' };
