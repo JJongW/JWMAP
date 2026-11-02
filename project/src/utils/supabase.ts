@@ -44,10 +44,36 @@ async function fetchAllPages(
   }
 }
 
+/**
+ * 장소별 영업시간 원문 (카카오맵에서 모은 place_facts). 시간 조건을 메뉴 분류로 추정하지 않고 이걸로 판정한다.
+ * 못 불러오면 빈 Map — 시간 조건은 '미확인'이 될 뿐 추천은 계속된다.
+ */
+async function getHoursByPlace(): Promise<Map<string, string>> {
+  const result = await fetchAllPages((from, to) =>
+    supabase
+      .from('place_facts')
+      .select('place_id, value, checked_at')
+      .eq('field', 'hours')
+      .neq('status', 'outdated')
+      .order('checked_at', { ascending: false, nullsFirst: false })
+      .order('id')
+      .range(from, to),
+  );
+  const hours = new Map<string, string>();
+  if (result.error) return hours;
+  for (const row of result.data as { place_id: string; value: { text?: string } | null }[]) {
+    const text = row.value?.text?.trim();
+    // 최신 확인값이 먼저 오므로 처음 본 값만 쓴다
+    if (text && !hours.has(row.place_id)) hours.set(row.place_id, text);
+  }
+  return hours;
+}
+
 // 장소 관련 API 함수들
 export const locationApi = {
   // 모든 장소 가져오기 (locations_search: popularity_score for ranking)
   async getAll(mode: ContentMode = 'food'): Promise<Location[]> {
+    const hoursPromise = getHoursByPlace(); // 장소 목록과 동시에 받는다
     const table = getLocationTable(mode);
     const searchView = getLocationSearchView(mode);
     const columns = [
@@ -84,7 +110,12 @@ export const locationApi = {
 
     const data = result.data;
 
-    return ((data || []) as unknown as Record<string, unknown>[]).map((item) => mapRowToLocation(item));
+    const hours = await hoursPromise;
+    return ((data || []) as unknown as Record<string, unknown>[]).map((item) => {
+      const location = mapRowToLocation(item);
+      const hoursText = hours.get(location.id);
+      return hoursText ? { ...location, hours_text: hoursText } : location;
+    });
   },
 
   // 장소 추가

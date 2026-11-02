@@ -101,22 +101,22 @@ export function DecisionEntryView({
   const modeText = useMemo(() => {
     if (contentMode === 'space') {
       return {
-        step1: '어디로 나들이 갈래?',
-        step3: '얼마나 머물래?',
-        step4: '어떤 게 중요해?',
+        step1: '어디로 갈까요?',
+        step3: '얼마나 머물 건가요?',
+        step4: '무엇이 중요한가요?',
         hint3: '머무는 시간을 골라 주세요',
-        cta: '지금 바로 정해줘',
+        cta: '추천받기',
         browse: '돌아가기',
         accent: 'violet' as const,
       };
     }
 
     return {
-      step1: '어디서 먹고 싶어?',
-      step3: '언제?',
-      step4: '가장 중요한 건?',
+      step1: '어디서 찾을까요?',
+      step3: '언제 가나요?',
+      step4: '가장 중요한 건 뭔가요?',
       hint3: '시간대를 골라 주세요',
-      cta: '지금 바로 정해줘',
+      cta: '추천받기',
       browse: '돌아가기',
       accent: 'orange' as const,
     };
@@ -131,11 +131,10 @@ export function DecisionEntryView({
           {/* ── Hero 텍스트 ── */}
           <div className="mb-8 md:mb-12 [@media(max-height:700px)]:mb-6">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
-              {contentMode === 'space' ? '오늘 뭐 보지?' : '오늘 오디가?'}
+              {contentMode === 'space' ? '오늘 뭐 보러 갈까요?' : '오늘 어디 갈까요?'}
             </h1>
             <p className="mt-3 text-base leading-relaxed text-gray-500 md:text-lg">
-              고르기 어려울 때만 살짝 도와줄게.<br />
-              몇 가지만 고르면 바로 추천해줄게.
+              몇 가지만 고르면 갈 곳을 추천해 드려요.
             </p>
           </div>
 
@@ -190,7 +189,7 @@ export function DecisionEntryView({
           {/* ── STEP 2: 동행 ── */}
           <StepSection
             step={2}
-            label="누구랑 가?"
+            label="누구와 가나요?"
             isActive={true}
           >
             <PillGroup
@@ -280,7 +279,7 @@ export function DecisionEntryView({
             </span>
             {!isComplete && (
               <span className="text-xs text-gray-500">
-                {!companion ? '누구랑 가는지 골라 주세요' : !timeSlot ? modeText.hint3 : '가장 중요한 걸 골라 주세요'}
+                {!companion ? '누구와 가는지 골라 주세요' : !timeSlot ? modeText.hint3 : '가장 중요한 걸 골라 주세요'}
               </span>
             )}
           </div>

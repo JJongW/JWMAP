@@ -16,8 +16,9 @@ import type { Location, CategoryMain, ContentMode } from '../types/location';
 import { PROVINCES, inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
 import { getCuratorReason, isCuratorVisited } from './curation';
-import { getConditionLabels, type IntentConditions } from './intentChips';
+import { getConditionLabels, KIND_LABEL, type IntentConditions } from './intentChips';
 import { findTermEvidence, termLabel } from './taxonomy';
+import { judgeOpenAt } from './hours';
 
 // ─────────────────────────────────────────────
 // 1. Companion → 태그 매핑
@@ -155,20 +156,23 @@ function judgeCompanion(location: Location, companion: Companion): Judged {
   return { status: 'unknown', evidence: null };
 }
 
-/** 시간 근거는 맛집 카테고리·심야 태그로만 판단한다. 볼거리는 근거 데이터가 없어 늘 미확인이다 */
+/**
+ * 시간 근거는 카카오맵 영업시간(과 늦은 밤의 심야 태그)으로만 판단한다.
+ * 메뉴 분류(밥·면이면 점심)는 추정이라 근거로 쓰지 않는다. 볼거리는 근거 데이터가 없어 늘 미확인이다.
+ */
 function judgeTimeSlot(location: Location, timeSlot: TimeSlot, mode: ContentMode): Judged {
   if (mode !== 'food') return { status: 'unknown', evidence: null };
   if (timeSlot === 'late') {
     const lateTag = findTag(location, ['심야', '야식', '늦게']);
     if (lateTag) return { status: 'match', evidence: `#${lateTag}` };
   }
-  const categoryMain = location.categoryMain as CategoryMain | undefined;
-  if (!categoryMain || categoryMain === '전체') return { status: 'unknown', evidence: null };
-  const weight = TIME_CATEGORY_WEIGHT[timeSlot][categoryMain] ?? 1;
-  if (weight >= 2) return { status: 'match', evidence: categoryMain };
-  if (weight === 0) return { status: 'mismatch', evidence: null };
-  return { status: 'unknown', evidence: null };
+  const fit = judgeOpenAt(location.hours_text, timeSlot);
+  if (fit === 'match') return { status: 'match', evidence: HOURS_SOURCE };
+  return { status: fit, evidence: null };
 }
+
+/** 영업시간 근거의 출처. 카드에서 각주로 한 번만 밝힌다 */
+export const HOURS_SOURCE = '카카오맵 영업시간';
 
 function addMatchedTag(tags: string[], tag: string) {
   if (!tags.includes(tag)) tags.push(tag);
@@ -363,9 +367,9 @@ export interface ConditionMatch {
   /** 사용자가 고른 조건 이름 (예: '조용한 곳') */
   label: string;
   status: MatchStatus;
-  /** 카드에 보여줄 문장. 일치면 '둘이 가기 좋아요', 미확인이면 '…아직 확인되지 않았어요.' */
+  /** 카드에 보여줄 문장. 일치면 '둘이 가기 좋아요', 미확인이면 '…확인되지 않았어요.' */
   text: string;
-  /** 맞는 근거. 데이터로 확인 못 하면 null — 지어내지 않는다 */
+  /** 맞는 근거 (예: '#데이트', '카카오맵 영업시간'). 데이터로 확인 못 하면 null — 지어내지 않는다 */
   evidence: string | null;
 }
 
@@ -375,24 +379,31 @@ function findTag(location: Location, keywords: string[]): string | null {
 }
 
 const COMPANION_TEXT: Record<Companion, { match: string; unknown: string }> = {
-  solo: { match: '혼자 가기 편해요', unknown: '혼자 방문이 편한지는 아직 확인되지 않았어요.' },
-  pair: { match: '둘이 가기 좋아요', unknown: '둘이 가기 좋은지는 아직 확인되지 않았어요.' },
-  group: { match: '여럿이 가기 좋아요', unknown: '여럿이 가기 좋은지는 아직 확인되지 않았어요.' },
+  solo: { match: '혼자 가기 편해요', unknown: '혼자 방문이 편한지는 확인되지 않았어요.' },
+  pair: { match: '둘이 가기 좋아요', unknown: '둘이 가기 좋은지는 확인되지 않았어요.' },
+  group: { match: '여럿이 가기 좋아요', unknown: '여럿이 가기 좋은지는 확인되지 않았어요.' },
 };
 
-const FOOD_TIME_TEXT: Record<TimeSlot, { match: string; unknown: string }> = {
-  lunch: { match: '점심 식사에 어울리는', unknown: '점심에 어울리는지는 아직 확인되지 않았어요.' },
-  dinner: { match: '저녁 식사에 어울리는', unknown: '저녁에 어울리는지는 아직 확인되지 않았어요.' },
-  late: { match: '늦은 밤에 어울리는', unknown: '늦은 밤에 가기 좋은지는 아직 확인되지 않았어요.' },
+const FOOD_TIME_TEXT: Record<TimeSlot, { match: string; tag: string; unknown: string }> = {
+  lunch: { match: '점심에 열어요', tag: '점심에 가기 좋아요', unknown: '점심 이용 여부는 확인되지 않았어요.' },
+  dinner: { match: '저녁에 열어요', tag: '저녁에 가기 좋아요', unknown: '저녁 이용 여부는 확인되지 않았어요.' },
+  late: { match: '밤 11시 넘어서도 열어요', tag: '늦은 밤에 가기 좋아요', unknown: '늦은 밤 영업 여부는 확인되지 않았어요.' },
 };
 
 const SPACE_TIME_UNKNOWN: Record<TimeSlot, string> = {
-  lunch: '가볍게 둘러볼 만한지는 아직 확인되지 않았어요.',
-  dinner: '반나절 코스로 맞는지는 아직 확인되지 않았어요.',
-  late: '저녁에도 둘러볼 수 있는지는 아직 확인되지 않았어요.',
+  lunch: '가볍게 둘러볼 만한지는 확인되지 않았어요.',
+  dinner: '반나절 코스로 맞는지는 확인되지 않았어요.',
+  late: '저녁에도 둘러볼 수 있는지는 확인되지 않았어요.',
 };
 
-/** 조건마다 일치·미확인과 근거를 판정한다 (지역·종류는 이미 필터로 걸러짐) */
+function unknownText(label: string) {
+  return `'${label}' 조건은 확인되지 않았어요.`;
+}
+
+/**
+ * 고른 조건마다 이 장소에서 일치·미확인인지와 근거. 카드의 '선택 조건 확인'에 그대로 쓴다.
+ * 지역·종류는 이미 필터로 걸렀으므로 일치로, 나머지는 데이터를 다시 본다.
+ */
 export function getConditionMatches(
   location: Location,
   conditions: IntentConditions,
@@ -400,6 +411,15 @@ export function getConditionMatches(
 ): ConditionMatch[] {
   const matches: ConditionMatch[] = [];
   const labels = getConditionLabels(mode);
+
+  if (conditions.region) {
+    matches.push({ label: conditions.region, status: 'match', text: conditions.region, evidence: null });
+  }
+  if (conditions.kind && mode === 'food') {
+    const label = KIND_LABEL[conditions.kind];
+    const fits = conditions.kind === 'cafe' ? isCafeLike(location) : !isCafeLike(location);
+    matches.push({ label, status: fits ? 'match' : 'mismatch', text: label, evidence: null });
+  }
 
   if (conditions.companion) {
     const judged = judgeCompanion(location, conditions.companion);
@@ -414,16 +434,15 @@ export function getConditionMatches(
 
   if (conditions.timeSlot) {
     const judged = judgeTimeSlot(location, conditions.timeSlot, mode);
-    const timeLabel = labels.timeSlot[conditions.timeSlot];
     const copy = FOOD_TIME_TEXT[conditions.timeSlot];
     matches.push({
-      label: timeLabel,
+      label: labels.timeSlot[conditions.timeSlot],
       status: judged.status,
       text:
         judged.status !== 'match'
           ? mode === 'food' ? copy.unknown : SPACE_TIME_UNKNOWN[conditions.timeSlot]
-          : judged.evidence?.startsWith('#') ? `${timeLabel}에 가기 좋아요` : `${copy.match} ${judged.evidence}`,
-      evidence: judged.evidence?.startsWith('#') ? judged.evidence : null,
+          : judged.evidence === HOURS_SOURCE ? copy.match : copy.tag,
+      evidence: judged.evidence,
     });
   }
 
@@ -434,7 +453,7 @@ export function getConditionMatches(
     matches.push(
       tag
         ? { label, status: 'match', text: label, evidence: `#${tag}` }
-        : { label, status: 'unknown', text: `'${label}'인지는 아직 확인되지 않았어요.`, evidence: null },
+        : { label, status: 'unknown', text: unknownText(label), evidence: null },
     );
   }
 
@@ -446,7 +465,7 @@ export function getConditionMatches(
     matches.push(
       evidence
         ? { label, status: 'match', text: label, evidence }
-        : { label, status: 'unknown', text: `'${label}'인지는 아직 확인되지 않았어요.`, evidence: null },
+        : { label, status: 'unknown', text: unknownText(label), evidence: null },
     );
   }
 

@@ -79,15 +79,26 @@ describe('식사 후보와 식후 카페 분리 (P2)', () => {
 });
 
 describe('getConditionMatches', () => {
-  it('조건마다 근거를 붙이고, 근거가 없으면 null로 둔다', () => {
-    const loc = place({ categoryMain: '양식·퓨전', tags: ['조용한 분위기'] });
+  it('조건마다 일치·미확인과 근거. 시간은 메뉴 분류로 추정하지 않고 영업시간으로만 본다', () => {
+    const loc = place({ categoryMain: '양식·퓨전', tags: ['조용한 분위기'], hours_text: '목(10/29) 17:00 ~ 22:00' });
     expect(
-      getConditionMatches(loc, { ...EMPTY_CONDITIONS, companion: 'pair', timeSlot: 'dinner', priority: 'quiet' }),
+      getConditionMatches(loc, { ...EMPTY_CONDITIONS, region: '종로/중구', companion: 'pair', timeSlot: 'dinner', priority: 'quiet' }),
     ).toEqual([
-      { label: '둘이', status: 'unknown', text: '둘이 가기 좋은지는 아직 확인되지 않았어요.', evidence: null },
-      { label: '저녁', status: 'match', text: '저녁 식사에 어울리는 양식·퓨전', evidence: null },
+      { label: '종로/중구', status: 'match', text: '종로/중구', evidence: null },
+      { label: '둘이', status: 'unknown', text: '둘이 가기 좋은지는 확인되지 않았어요.', evidence: null },
+      { label: '저녁', status: 'match', text: '저녁에 열어요', evidence: '카카오맵 영업시간' },
       { label: '조용한 곳', status: 'match', text: '조용한 곳', evidence: '#조용한 분위기' },
     ]);
+  });
+
+  it('영업시간이 없으면 밥집이어도 점심은 미확인', () => {
+    const loc = place({ categoryMain: '밥' });
+    expect(getConditionMatches(loc, { ...EMPTY_CONDITIONS, timeSlot: 'lunch' })[0]).toEqual({
+      label: '점심',
+      status: 'unknown',
+      text: '점심 이용 여부는 확인되지 않았어요.',
+      evidence: null,
+    });
   });
 });
 
@@ -117,10 +128,11 @@ describe('볼거리 조건 (둘이 · 가볍게 · 실내 위주)', () => {
 
 describe('조건 일치·불일치·미확인 (용산 · 혼자 · 점심)', () => {
   const region = '용산/이태원/한남';
+  const lunchOpen = '목(10/29) 11:30 ~ 21:00 / 금(10/30) 11:30 ~ 21:00';
   // 실제 재현: 혼자 근거가 없는 직접 방문 밥집 (데이트 태그만 있음)
-  const ojeje = place({ name: '오제제 신용산점', region, categoryMain: '밥', tags: ['데이트', '웨이팅'], curator_visited: true, rating: 5 });
-  const soloRamen = place({ name: '혼밥 라멘', region, categoryMain: '면', tags: ['혼밥'], rating: 3 });
-  const bar = place({ name: '점심엔 안 여는 술집', region, categoryMain: '술안주', tags: ['혼밥'] });
+  const ojeje = place({ name: '오제제 신용산점', region, categoryMain: '밥', tags: ['데이트', '웨이팅'], curator_visited: true, rating: 5, hours_text: lunchOpen });
+  const soloRamen = place({ name: '혼밥 라멘', region, categoryMain: '면', tags: ['혼밥'], rating: 3, hours_text: lunchOpen });
+  const eveningBar = place({ name: '저녁에만 여는 술집', region, categoryMain: '술안주', tags: ['혼밥'], hours_text: '목(10/29) 18:00 ~ 01:00' });
   const soloLunch = { ...EMPTY_CONDITIONS, region, companion: 'solo' as const, timeSlot: 'lunch' as const };
 
   it('조용한 곳만 빼도 혼자·점심은 그대로이고, 혼자가 확인된 곳이 미확인 곳보다 먼저 나온다', () => {
@@ -134,22 +146,28 @@ describe('조건 일치·불일치·미확인 (용산 · 혼자 · 점심)', () 
     const result = decideLocations([ojeje], soloLunch)!;
     expect(result.confirmedCount).toBe(0);
     expect(result.unconfirmedCount).toBe(1);
-    expect(getConditionMatches(ojeje, soloLunch)[0]).toEqual({
+    expect(getConditionMatches(ojeje, soloLunch).find((m) => m.label === '혼자')).toEqual({
       label: '혼자',
       status: 'unknown',
-      text: '혼자 방문이 편한지는 아직 확인되지 않았어요.',
+      text: '혼자 방문이 편한지는 확인되지 않았어요.',
       evidence: null,
     });
   });
 
-  it('데이터가 반대를 말하는 곳(점심의 술집, 둘이인데 혼밥 가게)은 후보에서 뺀다', () => {
-    expect(decideLocations([bar], soloLunch)).toBeNull();
+  it('데이터가 반대를 말하는 곳(점심에 안 여는 곳, 둘이인데 혼밥 가게)은 후보에서 뺀다', () => {
+    expect(decideLocations([eveningBar], soloLunch)).toBeNull();
     expect(decideLocations([soloRamen], { ...soloLunch, companion: 'pair' })).toBeNull();
   });
 
   it('미확인 조건은 점수로 일치 취급하지 않는다: 평점이 높아도 확인된 곳 뒤', () => {
     const result = decideLocations([ojeje, soloRamen], soloLunch)!;
     expect(result.primary.rating).toBeLessThan(ojeje.rating);
+  });
+
+  it('영업시간이 없는 곳은 점심이 미확인이라 확인된 곳 뒤에 온다', () => {
+    const noHours = place({ name: '시간 모름', region, categoryMain: '밥', tags: ['혼밥'], rating: 5, curator_visited: true });
+    const result = decideLocations([noHours, soloRamen], soloLunch)!;
+    expect(result.primary.name).toBe('혼밥 라멘');
   });
 });
 

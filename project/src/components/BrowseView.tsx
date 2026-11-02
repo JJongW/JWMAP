@@ -175,7 +175,7 @@ export function BrowseView({
     setClearPlaceStateFeedback(
       didSyncRemote
         ? '저장한 곳을 비웠어요.'
-        : '브라우저 기록은 비웠어요. 서버 동기화는 확인이 필요해요.'
+        : '이 기기의 저장 목록은 비웠어요. 다른 기기에는 남아 있을 수 있어요.'
     );
   };
 
@@ -266,8 +266,8 @@ export function BrowseView({
               </div>
             )}
             <p className="mt-2 text-xs leading-relaxed text-gray-500">
-              제가 다녀온 곳은 <span className="font-semibold text-emerald-600">운영자 직접 방문</span>, 아직 못 가본 곳은{' '}
-              <span className="font-semibold text-gray-500">아직 안 가본 후보</span>로 구분해요.
+              운영자가 다녀온 곳은 <span className="font-semibold text-emerald-700">운영자 직접 방문</span>, 아직 못 가본 곳은{' '}
+              <span className="font-semibold text-gray-600">아직 안 가본 후보</span>로 표시해요.
             </p>
           </header>
 
@@ -493,7 +493,7 @@ export function BrowseView({
               selectedId={selectedLocation?.id}
               emptyMessage={
                 savedOnly && myPlaceCount === 0
-                  ? '아직 저장한 곳이 없어요. 마음에 드는 곳은 저장하고, 다녀온 곳은 기록해보세요.'
+                  ? '아직 저장한 곳이 없어요. 마음에 드는 곳은 저장하고, 다녀온 곳은 기록해 보세요.'
                   : savedOnly
                   ? getSavedViewEmptyMessage(savedView)
                   : isSearching
@@ -854,12 +854,12 @@ function getSavedViewNote(savedView?: 'saved' | 'visited' | 'revisit'): string {
 
 function getSavedViewGuide(view: 'saved' | 'visited' | 'revisit'): string {
   if (view === 'revisit') {
-    return '다녀온 곳 중 다시 꺼내볼 만한 후보를 먼저 보여줘요.';
+    return '다녀온 곳 중 다시 가 볼 만한 후보를 먼저 보여 드려요.';
   }
   if (view === 'visited') {
     return '다녀온 곳은 다음에 다시 갈 후보를 고를 때 기준점이 돼요.';
   }
-  return '가보고 싶은 곳만 모아두면 나중에 고를 때 비교하기 쉬워요.';
+  return '가 보고 싶은 곳을 모아 두면 나중에 고를 때 비교하기 쉬워요.';
 }
 
 function getSavedViewCountLabel(view: 'saved' | 'visited' | 'revisit', count: number): string {
@@ -873,9 +873,9 @@ function getSavedViewEmptyMessage(view: 'saved' | 'visited' | 'revisit'): string
     return '아직 다시 갈 기준이 없어요. 다녀온 장소를 기록하면 여기서 다시 볼 수 있어요.';
   }
   if (view === 'visited') {
-    return '아직 다녀온 장소가 없어요. 상세에서 다녀왔어요를 눌러 기록해보세요.';
+    return '아직 다녀온 장소가 없어요. 상세 화면에서 ‘다녀왔어요’를 눌러 기록해 보세요.';
   }
-  return '아직 저장한 후보가 없어요. 마음에 드는 장소의 하트를 눌러보세요.';
+  return '아직 저장한 후보가 없어요. 마음에 드는 장소의 하트를 눌러 보세요.';
 }
 
 // ─────────────────────────────────────────────
