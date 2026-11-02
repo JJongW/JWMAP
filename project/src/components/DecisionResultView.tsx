@@ -15,7 +15,7 @@
  * 고른 조건이 모두 확인된 곳이 없으면 미확인 후보를 바로 띄우지 않고, 무엇이 확인 안 됐는지 먼저 말한다.
  */
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { MapPin, ChevronDown, ChevronRight, Navigation } from 'lucide-react';
 import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
@@ -24,6 +24,7 @@ import { getConditionLabels, KIND_LABEL, type IntentConditions } from '../utils/
 import { ConditionChips } from './ConditionChips';
 import { ResultMap } from './ResultMap';
 import { useBreakpoint } from '../hooks/useBreakpoint';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { termLabel } from '../utils/taxonomy';
 import { getCardImageUrl } from '../utils/image';
 import {
@@ -180,10 +181,8 @@ interface ResultCardsProps {
 
 function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: ResultCardsProps) {
   const { primary, secondary, reasons, afterCafe } = result;
-  // 넓은 화면은 지도에 대안도 찍히니 카드도 펼쳐 두고 비교하게 한다
-  const [showAlternatives, setShowAlternatives] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
-  // 처음부터 펼쳐 둔 경우에는 스크롤하지 않는다 (추천 카드가 위로 밀리지 않게)
-  const openedByUser = useRef(false);
+  // 화면 크기와 상관없이 추천 1곳과 지도 이동을 먼저 보여주고 대안은 접어 둔다 (넓은 화면 지도에는 대안도 찍힌다)
+  const [showAlternatives, setShowAlternatives] = useState(false);
 
   return (
     <>
@@ -195,8 +194,9 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: Re
         onOpenDetail={onOpenDetail}
       />
 
-      {/* ── 지도 열기 버튼 (1순위 기준): 대안보다 먼저, 카드 바로 아래 ── */}
-      <div className="mt-3 flex gap-2">
+      {/* ── 지도 열기 버튼 (1순위 기준): 대안보다 먼저, 카드 바로 아래.
+           카드가 화면보다 길면(짧은 화면, 안내 문구) 스크롤 영역 아래쪽에 붙어 하단 바에 가리지 않는다 ── */}
+      <div className="sticky bottom-0 z-10 -mx-4 mt-1 flex gap-2 bg-white px-4 pb-1 pt-2 md:-mx-6 md:px-6 lg:mx-0 lg:px-0">
         <MapButton
           label="네이버 지도"
           onClick={() => openNaver(primary)}
@@ -222,18 +222,15 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: Re
         <div className="mt-5 rounded-2xl border border-gray-100">
           <button
             type="button"
-            onClick={() => {
-              openedByUser.current = !showAlternatives;
-              setShowAlternatives(!showAlternatives);
-            }}
+            onClick={() => setShowAlternatives(!showAlternatives)}
             aria-expanded={showAlternatives}
             aria-controls="decision-alternatives"
-            className="flex w-full items-center gap-2 px-4 py-3 text-left"
+            className="flex min-h-[48px] w-full items-center gap-2 px-4 py-3 text-left"
           >
-            <span className="shrink-0 text-xs font-semibold text-gray-500">
-              {copy.secondaryLabel} {secondary.length}곳
+            <span className="shrink-0 text-sm font-semibold text-gray-700">
+              {showAlternatives ? `${copy.secondaryLabel} 접기` : `${copy.secondaryLabel} ${secondary.length}곳 보기`}
             </span>
-            <span className="min-w-0 flex-1 truncate text-xs text-gray-500">
+            <span className="min-w-0 flex-1 truncate text-[13px] text-gray-600">
               {secondary.map((loc) => loc.name).join(' · ')}
             </span>
             <ChevronDown size={16} className={`shrink-0 text-gray-400 transition-transform ${showAlternatives ? 'rotate-180' : ''}`} />
@@ -241,11 +238,7 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: Re
           {showAlternatives && (
             <div
               id="decision-alternatives"
-              ref={(el) => {
-                if (!el || !openedByUser.current) return;
-                openedByUser.current = false;
-                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-              }}
+              ref={(el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}
               className="flex flex-col gap-2 px-3 pb-3"
             >
               {secondary.map((loc) => (
@@ -314,81 +307,90 @@ interface PrimaryCardProps {
 
 function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardProps) {
   const [imageError, setImageError] = useState(false);
+  const isShortScreen = useMediaQuery(SHORT_SCREEN);
   const practicalTags = (location.tags || []).filter(isPracticalInfoTag).slice(0, 3);
 
   return (
-    <button
-      type="button"
-      aria-label={`${location.name} 상세 보기`}
-      // 미확인 후보는 완전 일치 추천과 테두리부터 다르게
-      className={`w-full cursor-pointer overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-shadow hover:shadow-md ${
+    // 미확인 후보는 완전 일치 추천과 테두리부터 다르게
+    <article
+      data-testid="primary-card"
+      className={`w-full overflow-hidden rounded-2xl border bg-white shadow-sm ${
         hasUnknown(matches) ? 'border-amber-300 border-dashed' : 'border-gray-100'
       }`}
-      onClick={() => onOpenDetail(location)}
     >
-      {/* 이미지: 낮은 화면(700px 이하)에서는 이유·조건 확인·지도 버튼이 먼저 보이도록 숨긴다 */}
-      {location.imageUrl && !imageError && (
-        <div className="relative h-[min(15vh,13rem)] w-full overflow-hidden bg-gray-50 [@media(max-height:700px)]:hidden">
-          <img
-            src={getCardImageUrl(location.imageUrl)}
-            alt={location.name}
-            className="h-full w-full object-cover"
-            onError={() => setImageError(true)}
-          />
-        </div>
-      )}
-
-      {/* 콘텐츠 */}
-      <div className="p-4">
-        {/* 장소명 + 가격대 */}
-        <div className="mb-1.5 flex items-start justify-between gap-3">
-          <h2 className="text-xl font-bold tracking-tight text-gray-900">
-            {location.name}
-          </h2>
-          <PriceLevelBadge priceLevel={location.price_level} size="sm" />
-        </div>
-
-        {/* 방문 상태·추천 강도·조건 확인은 각각 배지로 (지역·종류 문구와 한 줄에 몰아 자르지 않는다) */}
-        <div className="mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-gray-500">
-          <VisitStatus location={location} />
-          {/* 추천 강도는 운영자가 이유를 적은 곳에만. 이유 없이 배지만 있으면 개인 추천처럼 읽힌다 */}
-          {reason && <RecommendBadge location={location} size="xs" />}
-          {hasUnknown(matches) && <UnconfirmedBadge />}
-          <span className="inline-flex items-center gap-1 whitespace-nowrap">
-            <MapPin size={13} />
-            {location.region}
-            {location.categoryMain && location.categoryMain !== '전체' && ` · ${location.categoryMain}`}
-          </span>
-        </div>
-
-        {/* 추천하는 이유: 운영자가 쓴 문장만. 없으면 지어내지 않고 중립 안내만 */}
-        {reason ? (
-          <div className="mb-3">
-            <p className="text-xs font-semibold text-orange-700">
-              운영자가 적은 추천 이유
-              {getUnvisitedBasisLabel(location) && <span className="ml-1 font-normal text-gray-500">· {getUnvisitedBasisLabel(location)}</span>}
-            </p>
-            {/* 카드에서는 두 줄까지, 전체 문장은 상세에서 본다 */}
-            <p className="mt-0.5 line-clamp-2 text-sm leading-relaxed text-gray-800" title={reason}>{reason}</p>
-          </div>
-        ) : (
-          <p className="mb-3 text-xs text-gray-500">{NO_REASON_TEXT}</p>
-        )}
-
-        {/* 고른 조건 확인 결과: 맞는 점은 한 줄로 이어 쓰고, 확인 안 된 점은 문장으로 따로 */}
-        {matches.length > 0 && (
-          <div className="mb-2 rounded-xl bg-gray-50 px-3 py-2">
-            <ConditionMatchList matches={matches} />
+      {/* 사진·이름·이유를 누르면 상세. 조건 확인 펼치기 버튼은 이 버튼 밖에 둔다 */}
+      <button
+        type="button"
+        aria-label={`${location.name} 상세 보기`}
+        className="block w-full cursor-pointer text-left transition-colors hover:bg-gray-50/60"
+        onClick={() => onOpenDetail(location)}
+      >
+        {/* 이미지: 낮은 화면(700px 이하)에서는 이유·조건 확인·지도 버튼이 먼저 보이도록 숨긴다 */}
+        {location.imageUrl && !imageError && (
+          <div className="relative h-[min(15vh,13rem)] w-full overflow-hidden bg-gray-50 [@media(max-height:700px)]:hidden">
+            <img
+              src={getCardImageUrl(location.imageUrl)}
+              alt={location.name}
+              className="h-full w-full object-cover"
+              onError={() => setImageError(true)}
+            />
           </div>
         )}
 
-        {/* 방문 정보: 추천 이유가 아니라 찾아갈 때 필요한 정보 */}
-        <p className="truncate text-xs text-gray-500">
-          <span className="font-semibold">방문 정보</span> · {location.address}
-          {practicalTags.length > 0 && ` · ${practicalTags.join(' · ')}`}
-        </p>
-      </div>
-    </button>
+        {/* 콘텐츠 */}
+        <div className="px-4 pb-2 pt-4">
+          {/* 장소명 + 가격대 */}
+          <div className="mb-1.5 flex items-start justify-between gap-3">
+            <h2 className="text-xl font-bold tracking-tight text-gray-900">
+              {location.name}
+            </h2>
+            <PriceLevelBadge priceLevel={location.price_level} size="sm" />
+          </div>
+
+          {/* 방문 상태·추천 강도·조건 확인은 각각 배지로 (지역·종류 문구와 한 줄에 몰아 자르지 않는다) */}
+          <div className="mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-gray-500">
+            <VisitStatus location={location} />
+            {/* 추천 강도는 운영자가 이유를 적은 곳에만. 이유 없이 배지만 있으면 개인 추천처럼 읽힌다 */}
+            {reason && <RecommendBadge location={location} size="xs" />}
+            {hasUnknown(matches) && <UnconfirmedBadge />}
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <MapPin size={13} />
+              {location.region}
+              {location.categoryMain && location.categoryMain !== '전체' && ` · ${location.categoryMain}`}
+            </span>
+          </div>
+
+          {/* 추천하는 이유: 운영자가 쓴 문장만. 없으면 지어내지 않고 중립 안내만 */}
+          {reason ? (
+            <div className="mb-3">
+              <p className="text-xs font-semibold text-orange-700">
+                운영자가 적은 추천 이유
+                {getUnvisitedBasisLabel(location) && <span className="ml-1 font-normal text-gray-500">· {getUnvisitedBasisLabel(location)}</span>}
+              </p>
+              {/* 카드에서는 두 줄까지, 전체 문장은 상세에서 본다 */}
+              <p className="mt-0.5 line-clamp-2 text-sm leading-relaxed text-gray-800" title={reason}>{reason}</p>
+            </div>
+          ) : (
+            <p className="mb-1 text-[13px] text-gray-600">{NO_REASON_TEXT}</p>
+          )}
+        </div>
+      </button>
+
+        <div className="px-4 pb-4">
+          {/* 고른 조건 확인 결과: 짧은 화면에서는 한 줄 요약으로 접어 두고 펼쳐 볼 수 있게 */}
+          {matches.length > 0 && (
+            <div className="mb-2 rounded-xl bg-gray-50 px-3 py-2">
+              <ConditionMatchList matches={matches} collapsible={isShortScreen} />
+            </div>
+          )}
+
+          {/* 방문 정보: 추천 이유가 아니라 찾아갈 때 필요한 정보 */}
+          <p className="truncate text-[13px] text-gray-600">
+            <span className="font-semibold">방문 정보</span> · {location.address}
+            {practicalTags.length > 0 && ` · ${practicalTags.join(' · ')}`}
+          </p>
+        </div>
+    </article>
   );
 }
 
@@ -429,17 +431,17 @@ function SecondaryCard({ location, reason, matches, onOpenDetail }: SecondaryCar
 
       {/* 텍스트 */}
       <div className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-gray-800">{location.name}</span>
+        <span className="block truncate text-[15px] font-semibold text-gray-900">{location.name}</span>
         <div className="mt-1 flex flex-wrap items-center gap-1">
           <VisitStatus location={location} />
           {reason && <RecommendBadge location={location} size="xs" />}
           {unknown.length > 0 && <UnconfirmedBadge />}
         </div>
         {/* 운영자 이유가 없으면 아무 문장도 채우지 않는다 (같은 안내를 반복하면 근거처럼 보인다) */}
-        {reason && <p className="mt-1 line-clamp-2 text-xs text-gray-700">{reason}</p>}
-        {matched.length > 0 && <p className="mt-1 text-xs text-gray-700">일치: {matched.join(' · ')}</p>}
+        {reason && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-gray-700">{reason}</p>}
+        {matched.length > 0 && <p className="mt-1 text-[13px] text-gray-700"><span className="font-semibold text-emerald-700">일치</span> {matched.join(' · ')}</p>}
         {unknown.length > 0 && (
-          <p className="mt-0.5 text-xs text-amber-800">미확인: {unknown.join(' · ')}</p>
+          <p className="mt-0.5 text-[13px] text-amber-900"><span className="font-semibold">미확인</span> {unknown.join(' · ')}</p>
         )}
       </div>
     </button>
@@ -448,6 +450,9 @@ function SecondaryCard({ location, reason, matches, onOpenDetail }: SecondaryCar
 
 /** 운영자 이유가 없을 때: 추천처럼 꾸미지 않고 중립으로 알린다 (1순위 카드에만, 반복하지 않는다) */
 const NO_REASON_TEXT = '아직 운영자가 추천 이유를 적지 않았어요.';
+
+/** 이 높이 이하에서는 조건 확인을 접어 두고 사진을 숨겨 추천 이유와 지도 버튼을 먼저 보여준다 */
+const SHORT_SCREEN = '(max-height: 700px)';
 
 function hasUnknown(matches: ConditionMatch[]) {
   return matches.some((match) => match.status === 'unknown');
@@ -617,37 +622,74 @@ const STATUS_STYLE: Record<ConditionMatch['status'], { label: string; className:
   mismatch: { label: '불일치', className: 'bg-red-50 text-red-700' },
 };
 
-/** 조건마다 상태를 한곳에: 일치는 한 줄로 이어 쓰고, 미확인·불일치는 문장으로 따로 */
-function ConditionMatchList({ matches }: { matches: ConditionMatch[] }) {
+/** '#데이트' → '데이트' 태그. 태그는 근거일 뿐 '둘이 가기 좋다'는 단정이 아니라서 출처를 그대로 밝힌다 */
+function formatEvidence(evidence: string | null): string | null {
+  if (!evidence || evidence === HOURS_SOURCE) return null;
+  return evidence.startsWith('#') ? `‘${evidence.slice(1)}’ 태그` : evidence;
+}
+
+/**
+ * 조건마다 상태를 한곳에: 일치는 한 줄로 이어 쓰고, 미확인·불일치는 문장으로 따로.
+ * collapsible이면(짧은 화면) '일치 3 · 미확인 1' 요약만 보이고 눌러서 펼친다.
+ */
+function ConditionMatchList({ matches, collapsible = false }: { matches: ConditionMatch[]; collapsible?: boolean }) {
+  const [open, setOpen] = useState(false);
   const groups = (['match', 'unknown', 'mismatch'] as const)
     .map((status) => ({ status, items: matches.filter((match) => match.status === status) }))
     .filter((group) => group.items.length > 0);
   const usesHours = matches.some((match) => match.evidence === HOURS_SOURCE);
+  const expanded = !collapsible || open;
 
   return (
-    <div className="text-xs" aria-label="선택 조건 확인">
-      <p className="mb-1 font-semibold text-gray-600">선택 조건 확인</p>
-      <ul className="space-y-1">
-        {groups.map(({ status, items }) => (
-          <li key={status} className="flex items-start gap-2">
-            <span className={`mt-px shrink-0 whitespace-nowrap rounded px-1.5 py-px font-semibold ${STATUS_STYLE[status].className}`}>
-              {STATUS_STYLE[status].label}
-            </span>
-            <span className={status === 'match' ? 'text-gray-800' : 'text-amber-900'}>
-              {status === 'match'
-                ? items.map((match, i) => (
-                    <span key={match.label}>
-                      {i > 0 && <span className="text-gray-400"> · </span>}
-                      {match.text}
-                      {match.evidence?.startsWith('#') && <span className="text-gray-500"> {match.evidence}</span>}
-                    </span>
-                  ))
-                : items.map((match) => match.text).join(' ')}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {usesHours && <p className="mt-1 text-gray-500">영업시간은 카카오맵 정보 기준이에요.</p>}
+    <div className="text-[13px]" aria-label="선택 조건 확인">
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          className="-mx-1 flex min-h-[36px] w-[calc(100%+0.5rem)] items-center gap-2 rounded-lg px-1 text-left"
+        >
+          <span className="font-semibold text-gray-700">선택 조건 확인</span>
+          <span className="flex flex-wrap gap-1">
+            {groups.map(({ status, items }) => (
+              <span key={status} className={`whitespace-nowrap rounded px-1.5 py-px text-xs font-semibold ${STATUS_STYLE[status].className}`}>
+                {STATUS_STYLE[status].label} {items.length}
+              </span>
+            ))}
+          </span>
+          <span className="ml-auto flex shrink-0 items-center text-xs font-medium text-gray-600">
+            {open ? '접기' : '펼치기'}
+            <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+          </span>
+        </button>
+      ) : (
+        <p className="mb-1 font-semibold text-gray-700">선택 조건 확인</p>
+      )}
+      {expanded && (
+        <>
+          <ul className={`space-y-1 ${collapsible ? 'mt-1' : ''}`}>
+            {groups.map(({ status, items }) => (
+              <li key={status} className="flex items-start gap-2">
+                <span className={`mt-px shrink-0 whitespace-nowrap rounded px-1.5 py-px text-xs font-semibold ${STATUS_STYLE[status].className}`}>
+                  {STATUS_STYLE[status].label}
+                </span>
+                <span className={status === 'match' ? 'text-gray-800' : 'text-amber-900'}>
+                  {status === 'match'
+                    ? items.map((match, i) => (
+                        <span key={match.label}>
+                          {i > 0 && <span className="text-gray-400"> · </span>}
+                          {match.text}
+                          {formatEvidence(match.evidence) && <span className="text-gray-600"> ({formatEvidence(match.evidence)})</span>}
+                        </span>
+                      ))
+                    : items.map((match) => match.text).join(' ')}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {usesHours && <p className="mt-1 text-xs text-gray-600">영업시간은 카카오맵 정보 기준이에요.</p>}
+        </>
+      )}
     </div>
   );
 }
