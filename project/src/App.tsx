@@ -33,8 +33,9 @@ export default function App() {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTER_STATE);
 
   // UI Mode state
-  // 지도 탐색을 기본 진입으로 두고, 결정 플로우는 보조 기능으로 제공한다.
+  // 첫 화면(browse + 탐색 닫힘)은 추천받기가 대표 행동이고, 이름 검색·지도·목록은 '직접 찾아보기'로 연다.
   const [uiMode, setUiMode] = useState<UiMode>('browse');
+  const [browseExploring, setBrowseExploring] = useState(false);
 
   // Decision flow state
   const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
@@ -512,9 +513,16 @@ export default function App() {
     runDecision(next);
   }, [runDecision]);
 
+  /** 추천 결과·질문형 화면의 "지도로 보기" → 첫 화면이 아니라 지도·목록 탐색으로 */
   const handleSwitchToBrowse = useCallback(() => {
+    setBrowseExploring(true);
     setUiMode('browse');
     setDecisionResult(null);
+  }, []);
+
+  /** 질문형 화면의 "돌아가기" → 들어오기 전 화면(첫 화면이든 직접 찾아보기든)으로 */
+  const handleBackFromEntry = useCallback(() => {
+    setUiMode('browse');
   }, []);
 
   /** 지도 탐색 중 추천이 필요할 때 Decision 화면으로 이동 */
@@ -678,7 +686,7 @@ export default function App() {
           contentMode={contentMode}
           availableProvincesWithDistricts={availableProvincesWithDistricts}
           onDecide={handleDecide}
-          onBrowse={handleSwitchToBrowse}
+          onBrowse={handleBackFromEntry}
         />
       )}
 
@@ -757,6 +765,8 @@ export default function App() {
           regionOptions={regionOptions.slice(0, 20)}
           onRecommendText={handleRecommendText}
           onQuickStart={handleQuickStart}
+          exploring={browseExploring}
+          onExploringChange={setBrowseExploring}
         />
       )}
 

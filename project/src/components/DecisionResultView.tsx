@@ -5,16 +5,17 @@
  * "검색 결과"가 아니라 "확신 있는 추천"처럼 보여야 한다.
  * 
  * 구조:
- * 1. Primary Recommendation Card - "오늘은 여기." + 장소명 + 이유
- * 2. Secondary Options (최대 2개) - 차별화 포인트 한 줄씩
- * 3. Action Buttons - 네이버/카카오 지도 열기
+ * 1. Primary Recommendation Card - "오늘은 여기." + 장소명 + 이유 + 방문 여부
+ * 2. Action Buttons - 네이버/카카오 지도 열기 (대안보다 먼저, 카드 바로 아래)
+ * 3. Secondary Options (최대 2개) - 접힌 보조 영역. 펼치면 비교할 수 있다
  * 4. "다시 고르기" / "지도로 보기" 전환 버튼
  * 
  * 카드 탭과 "자세히 보기"는 모두 같은 장소 상세(PlaceDetail)를 연다.
+ * 운영자가 이유를 적지 않은 곳은 추천 강도 배지를 달지 않고, 조건과 맞는 정보만 보여준다.
  */
 
 import { useState } from 'react';
-import { MapPin, ChevronRight, Navigation } from 'lucide-react';
+import { MapPin, ChevronDown, ChevronRight, Navigation } from 'lucide-react';
 import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
 import { getConditionMatches, type ConditionMatch } from '../utils/decisionEngine';
@@ -66,18 +67,18 @@ export function DecisionResultView({
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-lg px-6 pb-8 pt-6 md:pt-8">
+        <div className="mx-auto w-full max-w-lg px-4 pb-8 pt-4 md:px-6 md:pt-6">
 
           {/* ── 헤드라인 ── */}
           <p className="mb-1 text-xs font-medium tracking-widest text-gray-400">
             {copy.eyebrow}
           </p>
-          <h1 className="mb-3 text-2xl font-bold tracking-tight text-gray-900">
+          <h1 className="mb-2.5 text-2xl font-bold tracking-tight text-gray-900">
             {result ? copy.title : '고른 조건에 맞는 곳이 없어요.'}
           </h1>
 
           {/* ── 추천 조건 칩: 고치면 바로 다시 추천 ── */}
-          <div className="mb-5">
+          <div className="mb-4">
             <ConditionChips
               conditions={conditions}
               onChange={onConditionsChange}
@@ -141,6 +142,7 @@ interface ResultCardsProps {
 
 function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: ResultCardsProps) {
   const { primary, secondary, reasons, afterCafe } = result;
+  const [showAlternatives, setShowAlternatives] = useState(false);
 
   return (
     <>
@@ -152,43 +154,8 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: Re
         onOpenDetail={onOpenDetail}
       />
 
-      {/* ── 보조 추천 (2~3순위) ── */}
-      {secondary.length > 0 && (
-        <div className="mt-6">
-          <p className="mb-3 text-xs font-medium tracking-widest text-gray-300">
-            {copy.secondaryLabel}
-          </p>
-          <div className="flex flex-col gap-3">
-            {secondary.map((loc) => (
-              <SecondaryCard
-                key={loc.id}
-                location={loc}
-                reason={reasons.get(loc.id) || ''}
-                matches={getConditionMatches(loc, conditions, contentMode)}
-                onOpenDetail={onOpenDetail}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── 식후 카페: 식사 후보와 섞지 않고 따로 ── */}
-      {afterCafe && (
-        <div className="mt-6">
-          <p className="mb-3 text-xs font-medium tracking-widest text-gray-300">
-            식후 카페
-          </p>
-          <SecondaryCard
-            location={afterCafe}
-            reason={getCuratorReason(afterCafe)}
-            matches={getConditionMatches(afterCafe, { ...conditions, timeSlot: null }, contentMode)}
-            onOpenDetail={onOpenDetail}
-          />
-        </div>
-      )}
-
-      {/* ── 지도 열기 버튼 (1순위 기준) ── */}
-      <div className="mt-8 flex gap-3">
+      {/* ── 지도 열기 버튼 (1순위 기준): 대안보다 먼저, 카드 바로 아래 ── */}
+      <div className="mt-3 flex gap-2">
         <MapButton
           label="네이버 지도"
           onClick={() => openNaver(primary)}
@@ -200,18 +167,67 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: Re
           variant="secondary"
         />
       </div>
+      <button
+        type="button"
+        onClick={() => onOpenDetail(primary)}
+        className="mt-2 flex w-full items-center justify-center gap-0.5 py-1 text-xs text-gray-500 transition-colors hover:text-gray-700"
+      >
+        <span>{primary.name} 자세히 보기</span>
+        <ChevronRight size={14} />
+      </button>
 
-      {/* ── 자세히 보기: 카드 탭과 같은 장소 상세를 연다 ── */}
-      <div className="mt-10 border-t border-gray-100 pt-6">
-        <button
-          type="button"
-          onClick={() => onOpenDetail(primary)}
-          className="flex w-full items-center justify-center gap-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
-        >
-          <span>{primary.name} 자세히 보기</span>
-          <ChevronRight size={16} />
-        </button>
-      </div>
+      {/* ── 보조 추천 (2~3순위): 접어 두고, 펼치면 비교 ── */}
+      {secondary.length > 0 && (
+        <div className="mt-5 rounded-2xl border border-gray-100">
+          <button
+            type="button"
+            onClick={() => setShowAlternatives(!showAlternatives)}
+            aria-expanded={showAlternatives}
+            aria-controls="decision-alternatives"
+            className="flex w-full items-center gap-2 px-4 py-3 text-left"
+          >
+            <span className="shrink-0 text-xs font-semibold text-gray-500">
+              {copy.secondaryLabel} {secondary.length}곳
+            </span>
+            <span className="min-w-0 flex-1 truncate text-xs text-gray-400">
+              {secondary.map((loc) => loc.name).join(' · ')}
+            </span>
+            <ChevronDown size={16} className={`shrink-0 text-gray-400 transition-transform ${showAlternatives ? 'rotate-180' : ''}`} />
+          </button>
+          {showAlternatives && (
+            <div
+              id="decision-alternatives"
+              ref={(el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}
+              className="flex flex-col gap-2 px-3 pb-3"
+            >
+              {secondary.map((loc) => (
+                <SecondaryCard
+                  key={loc.id}
+                  location={loc}
+                  reason={reasons.get(loc.id) || ''}
+                  matches={getConditionMatches(loc, conditions, contentMode)}
+                  onOpenDetail={onOpenDetail}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 식후 카페: 식사 후보와 섞지 않고 따로 ── */}
+      {afterCafe && (
+        <div className="mt-5">
+          <p className="mb-2 text-xs font-medium tracking-widest text-gray-300">
+            식후 카페
+          </p>
+          <SecondaryCard
+            location={afterCafe}
+            reason={getCuratorReason(afterCafe)}
+            matches={getConditionMatches(afterCafe, { ...conditions, timeSlot: null }, contentMode)}
+            onOpenDetail={onOpenDetail}
+          />
+        </div>
+      )}
     </>
   );
 }
@@ -259,9 +275,9 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
       className="w-full cursor-pointer overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md text-left"
       onClick={() => onOpenDetail(location)}
     >
-      {/* 이미지: 낮은 화면에서도 카드 전체가 한 번에 보이도록 높이를 화면 비율로 묶는다 */}
+      {/* 이미지: 낮은 화면에서도 카드와 지도 버튼이 한 번에 보이도록 높이를 화면 비율로 묶는다 */}
       {location.imageUrl && !imageError && (
-        <div className="relative h-[min(18vh,13rem)] w-full overflow-hidden bg-gray-50">
+        <div className="relative h-[min(15vh,13rem)] w-full overflow-hidden bg-gray-50 [@media(max-height:700px)]:h-[10vh]">
           <img
             src={getCardImageUrl(location.imageUrl)}
             alt={location.name}
@@ -279,7 +295,8 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
             {location.name}
           </h2>
           <div className="flex shrink-0 items-center gap-1.5">
-            <RecommendBadge location={location} />
+            {/* 추천 강도는 운영자가 이유를 적은 곳에만. 이유 없이 배지만 있으면 개인 추천처럼 읽힌다 */}
+            {reason && <RecommendBadge location={location} />}
             <PriceLevelBadge priceLevel={location.price_level} size="sm" />
           </div>
         </div>
@@ -298,24 +315,23 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
           <VisitStatus location={location} />
         </div>
 
-        {/* 추천하는 이유: 운영자가 쓴 문장만. 없으면 지어내지 않는다 */}
-        <div className="mb-3">
-          <p className="text-[11px] font-semibold text-orange-700">
-            추천하는 이유
-            {getUnvisitedBasisLabel(location) && <span className="ml-1 font-normal text-gray-500">· {getUnvisitedBasisLabel(location)}</span>}
-          </p>
-          {reason ? (
-            // 카드에서는 두 줄까지, 전체 문장은 상세에서 본다
+        {/* 추천하는 이유: 운영자가 쓴 문장만. 없으면 지어내지 않고 중립 안내만 */}
+        {reason ? (
+          <div className="mb-3">
+            <p className="text-[11px] font-semibold text-orange-700">
+              추천하는 이유
+              {getUnvisitedBasisLabel(location) && <span className="ml-1 font-normal text-gray-500">· {getUnvisitedBasisLabel(location)}</span>}
+            </p>
+            {/* 카드에서는 두 줄까지, 전체 문장은 상세에서 본다 */}
             <p className="mt-0.5 line-clamp-2 text-sm leading-relaxed text-gray-800" title={reason}>{reason}</p>
-          ) : (
-            <p className="mt-0.5 text-sm text-gray-400">아직 운영자가 이유를 적지 않았어요.</p>
-          )}
-        </div>
+          </div>
+        ) : (
+          <p className="mb-3 text-xs text-gray-400">{NO_REASON_TEXT}</p>
+        )}
 
-        {/* 고른 조건과 맞는 점 */}
+        {/* 고른 조건과 맞는 점: 짧은 화면에서도 지도 버튼이 보이게 한 줄로 이어 쓴다 */}
         {matches.length > 0 && (
-          <div className="mb-3 rounded-xl bg-gray-50 px-3 py-2">
-            <p className="mb-1 text-[11px] font-semibold text-gray-400">고른 조건과 맞는 점</p>
+          <div className="mb-2 rounded-xl bg-gray-50 px-3 py-2">
             <ConditionMatchList matches={matches} />
           </div>
         )}
@@ -370,11 +386,13 @@ function SecondaryCard({ location, reason, matches, onOpenDetail }: SecondaryCar
           <span className="truncate text-sm font-semibold text-gray-800">
             {location.name}
           </span>
-          <RecommendBadge location={location} size="xs" />
+          {reason && <RecommendBadge location={location} size="xs" />}
         </div>
-        <p className={`mt-0.5 text-xs ${reason ? 'text-gray-600' : 'text-gray-400'}`}>
-          {reason || '아직 운영자가 이유를 적지 않았어요.'}
-        </p>
+        {reason ? (
+          <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">{reason}</p>
+        ) : (
+          <p className="mt-0.5 text-[11px] text-gray-400">{NO_REASON_TEXT}</p>
+        )}
         <p className="mt-0.5 text-[11px] text-gray-400">
           <VisitStatus location={location} />
           {matchedLabels.length > 0 && (
@@ -385,6 +403,9 @@ function SecondaryCard({ location, reason, matches, onOpenDetail }: SecondaryCar
     </button>
   );
 }
+
+/** 운영자 이유가 없을 때: 추천처럼 꾸미지 않고, 조건과 맞는 정보로만 골랐다고 말한다 */
+const NO_REASON_TEXT = '운영자 메모는 아직 없어요. 고른 조건과 맞는 정보로만 골랐어요.';
 
 // ─────────────────────────────────────────────
 // VisitStatus: 직접 방문 / 아직 안 가본 후보
@@ -465,11 +486,12 @@ function NoResult({ conditions, contentMode, onConditionsChange }: NoResultProps
 
 function ConditionMatchList({ matches }: { matches: ConditionMatch[] }) {
   return (
-    <ul className="space-y-0.5 text-xs">
+    <ul className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs" aria-label="고른 조건과 맞는 점">
+      <li className="text-[11px] font-semibold text-gray-400">조건과 맞는 점</li>
       {matches.map((match) => (
         <li key={match.label} className={match.evidence ? 'text-gray-700' : 'text-gray-400'}>
           <span className="font-semibold">{match.evidence ? '✓' : '·'} {match.label}</span>
-          <span> — {match.evidence ?? '확인된 정보 없음'}</span>
+          <span> {match.evidence ?? '확인된 정보 없음'}</span>
         </li>
       ))}
     </ul>

@@ -1,17 +1,18 @@
 /**
  * BrowseView.tsx
  *
- * JWMAP의 기본 지도 탐색 화면.
- * 지도와 장소 리스트를 먼저 보여주고, 추천/결정 플로우는 고르기 어려울 때
- * 쓰는 보조 기능으로 제공한다.
+ * 첫 화면과 직접 찾아보기 화면.
+ * 처음에는 추천받기가 대표 행동인 HomeStart를 보여주고,
+ * 이름 검색·목록·지도 탐색은 '직접 찾아보기'를 고르면 연다.
  */
 
-import { CheckCircle2, ChevronDown, ChevronUp, Heart, List, Map as MapIcon, MapPin, Search, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronLeft, ChevronUp, Heart, List, Map as MapIcon, MapPin, Search, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Map } from './Map';
 import { FilterSection } from './FilterSection';
 import { PlaceDetail } from './PlaceDetail';
 import { IntentInput } from './browse/IntentInput';
+import { HomeStart, type ExploreEntry } from './browse/HomeStart';
 import { useBreakpoint } from '../hooks/useBreakpoint';
 import { useBrowseViewController } from '../hooks/useBrowseViewController';
 import { getDetailImageUrl, getThumbnailUrl } from '../utils/image';
@@ -77,6 +78,8 @@ export function BrowseView({
   regionOptions = [],
   onRecommendText,
   onQuickStart,
+  exploring = true,
+  onExploringChange,
 }: BrowseViewProps) {
   const { isMobile } = useBreakpoint();
   const {
@@ -147,6 +150,8 @@ export function BrowseView({
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list');
   const showsList = !isMobile || mobileView === 'list';
   const showsMap = !isMobile || mobileView === 'map';
+  /** 첫 화면에서 '이름으로 찾기'로 들어오면 검색창에 바로 입력할 수 있게 */
+  const [focusSearch, setFocusSearch] = useState(false);
   const [clearPlaceStateFeedback, setClearPlaceStateFeedback] = useState('');
   const [isClearingPlaceState, setIsClearingPlaceState] = useState(false);
 
@@ -174,6 +179,30 @@ export function BrowseView({
     );
   };
 
+  const handleExplore = (entry: ExploreEntry) => {
+    if (entry === 'all') onShowAllPlaces?.();
+    else onSavedOnlyChange?.(entry === 'saved');
+    setFocusSearch(entry === 'search');
+    setMobileView(entry === 'map' ? 'map' : 'list');
+    onExploringChange?.(true);
+  };
+
+  if (!exploring && onRecommendText && onQuickStart) {
+    return (
+      <HomeStart
+        contentMode={contentMode}
+        onContentModeChange={onContentModeChange}
+        regionOptions={regionOptions}
+        onRecommendText={onRecommendText}
+        onQuickStart={onQuickStart}
+        onPickConditions={onBackToDecision}
+        onExplore={handleExplore}
+        totalCount={totalLocationCount ?? displayedLocations.length}
+        savedCount={myPlaceCount}
+      />
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(360px,440px)_1fr]">
@@ -183,9 +212,20 @@ export function BrowseView({
           <header className="shrink-0 border-b border-gray-100 px-4 pb-3 pt-4 md:px-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className={`text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-700'}`}>
-                  오늘 오디가?
-                </p>
+                {onExploringChange ? (
+                  <button
+                    type="button"
+                    onClick={() => onExploringChange(false)}
+                    className={`-ml-1 flex items-center text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-700'}`}
+                  >
+                    <ChevronLeft size={14} />
+                    처음으로
+                  </button>
+                ) : (
+                  <p className={`text-xs font-semibold ${contentMode === 'space' ? 'text-violet-600' : 'text-orange-700'}`}>
+                    오늘 오디가?
+                  </p>
+                )}
                 <h1 className="mt-1 text-lg font-bold tracking-tight text-gray-900 md:text-xl">
                   오늘 어디 갈까요?
                 </h1>
@@ -244,6 +284,7 @@ export function BrowseView({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="이름이나 지역으로 직접 찾기"
                 aria-label="이름이나 지역으로 직접 찾기"
+                autoFocus={focusSearch}
                 className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-8 pr-9 text-xs text-gray-700 placeholder-gray-400 outline-none transition-colors focus:border-gray-300"
               />
               {searchQuery && (

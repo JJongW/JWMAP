@@ -9,7 +9,7 @@
  * 2. STEP1 지역: 시/도(전국구) 먼저 표시 → 클릭 시 세부지역 펼침
  * 3. STEP2~4: 동행, 시간대, 우선조건
  * 4. CTA 버튼 - 모든 선택 완료 시 활성화
- * 5. "지도로 돌아가기" 텍스트 버튼 - 기본 지도 탐색으로 복귀
+ * 5. "돌아가기" 텍스트 버튼 - 들어오기 전 화면(첫 화면 또는 직접 찾아보기)으로 복귀
  *
  * 디자인 톤: calm, confident, minimal (Apple/Toss-like)
  */
@@ -105,7 +105,7 @@ export function DecisionEntryView({
         step3: '얼마나 머물래?',
         step4: '어떤 시간이 좋아?',
         cta: '지금 바로 정해줘',
-        browse: '지도로 돌아가기',
+        browse: '돌아가기',
         accent: 'violet' as const,
       };
     }
@@ -115,7 +115,7 @@ export function DecisionEntryView({
       step3: '언제?',
       step4: '가장 중요한 건?',
       cta: '지금 바로 정해줘',
-      browse: '지도로 돌아가기',
+      browse: '돌아가기',
       accent: 'orange' as const,
     };
   }, [contentMode]);
