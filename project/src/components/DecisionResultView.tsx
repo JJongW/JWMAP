@@ -15,13 +15,15 @@
  * 고른 조건이 모두 확인된 곳이 없으면 미확인 후보를 바로 띄우지 않고, 무엇이 확인 안 됐는지 먼저 말한다.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { MapPin, ChevronDown, ChevronRight, Navigation } from 'lucide-react';
 import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
 import { getConditionMatches, HOURS_SOURCE, type ConditionMatch } from '../utils/decisionEngine';
 import { getConditionLabels, KIND_LABEL, type IntentConditions } from '../utils/intentChips';
 import { ConditionChips } from './ConditionChips';
+import { ResultMap } from './ResultMap';
+import { useBreakpoint } from '../hooks/useBreakpoint';
 import { termLabel } from '../utils/taxonomy';
 import { getCardImageUrl } from '../utils/image';
 import {
@@ -64,6 +66,8 @@ export function DecisionResultView({
   onOpenDetail,
 }: DecisionResultViewProps) {
   const copy = getResultCopy(contentMode);
+  // 지도는 넓은 화면에서만 만든다 (모바일은 지도 앱 버튼이 그 역할)
+  const { isDesktop: isWide } = useBreakpoint();
   // 미확인 후보 보기는 조건이 바뀌면 다시 접는다 (새 조건에서 확인된 곳이 생길 수 있다)
   const conditionKey = JSON.stringify(conditions);
   const [unconfirmedOpenFor, setUnconfirmedOpenFor] = useState<string | null>(null);
@@ -79,15 +83,16 @@ export function DecisionResultView({
 
   return (
     <div className="ko-text fixed inset-0 z-40 flex flex-col bg-white">
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-lg px-4 pb-8 pt-4 md:px-6 md:pt-6">
+      {/* 모바일: 한 줄로 스크롤. 넓은 화면(lg): 왼쪽 추천 카드는 따로 스크롤, 오른쪽은 추천 위치 지도 */}
+      <div className="min-h-0 flex-1 overflow-y-auto lg:mx-auto lg:flex lg:w-full lg:max-w-6xl lg:gap-8 lg:overflow-hidden lg:px-8">
+        <div className="mx-auto w-full max-w-lg px-4 pb-8 pt-4 md:px-6 md:pt-6 lg:mx-0 lg:w-[30rem] lg:max-w-none lg:shrink-0 lg:overflow-y-auto lg:px-0">
 
           {/* ── 헤드라인 ── */}
           <p className="mb-1 text-xs font-medium tracking-widest text-gray-400">
             {copy.eyebrow}
           </p>
           {/* 모바일에서는 오른쪽 위 맛집/볼거리 전환과 겹치지 않게 비워 둔다 */}
-          <h1 className="mb-2.5 pr-36 text-2xl font-bold tracking-tight text-gray-900 md:pr-0">
+          <h1 className="mb-2.5 pr-36 text-2xl font-bold tracking-tight text-gray-900 md:pr-0 lg:text-3xl">
             {title}
           </h1>
 
@@ -127,11 +132,22 @@ export function DecisionResultView({
           )}
 
         </div>
+
+        {/* ── 넓은 화면 오른쪽: 추천과 대안 위치. 확인된 추천이 없을 때는 비워 둔다 ── */}
+        <div className="hidden min-w-0 flex-1 pb-6 pt-20 lg:block">
+          {!isWide ? null : result && (!onlyUnconfirmed || showUnconfirmed) ? (
+            <ResultMap places={[result.primary, ...result.secondary]} onOpenDetail={onOpenDetail} />
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-2xl bg-gray-50 px-8 text-center text-sm text-gray-500">
+              추천이 정해지면 여기에 위치를 보여 드려요.
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── 하단 액션 바: 카드를 덮지 않도록 fixed가 아니라 레이아웃 흐름 안에 둔다 ── */}
       <div className="shrink-0 border-t border-gray-100 bg-white">
-        <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:max-w-6xl lg:justify-start lg:gap-6 lg:px-8">
           <button
             onClick={onRetry}
             className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400"
@@ -164,7 +180,10 @@ interface ResultCardsProps {
 
 function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: ResultCardsProps) {
   const { primary, secondary, reasons, afterCafe } = result;
-  const [showAlternatives, setShowAlternatives] = useState(false);
+  // 넓은 화면은 지도에 대안도 찍히니 카드도 펼쳐 두고 비교하게 한다
+  const [showAlternatives, setShowAlternatives] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
+  // 처음부터 펼쳐 둔 경우에는 스크롤하지 않는다 (추천 카드가 위로 밀리지 않게)
+  const openedByUser = useRef(false);
 
   return (
     <>
@@ -203,7 +222,10 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: Re
         <div className="mt-5 rounded-2xl border border-gray-100">
           <button
             type="button"
-            onClick={() => setShowAlternatives(!showAlternatives)}
+            onClick={() => {
+              openedByUser.current = !showAlternatives;
+              setShowAlternatives(!showAlternatives);
+            }}
             aria-expanded={showAlternatives}
             aria-controls="decision-alternatives"
             className="flex w-full items-center gap-2 px-4 py-3 text-left"
@@ -219,7 +241,11 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: Re
           {showAlternatives && (
             <div
               id="decision-alternatives"
-              ref={(el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}
+              ref={(el) => {
+                if (!el || !openedByUser.current) return;
+                openedByUser.current = false;
+                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+              }}
               className="flex flex-col gap-2 px-3 pb-3"
             >
               {secondary.map((loc) => (

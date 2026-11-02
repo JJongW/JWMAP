@@ -11,6 +11,20 @@ declare namespace kakao.maps {
       panTo(latlng: LatLng): void; // 지도 중심을 부드럽게 이동
       setLevel(level: number): void; // 지도 레벨(줌) 설정
       getLevel(): number; // 현재 지도 레벨 가져오기
+      setBounds(bounds: LatLngBounds, paddingTop?: number, paddingRight?: number, paddingBottom?: number, paddingLeft?: number): void;
+      relayout(): void; // 컨테이너 크기가 바뀐 뒤 다시 그리기
+    }
+
+    // 여러 좌표를 한 화면에 담기 위한 영역
+    class LatLngBounds {
+      constructor();
+      extend(latlng: LatLng): void;
+    }
+
+    // HTML로 그리는 지도 위 라벨
+    class CustomOverlay {
+      constructor(options: { position: LatLng; content: string | HTMLElement; yAnchor?: number; xAnchor?: number; zIndex?: number; clickable?: boolean; map?: Map });
+      setMap(map: Map | null): void;
     }
   
     interface MapOptions {

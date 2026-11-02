@@ -126,7 +126,7 @@ export function DecisionEntryView({
     <div className="fixed inset-0 z-40 flex flex-col bg-white">
       {/* ── 스크롤 가능한 메인 콘텐츠 영역 ── */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="ko-text mx-auto w-full max-w-lg px-6 pb-8 pt-10 md:pt-16 [@media(max-height:700px)]:pt-6">
+        <div className="ko-text mx-auto w-full max-w-lg px-6 pb-8 pt-10 md:pt-16 lg:max-w-4xl lg:px-10 [@media(max-height:700px)]:pt-6">
 
           {/* ── Hero 텍스트 ── */}
           <div className="mb-8 md:mb-12 [@media(max-height:700px)]:mb-6">
@@ -186,60 +186,63 @@ export function DecisionEntryView({
             )}
           </StepSection>
 
-          {/* ── STEP 2: 동행 ── */}
-          <StepSection
-            step={2}
-            label="누구와 가나요?"
-            isActive={true}
-          >
-            <PillGroup
-              options={toOptions<Companion>(labels.companion)}
-              accent={modeText.accent}
-              selected={companion}
-              onSelect={setCompanion}
-            />
-          </StepSection>
+          {/* 넓은 화면에서는 STEP 2~4를 나란히 놓아 한 화면에 보이게 */}
+          <div className="lg:grid lg:grid-cols-3 lg:gap-8">
+            {/* ── STEP 2: 동행 ── */}
+            <StepSection
+              step={2}
+              label="누구와 가나요?"
+              isActive={true}
+            >
+              <PillGroup
+                options={toOptions<Companion>(labels.companion)}
+                accent={modeText.accent}
+                selected={companion}
+                onSelect={setCompanion}
+              />
+            </StepSection>
 
-          {/* ── STEP 3: 시간대 ── */}
-          <StepSection
-            step={3}
-            label={modeText.step3}
-            isActive={companion !== null}
-          >
-            <PillGroup
-              options={toOptions<TimeSlot>(labels.timeSlot)}
-              accent={modeText.accent}
-              selected={timeSlot}
-              onSelect={setTimeSlot}
-            />
-          </StepSection>
+            {/* ── STEP 3: 시간대 ── */}
+            <StepSection
+              step={3}
+              label={modeText.step3}
+              isActive={companion !== null}
+            >
+              <PillGroup
+                options={toOptions<TimeSlot>(labels.timeSlot)}
+                accent={modeText.accent}
+                selected={timeSlot}
+                onSelect={setTimeSlot}
+              />
+            </StepSection>
 
-          {/* ── STEP 4: 우선 조건 ── */}
-          <StepSection
-            step={4}
-            label={modeText.step4}
-            isActive={companion !== null && timeSlot !== null}
-          >
-            <PillGroup
-              options={toOptions<PriorityFeature>(labels.priority)}
-              accent={modeText.accent}
-              selected={priorityFeature}
-              onSelect={setPriorityFeature}
-            />
-          </StepSection>
+            {/* ── STEP 4: 우선 조건 ── */}
+            <StepSection
+              step={4}
+              label={modeText.step4}
+              isActive={companion !== null && timeSlot !== null}
+            >
+              <PillGroup
+                options={toOptions<PriorityFeature>(labels.priority)}
+                accent={modeText.accent}
+                selected={priorityFeature}
+                onSelect={setPriorityFeature}
+              />
+            </StepSection>
+          </div>
 
         </div>
       </div>
 
       {/* ── 하단 CTA 영역: 본문을 덮지 않게 흐름 안에 두고, 한 줄 버튼 + 한 줄 안내로 낮게 ── */}
       <div className="shrink-0 border-t border-gray-100 bg-white">
-        <div className="mx-auto flex w-full max-w-lg flex-col gap-2 px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="mx-auto flex w-full max-w-lg flex-col gap-2 px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:max-w-4xl lg:flex-row lg:items-center lg:gap-4 lg:px-10">
           {noResultMessage && (
-            <p className="w-full rounded-xl bg-amber-50 px-4 py-2.5 text-center text-xs text-amber-800" role="alert" aria-live="assertive">
+            <p className="w-full rounded-xl bg-amber-50 px-4 py-2.5 text-center text-xs text-amber-800 lg:order-2 lg:w-auto lg:flex-1" role="alert" aria-live="assertive">
               {noResultMessage}
             </p>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 lg:order-3 lg:ml-auto lg:w-[26rem]">
             <button
               onClick={onBrowse}
               className="min-h-[44px] shrink-0 rounded-2xl border border-gray-200 px-4 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400"
@@ -264,7 +267,7 @@ export function DecisionEntryView({
             </button>
           </div>
           {/* 진행 dots(동행·시간·조건 3칸)와 다음에 고를 것을 한 줄로 */}
-          <div className="flex items-center justify-center gap-2" role="status" aria-live="polite" aria-label={`${completedCount}/3 선택 완료`}>
+          <div className="flex items-center justify-center gap-2 lg:order-1" role="status" aria-live="polite" aria-label={`${completedCount}/3 선택 완료`}>
             <span className="flex items-center gap-1.5">
               {[0, 1, 2].map((i) => (
                 <span
