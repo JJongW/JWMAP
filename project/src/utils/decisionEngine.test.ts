@@ -265,3 +265,18 @@ describe('우선 조건 근거는 의미가 직접 맞아야 일치', () => {
     expect(rainy.note).toBe('실내라 비를 피할 수 있어요');
   });
 });
+
+describe('볼거리 시간', () => {
+  const late = { ...EMPTY_CONDITIONS, timeSlot: 'late' as const };
+  it("'저녁에도'는 저녁 8시 넘어서도 여는지 영업시간으로 본다", () => {
+    const open = place({ hours_text: '목(10/29) 10:00 ~ 21:00' });
+    const closed = place({ hours_text: '목(10/29) 10:00 ~ 18:00' });
+    expect(getConditionMatches(open, late, 'space')[0]).toMatchObject({ status: 'match', text: '저녁 8시 넘어서도 열어요' });
+    expect(getConditionMatches(closed, late, 'space')[0].status).toBe('mismatch');
+    expect(getConditionMatches(place({}), late, 'space')[0].status).toBe('unknown');
+  });
+  it("'가볍게'·'반나절'은 확인할 데이터가 없어 미확인", () => {
+    const loc = place({ hours_text: '목(10/29) 10:00 ~ 21:00' });
+    expect(getConditionMatches(loc, { ...EMPTY_CONDITIONS, timeSlot: 'lunch' }, 'space')[0].status).toBe('unknown');
+  });
+});

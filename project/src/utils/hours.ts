@@ -45,3 +45,10 @@ export function judgeOpenAt(text: string | undefined, timeSlot: TimeSlot): OpenF
   if (days.length === 0) return 'unknown';
   return days.some(FITS[timeSlot]) ? 'match' : 'mismatch';
 }
+
+/** 볼거리 '저녁에도': 여는 날 중 하루라도 이 시각(분) 이후까지 열면 match */
+export function judgeOpenUntil(text: string | undefined, minute: number): OpenFit {
+  const days = parseHours(text);
+  if (days.length === 0) return 'unknown';
+  return days.some((day) => day.close >= minute) ? 'match' : 'mismatch';
+}

@@ -158,6 +158,47 @@ export function matchRegion(text: string, regions: string[]): string | null {
   return best?.region ?? null;
 }
 
+/**
+ * 지역 이름에 없는 동네·길 이름('을지로', '익선동', '연남동')을 장소 주소에서 모아 그 지역으로 잇는다.
+ * 같은 이름을 쓰는 장소가 2곳 이상이고, 그중 60% 이상이 한 지역일 때만 쓴다 (애매하면 읽지 않는다).
+ */
+export function buildPlaceAliases(places: { region?: string | null; address?: string | null }[]): Map<string, string> {
+  const counts = new Map<string, Map<string, number>>();
+  for (const { region, address } of places) {
+    if (!region || !address) continue;
+    const names = new Set(
+      address
+        .split(/\s+/)
+        .map((token) => token.replace(/\d+가$/, ''))
+        .filter((token) => /^[가-힣]{1,}(로|길|동)$/.test(token) && token.length >= 2),
+    );
+    for (const name of names) {
+      const byRegion = counts.get(name) ?? new Map<string, number>();
+      byRegion.set(region, (byRegion.get(region) ?? 0) + 1);
+      counts.set(name, byRegion);
+    }
+  }
+  const aliases = new Map<string, string>();
+  for (const [name, byRegion] of counts) {
+    const total = [...byRegion.values()].reduce((sum, n) => sum + n, 0);
+    const [region, top] = [...byRegion].sort((a, b) => b[1] - a[1])[0];
+    if (top >= 2 && top / total >= 0.6) aliases.set(name, region);
+  }
+  return aliases;
+}
+
+/** 낱말 단위로 동네·길 이름을 찾는다 ('을지로에서', '을지로3가역' → 을지로) */
+function matchAlias(text: string, aliases: Map<string, string>): string | null {
+  if (aliases.size === 0) return null;
+  const normalize = (word: string) => word.replace(/역$/, '').replace(/\d+가$/, '');
+  for (const word of text.split(/[\s,.!?~]+/)) {
+    // '을지로'의 '로'처럼 이름 끝이 조사와 같을 수 있어 조사를 떼기 전 낱말도 본다
+    const found = [word, word.replace(JOSA, '')].map(normalize).find((base) => aliases.has(base));
+    if (found) return aliases.get(found)!;
+  }
+  return null;
+}
+
 /** 데이터 지역에 없으면 시/도 이름으로 ('제주 혼밥' → '제주'). 그 시/도에 장소가 없으면 결과 없음으로 보여준다 */
 function matchProvince(text: string): string | null {
   return PROVINCES.find((province) => text.includes(province)) ?? null;
@@ -192,7 +233,12 @@ function modeOfText(text: string, mode: ContentMode): ContentMode {
  * 문장에서 조건으로 읽지 못한 낱말. 결과 화면에서 "이건 반영 못 했어요"로 알린다.
  * '비 오는 날'처럼 여러 낱말에 걸친 말은 구절째 읽은 것으로 친다 ('오는'만 따로 못 읽었다고 하지 않는다).
  */
-export function unreadWords(text: string, regions: string[], mode: ContentMode = 'food'): string[] {
+export function unreadWords(
+  text: string,
+  regions: string[],
+  mode: ContentMode = 'food',
+  aliases: Map<string, string> = new Map(),
+): string[] {
   const { time, priority } = rulesFor(modeOfText(text, mode));
   const rules = [...COMPANION_RULES, ...time, ...priority, ...KIND_RULES].map(([, pattern]) => pattern);
   const termPatterns = TAXONOMY.flatMap((term) => (term.query ? [term.query] : []));
@@ -210,6 +256,7 @@ export function unreadWords(text: string, regions: string[], mode: ContentMode =
     rules.some((pattern) => pattern.test(word)) ||
     matchRegion(word, regions) !== null ||
     matchProvince(word) !== null ||
+    matchAlias(word, aliases) !== null ||
     (['place_type', 'reason', 'situation'] as const).some((kind) => findTermsInText(word, kind).length > 0);
   const words = [...text.matchAll(/[^\s,.!?·~]+/g)]
     .map((match) => ({ word: match[0], start: match.index ?? 0 }))
@@ -221,7 +268,12 @@ export function unreadWords(text: string, regions: string[], mode: ContentMode =
 }
 
 /** mode: 지금 보고 있는 데이터. 문장에 장소 종류가 있으면 그쪽(예: 전시 → 볼거리) 말로 읽는다 */
-export function parseIntentText(text: string, regions: string[], mode: ContentMode = 'food'): IntentConditions {
+export function parseIntentText(
+  text: string,
+  regions: string[],
+  mode: ContentMode = 'food',
+  aliases: Map<string, string> = new Map(),
+): IntentConditions {
   const normalized = text.trim();
   if (!normalized) return { ...EMPTY_CONDITIONS };
   const rules = rulesFor(modeOfText(normalized, mode));
@@ -230,7 +282,7 @@ export function parseIntentText(text: string, regions: string[], mode: ContentMo
   const priority = firstMatch(normalized, rules.priority.filter(([key]) => mode === 'space' || key !== 'solo_ok'));
 
   return {
-    region: matchRegion(normalized, regions) ?? matchProvince(normalized),
+    region: matchRegion(normalized, regions) ?? matchAlias(normalized, aliases) ?? matchProvince(normalized),
     companion: firstMatch(normalized, COMPANION_RULES),
     timeSlot: firstMatch(normalized, rules.time),
     priority,
@@ -349,8 +401,9 @@ export async function resolveIntent(
   regions: string[],
   fetcher: typeof fetch = fetch,
   mode: ContentMode = 'food',
+  aliases: Map<string, string> = new Map(),
 ): Promise<{ conditions: IntentConditions; source: 'rules' | 'api' | 'none' }> {
-  const ruled = parseIntentText(text, regions, mode);
+  const ruled = parseIntentText(text, regions, mode, aliases);
   if (hasAnyCondition(ruled) || !text.trim()) {
     return { conditions: ruled, source: hasAnyCondition(ruled) ? 'rules' : 'none' };
   }

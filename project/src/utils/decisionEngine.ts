@@ -22,7 +22,7 @@ import { getCuratorReason, isCuratorVisited } from './curation';
 import { getConditionLabels, KIND_LABEL, type IntentConditions } from './intentChips';
 import { findTermEvidence, getTerm, termLabel } from './taxonomy';
 import { regionLabel } from './displayText';
-import { judgeOpenAt } from './hours';
+import { judgeOpenAt, judgeOpenUntil } from './hours';
 
 // ─────────────────────────────────────────────
 // 1. Companion → 태그 매핑
@@ -162,12 +162,20 @@ function judgeCompanion(location: Location, companion: Companion): Judged {
   return { status: 'unknown', evidence: null };
 }
 
+/** 볼거리 '저녁에도'는 저녁 8시 넘어서도 여는지로 본다 */
+const SPACE_EVENING_CLOSE = 20 * 60;
+
 /**
  * 시간 근거는 카카오맵 영업시간(과 늦은 밤의 심야 태그)으로만 판단한다.
- * 메뉴 분류(밥·면이면 점심)는 추정이라 근거로 쓰지 않는다. 볼거리는 근거 데이터가 없어 늘 미확인이다.
+ * 메뉴 분류(밥·면이면 점심)는 추정이라 근거로 쓰지 않는다.
+ * 볼거리의 '가볍게'·'반나절'은 머무는 시간이라 근거 데이터가 없어 늘 미확인이고, '저녁에도'만 영업시간으로 본다.
  */
 function judgeTimeSlot(location: Location, timeSlot: TimeSlot, mode: ContentMode): Judged {
-  if (mode !== 'food') return { status: 'unknown', evidence: null };
+  if (mode !== 'food') {
+    if (timeSlot !== 'late') return { status: 'unknown', evidence: null };
+    const fit = judgeOpenUntil(location.hours_text, SPACE_EVENING_CLOSE);
+    return { status: fit, evidence: fit === 'match' ? HOURS_SOURCE : null };
+  }
   if (timeSlot === 'late') {
     const lateTag = findTag(location, ['심야', '야식', '늦게']);
     if (lateTag) return { status: 'match', evidence: `#${lateTag}` };
@@ -493,7 +501,8 @@ export function getConditionMatches(
       text:
         judged.status !== 'match'
           ? mode === 'food' ? copy.unknown : SPACE_TIME_UNKNOWN[conditions.timeSlot]
-          : judged.evidence === HOURS_SOURCE ? copy.match : labels.timeSlot[conditions.timeSlot],
+          : judged.evidence !== HOURS_SOURCE ? labels.timeSlot[conditions.timeSlot]
+          : mode === 'food' ? copy.match : '저녁 8시 넘어서도 열어요',
       evidence: judged.evidence,
     });
   }
