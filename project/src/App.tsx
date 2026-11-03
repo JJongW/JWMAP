@@ -18,7 +18,7 @@ import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { getCuratorReason, isCuratorVisited } from './utils/curation';
-import { EMPTY_CONDITIONS, inferConditionMode, resolveIntent, unreadWords, type IntentConditions } from './utils/intentChips';
+import { applyTextEdit, conditionsToText, EMPTY_CONDITIONS, inferConditionMode, parseIntentText, resolveIntent, unreadWords, type IntentConditions } from './utils/intentChips';
 import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
 import { clearPlaceStates, getActivityScore, getSavedIds, getVisitedIds, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -41,6 +41,8 @@ export default function App() {
   const [decisionResult, setDecisionResult] = useState<DecisionResult | null>(null);
   /** 추천 결과 화면 위에 연 장소 상세. 닫으면 같은 결과 화면(조건 그대로)으로 돌아간다 */
   const [resultDetail, setResultDetail] = useState<Location | null>(null);
+  /** 좁은 화면에서 추천 결과를 지도로 보고 있는지 (넓은 화면은 결과 옆에 늘 지도가 있다) */
+  const [resultMapOpen, setResultMapOpen] = useState(false);
   const { isMobile } = useBreakpoint();
 
   // Pagination
@@ -513,6 +515,7 @@ export default function App() {
     if (snap.source.kind === 'text') setIntentText(snap.source.text);
     if (snap.source.kind === 'options') setEntryDraft(draftFromConditions(snap.conditions));
     setResultDetail(entry.detailId ? pool.find((loc) => loc.id === entry.detailId) ?? null : null);
+    setResultMapOpen(Boolean(entry.map));
     setUiMode('result');
   }, [getPool]);
 
@@ -566,12 +569,22 @@ export default function App() {
     );
   }, [editingSnap, runDecision]);
 
-  /** 첫 화면 "오늘 어디 갈까요?" 입력 → 조건 칩으로 해석 → 추천 */
+  /**
+   * 첫 화면 "오늘 어디 갈까요?" 입력 → 조건 칩으로 해석 → 추천.
+   * 조건 수정 중이면 문장에서 고친 항목만 바꾸고, 결과 칩으로 고친 나머지 조건은 그대로 둔다.
+   */
   const handleRecommendText = useCallback(async (text: string) => {
     recordActivity('recommend_start', undefined, { contentType: contentMode });
     setIntentText(text);
-    const { conditions: parsed, source } = await resolveIntent(text, regionOptions);
-    const unread = source === 'rules' ? unreadWords(text, regionOptions) : [];
+    const editing = editingSnap?.source.kind === 'text' ? { snap: editingSnap, text: editingSnap.source.text } : null;
+    const ruled = editing ? parseIntentText(text, regionOptions, editing.snap.mode) : null;
+    const { conditions: parsed, source } = editing && ruled
+      ? {
+          conditions: applyTextEdit(editing.snap.conditions, parseIntentText(editing.text, regionOptions, editing.snap.mode), ruled),
+          source: 'rules' as const,
+        }
+      : await resolveIntent(text, regionOptions, fetch, contentMode);
+    const unread = source === 'rules' ? unreadWords(text, regionOptions, editing?.snap.mode ?? contentMode) : [];
     const notice =
       text.trim() && source === 'none'
         ? '문장에서 조건을 찾지 못했어요. 아래 칩으로 직접 골라주세요.'
@@ -587,16 +600,35 @@ export default function App() {
     runDecision({ ...EMPTY_CONDITIONS, ...partial }, { kind: 'quick' }, null, { replace: Boolean(editingSnap) });
   }, [contentMode, runDecision, editingSnap]);
 
-  /** 결과 화면에서 칩을 고치면 바로 다시 추천 (같은 결과 기록을 고친다. 처음 시작한 방식은 그대로) */
+  /**
+   * 결과 화면에서 칩을 고치면 바로 다시 추천 (같은 결과 기록을 고친다. 처음 시작한 방식은 그대로).
+   * 문장으로 시작했으면 입력 문장도 지금 조건으로 바꿔 둔다 — 조건 수정에서 지운 조건이 문장에 남아 되살아나지 않게.
+   */
   const handleConditionsChange = useCallback((next: IntentConditions) => {
     if (!currentSnap) return;
-    runDecision(next, currentSnap.source, null, { replace: true, key: currentSnap.key });
-  }, [currentSnap, runDecision]);
+    const source: RecommendSource = currentSnap.source.kind === 'text'
+      ? { kind: 'text', text: conditionsToText(next, regionOptions, inferConditionMode(next) ?? contentMode) }
+      : currentSnap.source;
+    runDecision(next, source, null, { replace: true, key: currentSnap.key });
+  }, [currentSnap, runDecision, regionOptions, contentMode]);
 
-  /** 추천 결과·질문형 화면의 "지도로 보기" → 첫 화면이 아니라 지도·목록 탐색으로 */
+  /** 추천 결과의 "다른 곳 둘러보기" → 추천과 상관없는 지도·목록 탐색으로 (추천 결과는 뒤로가기로 돌아온다) */
   const handleSwitchToBrowse = useCallback(() => {
     navigate({ view: 'home', explore: true });
   }, [navigate]);
+
+  /** 좁은 화면의 "지도로 보기" → 지금 추천과 대안을 지도로 (뒤로가기는 지도만 닫는다) */
+  const handleOpenResultMap = useCallback(() => {
+    if (!currentSnap) return;
+    window.history.pushState({ ...(window.history.state ?? {}), [NAV_KEY]: { view: 'result', snap: currentSnap, map: true } }, '');
+    setResultMapOpen(true);
+  }, [currentSnap]);
+
+  const handleCloseResultMap = useCallback(() => {
+    const entry = readNavEntry(window.history.state);
+    if (entry?.view === 'result' && entry.map && !entry.detailId) window.history.back();
+    else setResultMapOpen(false);
+  }, []);
 
   /** 첫 화면 ↔ 직접 찾아보기 전환은 지금 기록에 적어 둔다 (뒤로가기로 결과에서 돌아오면 보던 쪽으로) */
   const handleExploringChange = useCallback((exploring: boolean) => {
@@ -643,9 +675,9 @@ export default function App() {
     recordActivity('list_click', location);
     if (!currentSnap) return;
     // 브라우저 뒤로가기가 결과 화면이 아니라 상세만 닫도록 기록을 하나 쌓는다
-    window.history.pushState({ ...(window.history.state ?? {}), [NAV_KEY]: { view: 'result', snap: currentSnap, detailId: location.id } }, '');
+    window.history.pushState({ ...(window.history.state ?? {}), [NAV_KEY]: { view: 'result', snap: currentSnap, map: resultMapOpen, detailId: location.id } }, '');
     setResultDetail(location);
-  }, [currentSnap]);
+  }, [currentSnap, resultMapOpen]);
 
   const handleCloseResultDetail = useCallback(() => {
     const entry = readNavEntry(window.history.state);
@@ -666,7 +698,10 @@ export default function App() {
 
   // 결과 화면을 떠나면 열려 있던 상세도 정리한다
   useEffect(() => {
-    if (uiMode !== 'result') setResultDetail(null);
+    if (uiMode !== 'result') {
+      setResultDetail(null);
+      setResultMapOpen(false);
+    }
   }, [uiMode]);
 
   // Pagination
@@ -822,6 +857,9 @@ export default function App() {
           onStartOver={handleStartOver}
           viewKey={currentSnap?.key}
           onBrowse={handleSwitchToBrowse}
+          mapOpen={resultMapOpen}
+          onOpenMap={handleOpenResultMap}
+          onCloseMap={handleCloseResultMap}
           onOpenDetail={handleDecisionOpenDetail}
         />
       )}
@@ -936,7 +974,7 @@ type NavEntry =
   | { view: 'home'; explore?: boolean }
   | { view: 'decision'; editing?: ResultSnapshot }
   | { view: 'text-edit'; editing: ResultSnapshot }
-  | { view: 'result'; snap: ResultSnapshot; detailId?: string };
+  | { view: 'result'; snap: ResultSnapshot; detailId?: string; map?: boolean };
 
 const EMPTY_DRAFT: EntryDraft = { region: null, companion: null, timeSlot: null, priority: null };
 

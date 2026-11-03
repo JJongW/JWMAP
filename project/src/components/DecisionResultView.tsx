@@ -21,7 +21,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { MapPin, ChevronDown, ChevronRight, Navigation } from 'lucide-react';
 import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
-import { getConditionMatches, HOURS_SOURCE, type ConditionMatch } from '../utils/decisionEngine';
+import { getConditionMatches, getPlaceStatus, HOURS_SOURCE, PLACE_STATUS_LABEL, type ConditionMatch, type PlaceStatus } from '../utils/decisionEngine';
 import { getConditionLabels, KIND_LABEL, type IntentConditions } from '../utils/intentChips';
 import { ConditionChips } from './ConditionChips';
 import { ResultMap } from './ResultMap';
@@ -39,7 +39,7 @@ import {
 } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { RecommendBadge } from './RecommendBadge';
-import { openKakaoMap, openNaverMap } from '../utils/mapOpen';
+import { mapLinkLabel, openKakaoMap, openNaverMap } from '../utils/mapOpen';
 
 /** 결과 화면을 떠났다 돌아올 때 이어 보여줄 화면 상태. 결과 기록(viewKey)마다 따로 둔다 */
 interface ResultViewMemory {
@@ -66,8 +66,12 @@ interface DecisionResultViewProps {
   onStartOver: () => void;
   /** 결과 기록마다 다른 값. 같은 값으로 돌아오면 스크롤·대안 펼침을 이어서 보여준다 */
   viewKey?: string;
-  /** 지도 탐색으로 돌아가기 */
+  /** 추천과 상관없는 지도·목록 탐색으로 */
   onBrowse: () => void;
+  /** 좁은 화면: 지금 추천과 대안을 지도로 보는 중인지, 열고 닫기 */
+  mapOpen?: boolean;
+  onOpenMap?: () => void;
+  onCloseMap?: () => void;
   /** 장소 상세 보기 (기존 PlaceDetail 연동) */
   onOpenDetail: (location: Location) => void;
 }
@@ -83,6 +87,9 @@ export function DecisionResultView({
   onStartOver,
   viewKey = '',
   onBrowse,
+  mapOpen = false,
+  onOpenMap,
+  onCloseMap,
   onOpenDetail,
 }: DecisionResultViewProps) {
   const memory = useRef<ResultViewMemory>(
@@ -107,14 +114,23 @@ export function DecisionResultView({
     setUnconfirmedOpenForState(value);
   };
   const showUnconfirmed = unconfirmedOpenFor === conditionKey;
+  // 대표 추천(운영자 이유 + 조건 확인)이 없으면 후보는 사용자가 원할 때만 보여준다
   const onlyUnconfirmed = result !== null && result.confirmedCount === 0;
+  const statusOf = (location: Location): PlaceStatus =>
+    result?.statuses.get(location.id) ?? getPlaceStatus(location, conditions, contentMode);
   const title = !result
     ? '고른 조건에 맞는 곳이 없어요.'
     : !onlyUnconfirmed
       ? copy.title
-      : showUnconfirmed
-        ? '일부 조건을 확인하지 못한 후보예요.'
-        : '조건이 모두 확인된 곳은 아직 없어요.';
+      : !showUnconfirmed
+        ? '운영자 추천으로 고를 곳이 아직 없어요.'
+        : statusOf(result.primary) === 'general'
+          ? '조건은 맞지만 운영자 추천은 아닌 후보예요.'
+          : '일부 조건을 확인하지 못한 후보예요.';
+  // 카드와 지도가 같은 장소를 같은 상태 이름으로 보여준다
+  const mapPlaces = result && (!onlyUnconfirmed || showUnconfirmed)
+    ? [result.primary, ...result.secondary].map((location) => ({ location, status: statusOf(location) }))
+    : null;
 
   return (
     <div className="ko-text fixed inset-0 z-40 flex flex-col bg-white">
@@ -166,6 +182,7 @@ export function DecisionResultView({
               conditions={conditions}
               contentMode={contentMode}
               copy={copy}
+              statusOf={statusOf}
               onOpenDetail={onOpenDetail}
               initialShowAlternatives={memory.showAlternatives}
               onShowAlternativesChange={(open) => { memory.showAlternatives = open; }}
@@ -174,18 +191,23 @@ export function DecisionResultView({
             <NoResult conditions={conditions} contentMode={contentMode} onConditionsChange={onConditionsChange} />
           )}
 
+          {/* 좁은 화면: 추천과 상관없는 탐색은 아래쪽 보조 링크로 (하단 바의 '지도로 보기'는 지금 추천을 지도로) */}
+          {!isWide && mapPlaces && (
+            <button
+              type="button"
+              onClick={onBrowse}
+              className="mt-6 w-full py-2 text-center text-[13px] text-gray-500 underline-offset-2 hover:text-gray-700 hover:underline"
+            >
+              추천과 별개로 지도와 목록에서 다른 곳 둘러보기
+            </button>
+          )}
+
         </div>
 
         {/* ── 넓은 화면 오른쪽: 추천과 대안 위치. 확인된 추천이 없을 때는 비워 둔다 ── */}
         <div className="hidden min-w-0 flex-1 pb-6 pt-20 lg:block">
-          {!isWide ? null : result && (!onlyUnconfirmed || showUnconfirmed) ? (
-            <ResultMap
-              places={[result.primary, ...result.secondary].map((location) => ({
-                location,
-                unconfirmed: getConditionMatches(location, conditions, contentMode).some((match) => match.status === 'unknown'),
-              }))}
-              onOpenDetail={onOpenDetail}
-            />
+          {!isWide ? null : mapPlaces ? (
+            <ResultMap places={mapPlaces} onOpenDetail={onOpenDetail} />
           ) : (
             <div className="flex h-full items-center justify-center rounded-2xl bg-gray-50 px-8 text-center text-sm text-gray-500">
               추천이 정해지면 여기에 위치를 보여 드려요.
@@ -211,14 +233,48 @@ export function DecisionResultView({
             <span className="text-sm font-medium text-gray-600">처음부터 다시</span>
             <span className="text-[11px] leading-tight text-gray-500">입력과 조건을 지우고 첫 화면으로</span>
           </button>
-          <button
-            onClick={onBrowse}
-            className="ml-auto min-h-[44px] shrink-0 px-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
-          >
-            {copy.browseLabel}
-          </button>
+          {/* 넓은 화면은 결과 옆에 이미 추천 지도가 있어서, 이 버튼은 추천과 별개의 탐색이라고 말한다 */}
+          {!isWide && mapPlaces && onOpenMap ? (
+            <button
+              onClick={onOpenMap}
+              className="ml-auto min-h-[44px] shrink-0 rounded-xl px-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              지도로 보기
+            </button>
+          ) : (
+            <button
+              onClick={onBrowse}
+              className="ml-auto min-h-[44px] shrink-0 px-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
+            >
+              다른 곳 둘러보기
+            </button>
+          )}
         </div>
       </div>
+
+      {/* ── 좁은 화면 추천 지도: 지금 추천과 대안만. 조건과 결과는 그대로이고 닫으면 같은 결과로 ── */}
+      {!isWide && mapOpen && mapPlaces && (
+        <div className="fixed inset-0 z-[45] flex flex-col bg-white" role="dialog" aria-label="추천 위치 지도">
+          <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-3 py-2 pr-36">
+            <button
+              type="button"
+              onClick={onCloseMap}
+              className="min-h-[44px] shrink-0 rounded-xl px-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              ← 목록으로
+            </button>
+            <p className="min-w-0 truncate text-sm text-gray-600">
+              {mapPlaces.length === 1 ? PLACE_STATUS_LABEL[mapPlaces[0].status] : `${PLACE_STATUS_LABEL[mapPlaces[0].status]}과 대안 ${mapPlaces.length - 1}곳`}
+            </p>
+          </div>
+          <div className="min-h-0 flex-1 p-2">
+            <ResultMap places={mapPlaces} onOpenDetail={onOpenDetail} />
+          </div>
+          <p className="shrink-0 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 text-xs text-gray-600">
+            이름표를 누르면 장소 상세를 볼 수 있어요.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -232,12 +288,13 @@ interface ResultCardsProps {
   conditions: IntentConditions;
   contentMode: ContentMode;
   copy: ReturnType<typeof getResultCopy>;
+  statusOf: (location: Location) => PlaceStatus;
   onOpenDetail: (location: Location) => void;
   initialShowAlternatives: boolean;
   onShowAlternativesChange: (open: boolean) => void;
 }
 
-function ResultCards({ result, conditions, contentMode, copy, onOpenDetail, initialShowAlternatives, onShowAlternativesChange }: ResultCardsProps) {
+function ResultCards({ result, conditions, contentMode, copy, statusOf, onOpenDetail, initialShowAlternatives, onShowAlternativesChange }: ResultCardsProps) {
   const { primary, secondary, reasons, afterCafe } = result;
   // 화면 크기와 상관없이 추천 1곳과 지도 이동을 먼저 보여주고 대안은 접어 둔다 (넓은 화면 지도에는 대안도 찍힌다)
   // 상세나 조건 수정을 다녀오면 펼쳐 둔 상태를 그대로 이어 간다
@@ -256,20 +313,22 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail, init
         location={primary}
         reason={reasons.get(primary.id) || ''}
         matches={getConditionMatches(primary, conditions, contentMode)}
+        status={statusOf(primary)}
         onOpenDetail={onOpenDetail}
       />
 
       {/* ── 지도 열기 버튼 (1순위 기준): 대안보다 먼저, 카드 바로 아래.
            카드가 화면보다 길면(짧은 화면, 안내 문구) 스크롤 영역 아래쪽에 붙어 하단 바에 가리지 않는다 ── */}
       <div className="sticky bottom-0 z-10 -mx-4 mt-1 flex gap-2 bg-white px-4 pb-1 pt-2 md:-mx-6 md:px-6 lg:mx-0 lg:px-0">
+        {/* 장소 ID가 있으면 그 장소로 바로, 없으면 이름 검색이라고 버튼에 적는다 */}
         <MapButton
-          label="네이버 지도"
-          onClick={() => openNaverMap(primary.name)}
+          label={mapLinkLabel(primary, 'naver')}
+          onClick={() => openNaverMap(primary)}
           variant="primary"
         />
         <MapButton
-          label="카카오맵"
-          onClick={() => openKakaoMap(primary.name)}
+          label={mapLinkLabel(primary, 'kakao')}
+          onClick={() => openKakaoMap(primary)}
           variant="secondary"
         />
       </div>
@@ -312,12 +371,14 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail, init
               }}
               className="flex flex-col gap-2 px-3 pb-3"
             >
-              {secondary.map((loc) => (
+              {secondary.map((loc, index) => (
                 <SecondaryCard
                   key={loc.id}
                   location={loc}
+                  role={`${copy.secondaryLabel} ${index + 1}`}
                   reason={reasons.get(loc.id) || ''}
                   matches={getConditionMatches(loc, conditions, contentMode)}
+                  status={statusOf(loc)}
                   onOpenDetail={onOpenDetail}
                 />
               ))}
@@ -336,6 +397,7 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail, init
             location={afterCafe}
             reason={getCuratorReason(afterCafe)}
             matches={getConditionMatches(afterCafe, { ...conditions, timeSlot: null }, contentMode)}
+            status={result.statuses.get(afterCafe.id) ?? 'unconfirmed'}
             onOpenDetail={onOpenDetail}
           />
         </div>
@@ -350,7 +412,6 @@ function getResultCopy(contentMode: ContentMode) {
       eyebrow: 'PLACE PICK',
       title: '오늘은 이곳.',
       secondaryLabel: '대안',
-      browseLabel: '지도로 보기',
     };
   }
 
@@ -358,7 +419,6 @@ function getResultCopy(contentMode: ContentMode) {
     eyebrow: 'FOOD PICK',
     title: '오늘은 여기.',
     secondaryLabel: '대안',
-    browseLabel: '지도로 보기',
   };
 }
 
@@ -371,20 +431,22 @@ interface PrimaryCardProps {
   /** 운영자 한 줄. 없으면 빈 문자열 */
   reason: string;
   matches: ConditionMatch[];
+  status: PlaceStatus;
   onOpenDetail: (location: Location) => void;
 }
 
-function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardProps) {
+function PrimaryCard({ location, reason, matches, status, onOpenDetail }: PrimaryCardProps) {
   const [imageError, setImageError] = useState(false);
   const isShortScreen = useMediaQuery(SHORT_SCREEN);
   const practicalTags = (location.tags || []).filter(isPracticalInfoTag).slice(0, 3);
 
   return (
-    // 미확인 후보는 완전 일치 추천과 테두리부터 다르게
+    // 일반·미확인 후보는 대표 추천과 테두리부터 다르게
     <article
       data-testid="primary-card"
+      data-status={status}
       className={`w-full overflow-hidden rounded-2xl border bg-white shadow-sm ${
-        hasUnknown(matches) ? 'border-amber-300 border-dashed' : 'border-gray-100'
+        status === 'unconfirmed' ? 'border-amber-300 border-dashed' : status === 'general' ? 'border-gray-300 border-dashed' : 'border-gray-100'
       }`}
     >
       {/* 사진·이름·이유를 누르면 상세. 조건 확인 펼치기 버튼은 이 버튼 밖에 둔다 */}
@@ -421,7 +483,7 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
             <VisitStatus location={location} />
             {/* 추천 강도는 운영자가 이유를 적은 곳에만. 이유 없이 배지만 있으면 개인 추천처럼 읽힌다 */}
             {reason && <RecommendBadge location={location} size="xs" />}
-            {hasUnknown(matches) && <UnconfirmedBadge />}
+            <StatusBadge status={status} />
             {/* 지역과 업종은 구분점으로 잇지 않고 따로 */}
             <span className="inline-flex items-center gap-1 whitespace-nowrap">
               <MapPin size={13} />
@@ -482,13 +544,16 @@ function PrimaryCard({ location, reason, matches, onOpenDetail }: PrimaryCardPro
 
 interface SecondaryCardProps {
   location: Location;
+  /** 지도 이름표와 같은 순서 이름 (예: '대안 1') */
+  role?: string;
   /** 운영자 한 줄. 없으면 빈 문자열 */
   reason: string;
   matches: ConditionMatch[];
+  status: PlaceStatus;
   onOpenDetail: (location: Location) => void;
 }
 
-function SecondaryCard({ location, reason, matches, onOpenDetail }: SecondaryCardProps) {
+function SecondaryCard({ location, role, reason, matches, status, onOpenDetail }: SecondaryCardProps) {
   const matched = matches.filter((match) => match.status === 'match').map((match) => match.text);
   const unknown = matches.filter((match) => match.status === 'unknown').map((match) => match.label);
 
@@ -513,11 +578,12 @@ function SecondaryCard({ location, reason, matches, onOpenDetail }: SecondaryCar
 
       {/* 텍스트 */}
       <div className="min-w-0 flex-1">
+        {role && <span className="block text-xs font-semibold text-gray-500">{role}</span>}
         <span className="block truncate text-[15px] font-semibold text-gray-900">{location.name}</span>
         <div className="mt-1 flex flex-wrap items-center gap-1">
           <VisitStatus location={location} />
           {reason && <RecommendBadge location={location} size="xs" />}
-          {unknown.length > 0 && <UnconfirmedBadge />}
+          <StatusBadge status={status} />
         </div>
         {/* 운영자 이유가 없으면 아무 문장도 채우지 않는다 (같은 안내를 반복하면 근거처럼 보인다) */}
         {reason && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-gray-700">{reason}</p>}
@@ -536,14 +602,17 @@ const NO_REASON_TEXT = '아직 운영자가 추천 이유를 적지 않았어요
 /** 이 높이 이하에서는 조건 확인을 접어 두고 사진을 숨겨 추천 이유와 지도 버튼을 먼저 보여준다 */
 const SHORT_SCREEN = '(max-height: 700px)';
 
-function hasUnknown(matches: ConditionMatch[]) {
-  return matches.some((match) => match.status === 'unknown');
-}
-
-function UnconfirmedBadge() {
+/** 대표 추천이 아닌 곳은 지도 이름표와 같은 말(일반 후보·미확인 후보)로 표시한다 */
+function StatusBadge({ status }: { status: PlaceStatus }) {
+  if (status === 'recommended') return null;
   return (
-    <span className="whitespace-nowrap rounded bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-800">
-      일부 조건 미확인
+    <span
+      className={`whitespace-nowrap rounded px-1.5 py-0.5 text-xs font-semibold ${
+        status === 'unconfirmed' ? 'bg-amber-50 text-amber-800' : 'bg-gray-100 text-gray-700'
+      }`}
+      title={status === 'unconfirmed' ? '고른 조건 중 확인되지 않은 것이 있어요' : '조건은 맞지만 운영자가 직접 가 보고 적은 추천 이유가 없어요'}
+    >
+      {PLACE_STATUS_LABEL[status]}
     </span>
   );
 }
@@ -579,9 +648,11 @@ interface UnconfirmedGateProps {
 
 function UnconfirmedGate({ result, conditions, contentMode, onShow, onConditionsChange }: UnconfirmedGateProps) {
   const shown = [result.primary, ...result.secondary];
-  // 보여줄 후보 모두에서 확인되지 않은 조건만 문장으로 (예: '혼자 방문이 편한지는 아직 확인되지 않았어요.')
-  const perPlace = shown.map((loc) => getConditionMatches(loc, conditions, contentMode));
-  const unknownEverywhere = perPlace[0].filter(
+  // 미확인 후보 모두에서 확인되지 않은 조건만 문장으로 (예: '혼자 방문이 편한지는 확인되지 않았어요.')
+  const perPlace = shown
+    .filter((loc) => result.statuses.get(loc.id) === 'unconfirmed')
+    .map((loc) => getConditionMatches(loc, conditions, contentMode));
+  const unknownEverywhere = (perPlace[0] ?? []).filter(
     (match) => match.status === 'unknown' && perPlace.every((list) => list.some((m) => m.label === match.label && m.status === 'unknown')),
   );
   const unknownLabels = new Set(unknownEverywhere.map((match) => match.label));
@@ -590,23 +661,31 @@ function UnconfirmedGate({ result, conditions, contentMode, onShow, onConditions
   return (
     <div className="rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-5">
       <p className="text-sm font-medium leading-relaxed text-gray-800">
-        고른 조건은 그대로 두었어요. 아래 내용은 아직 확인되지 않았어요.
+        고른 조건은 그대로 두었어요. 운영자가 직접 가 보고 추천 이유를 적은 곳 중에는 고른 조건이 모두 확인된 곳이 없어요.
       </p>
-      {unknownEverywhere.length > 0 && (
-        <ul className="mt-2 space-y-1 text-sm text-gray-700">
-          {unknownEverywhere.map((match) => (
-            <li key={match.label}>
-              <span className="font-semibold text-amber-900">확인 필요:</span> {match.text}
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="mt-2 space-y-1 text-sm text-gray-700">
+        {result.generalCount > 0 && (
+          <li>
+            <span className="font-semibold text-gray-800">일반 후보 {result.generalCount}곳:</span> 조건은 맞지만 운영자 추천 이유가 없어요.
+          </li>
+        )}
+        {result.unconfirmedCount > 0 && (
+          <li>
+            <span className="font-semibold text-amber-900">미확인 후보 {result.unconfirmedCount}곳:</span> 고른 조건 중 확인되지 않은 것이 있어요.
+          </li>
+        )}
+        {unknownEverywhere.map((match) => (
+          <li key={match.label}>
+            <span className="font-semibold text-amber-900">확인 필요:</span> {match.text}
+          </li>
+        ))}
+      </ul>
       <button
         type="button"
         onClick={onShow}
         className="mt-4 w-full rounded-xl border border-amber-300 bg-white py-3 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-50"
       >
-        일부 조건 미확인 후보 {shown.length}곳 보기
+        후보 {shown.length}곳 따로 보기
       </button>
       {removable.length > 0 && (
         <>
@@ -762,7 +841,9 @@ function ConditionMatchList({ matches, collapsible = false }: { matches: Conditi
                     </span>
                     <span className={status === 'match' ? 'text-gray-800' : 'text-amber-900'}>
                       <span className="font-semibold">{match.title}:</span> {match.text}
-                      {formatEvidence(match.evidence) && <span className="text-gray-600"> ({formatEvidence(match.evidence)})</span>}
+                      {formatEvidence(match.evidence) && (
+                        <span className="text-gray-600"> ({formatEvidence(match.evidence)}{match.note ? `: ${match.note}` : ''})</span>
+                      )}
                     </span>
                   </li>
                 )),

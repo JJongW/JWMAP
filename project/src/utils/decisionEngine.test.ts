@@ -34,10 +34,11 @@ describe('decideLocations', () => {
     expect(decideLocations(all, EMPTY_CONDITIONS)?.primary).toBeDefined();
   });
 
-  it('지역과 우선 조건(조용한 곳)을 지킨다', () => {
-    const result = decideLocations(all, { ...EMPTY_CONDITIONS, region: '종로/중구', priority: 'quiet' });
-    const names = [result!.primary, ...result!.secondary].map((l) => l.name);
-    expect(names).not.toContain('시끌 고깃집');
+  it('지역을 지키고, 우선 조건(조용한 곳) 근거가 없는 곳은 미확인 후보로 뒤에 둔다', () => {
+    const result = decideLocations(all, { ...EMPTY_CONDITIONS, region: '종로/중구', priority: 'quiet' })!;
+    const names = [result.primary, ...result.secondary].map((l) => l.name);
+    expect(result.primary.name).toBe('조용한 밥집');
+    expect(result.statuses.get(loudMeal.id)).toBe('unconfirmed');
     expect(names).not.toContain('강남 밥집');
   });
 
@@ -87,7 +88,7 @@ describe('getConditionMatches', () => {
       { title: '지역', label: '종로/중구', status: 'match', text: '종로/중구', evidence: null },
       { title: '동행', label: '둘이', status: 'unknown', text: '둘이 가기 좋은지는 확인되지 않았어요.', evidence: null },
       { title: '영업', label: '저녁', status: 'match', text: '저녁에 열어요', evidence: '카카오맵 영업시간' },
-      { title: '분위기', label: '조용한 곳', status: 'match', text: '조용한 곳', evidence: '#조용한 분위기' },
+      { title: '우선 조건', label: '조용한 곳', status: 'match', text: '조용한 곳', evidence: '#조용한 분위기' },
     ]);
   });
 
@@ -108,10 +109,10 @@ describe('볼거리 조건 (둘이 · 가볍게 · 실내 위주)', () => {
   const outdoor = place({ name: '야외 공원', categoryMain: '자연/공원' as Location['categoryMain'], tags: ['실외', '산책'] });
   const conditions = { ...EMPTY_CONDITIONS, companion: 'pair' as const, timeSlot: 'lunch' as const, priority: 'wait_short' as const };
 
-  it('볼거리 키워드(실내)로 고르고 결과가 나온다', () => {
+  it('볼거리 키워드(실내)가 확인된 곳이 먼저, 근거 없는 곳은 미확인 후보', () => {
     const result = decideLocations([indoor, outdoor], conditions, 'space')!;
     expect(result.primary.name).toBe('실내 전시');
-    expect(result.secondary.map((l) => l.name)).not.toContain('야외 공원');
+    expect(result.statuses.get(outdoor.id)).toBe('unconfirmed');
   });
 
   it('근거 라벨이 고른 볼거리 라벨과 같다', () => {
@@ -122,8 +123,10 @@ describe('볼거리 조건 (둘이 · 가볍게 · 실내 위주)', () => {
     ]);
   });
 
-  it('맞는 곳이 없으면 조건을 바꾸지 않고 null', () => {
-    expect(decideLocations([outdoor], conditions, 'space')).toBeNull();
+  it('확인된 곳이 없으면 조건을 바꾸지 않고 대표 추천도 없다', () => {
+    const result = decideLocations([outdoor], conditions, 'space')!;
+    expect(result.confirmedCount).toBe(0);
+    expect(result.statuses.get(outdoor.id)).toBe('unconfirmed');
   });
 });
 
@@ -139,7 +142,9 @@ describe('조건 일치·불일치·미확인 (용산 · 혼자 · 점심)', () 
   it('조용한 곳만 빼도 혼자·점심은 그대로이고, 혼자가 확인된 곳이 미확인 곳보다 먼저 나온다', () => {
     const result = decideLocations([ojeje, soloRamen], soloLunch)!;
     expect(result.primary.name).toBe('혼밥 라멘');
-    expect(result.confirmedCount).toBe(1);
+    // 혼밥 라멘은 조건이 모두 확인됐지만 운영자 이유가 없어 일반 후보 (대표 추천 아님)
+    expect(result.confirmedCount).toBe(0);
+    expect(result.generalCount).toBe(1);
     expect(result.secondary.map((l) => l.name)).toEqual(['오제제 신용산점']);
   });
 
@@ -196,5 +201,67 @@ describe('추천 신뢰도', () => {
     const loudCafe = place({ categoryMain: '카페', tags: ['활기'] });
     const result = decideLocations([quietMeal, loudCafe], { ...EMPTY_CONDITIONS, priority: 'quiet' })!;
     expect(result.afterCafe).toBeUndefined();
+  });
+});
+
+describe('대표 추천의 근거 (운영자 이유 + 조건 확인)', () => {
+  const hours = '목(10/29) 11:00 ~ 22:00 / 금(10/30) 11:00 ~ 22:00';
+  const noReason = place({ name: '까델루뽀', categoryMain: '양식·퓨전', tags: ['데이트'], curator_visited: true, rating: 5, hours_text: hours });
+  const withReason = place({ name: '이유 있는 곳', tags: ['데이트'], curator_visited: true, short_desc: '파스타가 정말 맛있어요', rating: 3, hours_text: hours });
+  const pairDinner = { ...EMPTY_CONDITIONS, region: '종로/중구', companion: 'pair' as const, timeSlot: 'dinner' as const };
+
+  it('운영자 이유가 없는 곳은 평점이 높아도 대표 추천이 되지 않는다', () => {
+    const result = decideLocations([noReason, withReason], pairDinner)!;
+    expect(result.primary.name).toBe('이유 있는 곳');
+    expect(result.statuses.get(noReason.id)).toBe('general');
+  });
+
+  it('운영자 이유가 있는 곳이 없으면 대표 추천 수가 0이다 (화면이 일반 후보를 확정 추천처럼 보여주지 않는다)', () => {
+    const result = decideLocations([noReason], pairDinner)!;
+    expect(result.confirmedCount).toBe(0);
+    expect(result.generalCount).toBe(1);
+  });
+
+  it('직접 가 보지 않은 곳은 이유가 있어도 일반 후보다', () => {
+    const unvisited = place({ tags: ['데이트'], curator_visited: false, short_desc: '가보고 싶어요', hours_text: hours });
+    expect(decideLocations([unvisited], pairDinner)!.statuses.get(unvisited.id)).toBe('general');
+  });
+});
+
+describe('우선 조건 근거는 의미가 직접 맞아야 일치', () => {
+  const visited = { curator_visited: true, short_desc: '고기국수가 맛있어요' };
+
+  it("'웨이팅 적음'은 '빨리 나오는 곳'의 근거가 아니다", () => {
+    const loc = place({ ...visited, tags: ['웨이팅 적음', '혼밥'] });
+    const fast = getConditionMatches(loc, { ...EMPTY_CONDITIONS, priority: 'fast_serve' }).find((m) => m.label === '빨리 나오는 곳');
+    expect(fast?.status).toBe('unknown');
+    expect(fast?.evidence).toBeNull();
+    // 줄이 짧다는 조건에는 맞다
+    expect(getConditionMatches(loc, { ...EMPTY_CONDITIONS, priority: 'wait_short' })[0].status).toBe('match');
+  });
+
+  it("'회전초밥'의 '회전'은 빠른 회전 근거가 아니다", () => {
+    const loc = place({ ...visited, tags: ['회전초밥'] });
+    expect(getConditionMatches(loc, { ...EMPTY_CONDITIONS, priority: 'fast_serve' })[0].status).toBe('unknown');
+  });
+
+  it("'조용한 분위기'는 '분위기 좋은 곳'의 근거가 아니다", () => {
+    const quiet = place({ ...visited, tags: ['조용한 분위기', '빈티지분위기'] });
+    expect(getConditionMatches(quiet, { ...EMPTY_CONDITIONS, priority: 'date_ok' })[0].status).toBe('unknown');
+    const good = place({ ...visited, tags: ['분위기좋은'] });
+    expect(getConditionMatches(good, { ...EMPTY_CONDITIONS, priority: 'date_ok' })[0].status).toBe('match');
+  });
+
+  it("'분위기 좋은' 태그만으로 둘이 가기 좋다고 하지 않는다", () => {
+    const loc = place({ ...visited, tags: ['분위기좋은'] });
+    expect(getConditionMatches(loc, { ...EMPTY_CONDITIONS, companion: 'pair' })[0].status).toBe('unknown');
+  });
+
+  it('근거 이름이 조건 이름과 다르면 왜 맞는지 덧붙인다', () => {
+    const loc = place({ ...visited, categoryMain: '전시/문화' as Location['categoryMain'], tags: ['실내'] });
+    const rainy = getConditionMatches(loc, { ...EMPTY_CONDITIONS, situations: ['rainy_day'] }, 'space')[0];
+    expect(rainy.status).toBe('match');
+    expect(rainy.evidence).toBe('#실내');
+    expect(rainy.note).toBe('실내라 비를 피할 수 있어요');
   });
 });

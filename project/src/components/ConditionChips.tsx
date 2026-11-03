@@ -37,7 +37,7 @@ const CHIP_TITLE: Record<ChipKey, string> = {
   region: '지역',
   companion: '누구와',
   timeSlot: '시간',
-  priority: '분위기',
+  priority: '우선 조건',
   kind: '밥집/카페',
   placeType: '장소 종류',
   reasons: '추천하는 이유',
@@ -113,7 +113,7 @@ export function ConditionChips({ conditions, onChange, regionOptions, contentMod
         <button
           type="button"
           onClick={onRemove}
-          aria-label={`${CHIP_TITLE[key]} 조건 빼기: ${label}`}
+          aria-label={`${CHIP_TITLE[key]} 빼기: ${label}`}
           className="rounded-full py-1.5 pl-1 pr-2 text-orange-400 hover:text-orange-700"
         >
           <X size={12} />

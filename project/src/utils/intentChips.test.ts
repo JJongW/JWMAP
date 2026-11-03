@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getConditionLabels, mapSearchSlots, matchRegion, parseIntentText, resolveIntent, unreadWords, EMPTY_CONDITIONS } from './intentChips';
+import { applyTextEdit, conditionsToText, getConditionLabels, mapSearchSlots, matchRegion, parseIntentText, resolveIntent, unreadWords, EMPTY_CONDITIONS } from './intentChips';
 
 // 장소 수가 많은 순
 const REGIONS = ['종로/중구', '강남', '홍대/합정/마포/연남', '건대/성수/왕십리', '용산/이태원/한남', '마포/홍대'];
@@ -101,5 +101,48 @@ describe('getConditionLabels', () => {
     const labels = getConditionLabels('food');
     expect(labels.timeSlot.lunch).toBe('점심');
     expect(labels.priority.wait_short).toBe('줄 안 서는 곳');
+  });
+});
+
+describe('문장과 조건 칩 맞추기', () => {
+  const yongsan = parseIntentText('용산 혼자 점심 조용한 곳', REGIONS);
+
+  it('칩으로 만든 문장을 다시 읽으면 같은 조건이다', () => {
+    const cases = [
+      { ...EMPTY_CONDITIONS, region: '용산/이태원/한남', companion: 'solo' as const, timeSlot: 'lunch' as const },
+      { ...EMPTY_CONDITIONS, region: '종로/중구', companion: 'pair' as const, timeSlot: 'dinner' as const, priority: 'quiet' as const, kind: 'meal' as const },
+      { ...EMPTY_CONDITIONS, companion: 'group' as const, timeSlot: 'late' as const, priority: 'wait_short' as const },
+      { ...EMPTY_CONDITIONS, timeSlot: 'lunch' as const, priority: 'fast_serve' as const, kind: 'cafe' as const },
+    ];
+    for (const conditions of cases) {
+      expect(parseIntentText(conditionsToText(conditions, REGIONS), REGIONS)).toEqual(conditions);
+    }
+    const space = { ...EMPTY_CONDITIONS, placeType: 'gallery', situations: ['rainy_day'], priority: 'wait_short' as const, timeSlot: 'lunch' as const };
+    expect(parseIntentText(conditionsToText(space, REGIONS, 'space'), REGIONS, 'space')).toEqual(space);
+  });
+
+  it("'조용한 곳' 칩을 지우면 문장에서도 빠지고, 그 문장을 그대로 다시 추천해도 되살아나지 않는다", () => {
+    const removed = { ...yongsan, priority: null };
+    const text = conditionsToText(removed, REGIONS);
+    expect(text).toBe('용산 혼자 점심');
+    const unchanged = applyTextEdit(removed, parseIntentText(text, REGIONS), parseIntentText(text, REGIONS));
+    expect(unchanged).toEqual(removed);
+  });
+
+  it('문장에서 고친 항목만 바뀌고, 건드리지 않은 조건은 그대로', () => {
+    const current = { ...yongsan, kind: 'meal' as const };
+    const before = parseIntentText('용산 혼자 점심 조용한 곳', REGIONS);
+    // 점심 → 저녁만 고침. 칩으로 더한 '밥집'은 문장에 없어도 유지
+    const next = applyTextEdit(current, before, parseIntentText('용산 혼자 저녁 조용한 곳', REGIONS));
+    expect(next).toEqual({ ...current, timeSlot: 'dinner' });
+    // 문장에서 지운 조건은 빠진다
+    expect(applyTextEdit(current, before, parseIntentText('용산 혼자 점심', REGIONS)).priority).toBeNull();
+  });
+
+  it('여러 낱말에 걸친 말과 볼거리 조건은 못 읽었다고 하지 않는다', () => {
+    expect(unreadWords('비 오는 날 실내 전시', REGIONS, 'space')).toEqual([]);
+    expect(parseIntentText('비 오는 날 실내 전시', REGIONS, 'space')).toMatchObject({ placeType: 'gallery', situations: ['rainy_day'], priority: 'wait_short' });
+    // 맛집에서 장소 종류 없이 쓰면 '실내'는 맛집 조건이 아니라서 알린다
+    expect(unreadWords('종로 실내', REGIONS)).toEqual(['실내']);
   });
 });

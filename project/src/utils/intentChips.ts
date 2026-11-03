@@ -10,7 +10,7 @@
 
 import { PROVINCES, type ContentMode } from '../types/location';
 import type { Companion, PriorityFeature, TimeSlot } from '../types/ui';
-import { findTermsInText, getTerm } from './taxonomy';
+import { findTermsInText, getTerm, TAXONOMY, termLabel } from './taxonomy';
 
 export type PlaceKind = 'meal' | 'cafe';
 
@@ -108,10 +108,28 @@ const TIME_RULES: [TimeSlot, RegExp][] = [
 
 const PRIORITY_RULES: [PriorityFeature, RegExp][] = [
   ['quiet', /조용|차분|한적/],
-  ['wait_short', /웨이팅|줄 ?(안|없)|기다리|대기/],
+  ['wait_short', /웨이팅|줄 ?(안|없)( ?서는)?|기다리|대기/],
   ['fast_serve', /빨리|빠르게|빠른|금방/],
   ['date_ok', /분위기|예쁜|감성/],
   ['solo_ok', /혼밥/],
+];
+
+/**
+ * 볼거리는 같은 조건 값을 다른 말로 쓴다 (SPACE_*_LABEL). 볼거리에서 찾을 때는 이 말로 읽어야
+ * '실내'처럼 볼거리 조건인 말을 '못 읽었다'고 하거나, 결과 칩 문장을 다시 읽을 때 다른 조건이 되지 않는다.
+ */
+const SPACE_TIME_RULES: [TimeSlot, RegExp][] = [
+  ['late', /저녁|늦게|밤/],
+  ['lunch', /가볍게|잠깐/],
+  ['dinner', /반나절|오래/],
+];
+
+const SPACE_PRIORITY_RULES: [PriorityFeature, RegExp][] = [
+  ['quiet', /조용|차분|한적/],
+  ['wait_short', /실내/],
+  ['fast_serve', /짧게 ?들르/],
+  ['date_ok', /사진 ?남기/],
+  ['solo_ok', /혼자 ?산책/],
 ];
 
 const KIND_RULES: [PlaceKind, RegExp][] = [
@@ -149,40 +167,125 @@ function matchProvince(text: string): string | null {
 const FILLER = /^(곳|데|집|되는|되고|좋은|괜찮은|맛있는|있는|만한|갈|가기|가고|가볼|하기|할|먹기|먹고|추천|추천해줘|알려줘|찾아줘|어디|오늘|지금|싶어|싶은|싶다|근처|쪽|좀|같이|그리고|랑|하고|또는|맛집)$/;
 const JOSA = /(에서|으로|이랑|하고|로|에|이|가|은|는|을|를|랑|도|의)$/;
 
-/** 문장에서 조건으로 읽지 못한 낱말. 결과 화면에서 "이건 반영 못 했어요"로 알린다 */
-export function unreadWords(text: string, regions: string[]): string[] {
-  const rules = [...COMPANION_RULES, ...TIME_RULES, ...PRIORITY_RULES, ...KIND_RULES].map(([, pattern]) => pattern);
+/** 맛집/볼거리에 따라 읽는 말이 다른 규칙 */
+function rulesFor(mode: ContentMode) {
+  return {
+    time: mode === 'space' ? SPACE_TIME_RULES : TIME_RULES,
+    priority: mode === 'space' ? SPACE_PRIORITY_RULES : PRIORITY_RULES,
+  };
+}
+
+/** 장소 종류·이유·상황으로 이 문장을 볼거리와 맛집 중 어디서 찾을지. 정할 수 없으면 지금 보는 쪽 */
+function modeOfText(text: string, mode: ContentMode): ContentMode {
+  return (
+    inferConditionMode({
+      ...EMPTY_CONDITIONS,
+      kind: firstMatch(text, KIND_RULES),
+      placeType: findTermsInText(text, 'place_type')[0] ?? null,
+      reasons: findTermsInText(text, 'reason'),
+      situations: findTermsInText(text, 'situation'),
+    }) ?? mode
+  );
+}
+
+/**
+ * 문장에서 조건으로 읽지 못한 낱말. 결과 화면에서 "이건 반영 못 했어요"로 알린다.
+ * '비 오는 날'처럼 여러 낱말에 걸친 말은 구절째 읽은 것으로 친다 ('오는'만 따로 못 읽었다고 하지 않는다).
+ */
+export function unreadWords(text: string, regions: string[], mode: ContentMode = 'food'): string[] {
+  const { time, priority } = rulesFor(modeOfText(text, mode));
+  const rules = [...COMPANION_RULES, ...time, ...priority, ...KIND_RULES].map(([, pattern]) => pattern);
+  const termPatterns = TAXONOMY.flatMap((term) => (term.query ? [term.query] : []));
+  // 여러 낱말에 걸쳐 읽힌 구절의 위치
+  const spans: [number, number][] = [];
+  for (const pattern of [...rules, ...termPatterns]) {
+    const global = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
+    for (const match of text.matchAll(global)) {
+      if (match[0].trim()) spans.push([match.index ?? 0, (match.index ?? 0) + match[0].length]);
+    }
+  }
+  const inReadSpan = (start: number, end: number) => spans.some(([from, to]) => from < end && start < to);
   const read = (word: string) =>
     FILLER.test(word) ||
     rules.some((pattern) => pattern.test(word)) ||
     matchRegion(word, regions) !== null ||
     matchProvince(word) !== null ||
     (['place_type', 'reason', 'situation'] as const).some((kind) => findTermsInText(word, kind).length > 0);
-  const words = text
-    .split(/[\s,.!?·~]+/)
-    .map((word) => word.trim())
-    .filter((word) => word.length >= 2);
-  const unread = words.filter((word) => !read(word) && !read(word.replace(JOSA, '')));
+  const words = [...text.matchAll(/[^\s,.!?·~]+/g)]
+    .map((match) => ({ word: match[0], start: match.index ?? 0 }))
+    .filter(({ word }) => word.length >= 2);
+  const unread = words
+    .filter(({ word, start }) => !inReadSpan(start, start + word.length) && !read(word) && !read(word.replace(JOSA, '')))
+    .map(({ word }) => word);
   return [...new Set(unread.map((word) => (word.replace(JOSA, '').length >= 2 ? word.replace(JOSA, '') : word)))];
 }
 
-export function parseIntentText(text: string, regions: string[]): IntentConditions {
+/** mode: 지금 보고 있는 데이터. 문장에 장소 종류가 있으면 그쪽(예: 전시 → 볼거리) 말로 읽는다 */
+export function parseIntentText(text: string, regions: string[], mode: ContentMode = 'food'): IntentConditions {
   const normalized = text.trim();
   if (!normalized) return { ...EMPTY_CONDITIONS };
+  const rules = rulesFor(modeOfText(normalized, mode));
 
   // '혼밥 눈치 안 보이는'은 누구와(혼자)로 잡고, 분위기 칩은 명시적 우선 조건이 있을 때만 채운다
-  const priority = firstMatch(normalized, PRIORITY_RULES.filter(([key]) => key !== 'solo_ok'));
+  const priority = firstMatch(normalized, rules.priority.filter(([key]) => mode === 'space' || key !== 'solo_ok'));
 
   return {
     region: matchRegion(normalized, regions) ?? matchProvince(normalized),
     companion: firstMatch(normalized, COMPANION_RULES),
-    timeSlot: firstMatch(normalized, TIME_RULES),
+    timeSlot: firstMatch(normalized, rules.time),
     priority,
     kind: firstMatch(normalized, KIND_RULES),
     placeType: findTermsInText(normalized, 'place_type')[0] ?? null,
     reasons: findTermsInText(normalized, 'reason'),
     situations: findTermsInText(normalized, 'situation'),
   };
+}
+
+// ─────────────────────────────────────────────
+// 문장 ↔ 조건 칩 맞추기
+// ─────────────────────────────────────────────
+
+/** 지역 이름 중 문장에 적었을 때 같은 지역으로 다시 읽히는 가장 짧은 말 ('용산/이태원/한남' → '용산') */
+function regionWord(region: string, regions: string[]): string {
+  const alias = region.split('/').map((part) => part.trim()).find((part) => part.length >= 2);
+  return alias && (matchRegion(alias, regions) ?? matchProvince(alias)) === region ? alias : region;
+}
+
+/**
+ * 지금 조건을 입력창에 넣을 문장으로. 결과 화면에서 칩을 고치면 이 문장으로 바꿔 둬서
+ * '조건 수정'으로 돌아갔을 때 지운 조건이 문장에 남아 다시 살아나지 않게 한다.
+ */
+export function conditionsToText(conditions: IntentConditions, regions: string[], mode: ContentMode = 'food'): string {
+  const labels = getConditionLabels(mode);
+  const parts = [
+    conditions.region ? regionWord(conditions.region, regions) : null,
+    conditions.companion ? labels.companion[conditions.companion] : null,
+    conditions.timeSlot ? labels.timeSlot[conditions.timeSlot] : null,
+    conditions.placeType ? termLabel(conditions.placeType) : null,
+    ...conditions.situations.map(termLabel),
+    ...conditions.reasons.map(termLabel),
+    conditions.kind && mode === 'food' ? KIND_LABEL[conditions.kind] : null,
+    conditions.priority ? labels.priority[conditions.priority] : null,
+  ];
+  return parts.filter(Boolean).join(' ');
+}
+
+/**
+ * 조건 수정 화면에서 문장을 고쳤을 때: 고친 부분만 조건에 반영한다.
+ * before는 고치기 전 문장을 읽은 조건, after는 고친 문장을 읽은 조건, current는 지금 적용 중인 조건.
+ * 문장에서 바뀌지 않은 항목은 지금 조건 그대로 (칩으로 고른 것이 사라지거나, 지운 것이 되살아나지 않는다).
+ */
+export function applyTextEdit(current: IntentConditions, before: IntentConditions, after: IntentConditions): IntentConditions {
+  const next: IntentConditions = { ...current, reasons: [...current.reasons], situations: [...current.situations] };
+  for (const key of ['region', 'companion', 'timeSlot', 'priority', 'kind', 'placeType'] as const) {
+    if (before[key] !== after[key]) (next as unknown as Record<string, unknown>)[key] = after[key];
+  }
+  for (const key of ['reasons', 'situations'] as const) {
+    const removed = before[key].filter((slug) => !after[key].includes(slug));
+    const added = after[key].filter((slug) => !before[key].includes(slug));
+    next[key] = [...next[key].filter((slug) => !removed.includes(slug)), ...added.filter((slug) => !next[key].includes(slug))];
+  }
+  return next;
 }
 
 // ─────────────────────────────────────────────
@@ -245,8 +348,9 @@ export async function resolveIntent(
   text: string,
   regions: string[],
   fetcher: typeof fetch = fetch,
+  mode: ContentMode = 'food',
 ): Promise<{ conditions: IntentConditions; source: 'rules' | 'api' | 'none' }> {
-  const ruled = parseIntentText(text, regions);
+  const ruled = parseIntentText(text, regions, mode);
   if (hasAnyCondition(ruled) || !text.trim()) {
     return { conditions: ruled, source: hasAnyCondition(ruled) ? 'rules' : 'none' };
   }

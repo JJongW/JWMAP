@@ -37,6 +37,8 @@ export interface TaxonomyTerm {
    * DB 분류와 상세 화면 '이런 때 잘 맞아요'에는 그대로 쓴다.
    */
   coveredByConditions?: boolean;
+  /** 근거 이름이 분류 이름과 다를 때 왜 맞는지 짧게 (예: '실내' 태그 → 비 오는 날) */
+  evidenceNote?: string;
 }
 
 export const TAXONOMY: TaxonomyTerm[] = [
@@ -74,7 +76,7 @@ export const TAXONOMY: TaxonomyTerm[] = [
   { slug: 'date', kind: 'situation', label: '데이트', mode: 'both', coveredByConditions: true, tagHints: ['데이트', '데이트코스', '소개팅', '실내데이트', '홍대데이트'], textHints: ['데이트'] },
   { slug: 'gathering', kind: 'situation', label: '여럿이 모일 때', mode: 'both', coveredByConditions: true, tagHints: ['모임', '친목모임', '회식', '단체'], textHints: ['모임', '회식'] },
   { slug: 'quiet', kind: 'situation', label: '조용히 있고 싶을 때', mode: 'both', coveredByConditions: true, tagHints: ['조용함', '조용한 분위기', '조용한'], textHints: ['조용'] },
-  { slug: 'rainy_day', kind: 'situation', label: '비 오는 날', mode: 'both', query: /비 ?오는|비 ?올|우천|비올/, tagHints: ['실내', '실내데이트', '실내놀거리'], textHints: ['비 오는', '실내'] },
+  { slug: 'rainy_day', kind: 'situation', label: '비 오는 날', mode: 'both', query: /비 ?오는|비 ?올|우천|비올/, tagHints: ['실내', '실내데이트', '실내놀거리'], textHints: ['비 오는', '실내'], evidenceNote: '실내라 비를 피할 수 있어요' },
   { slug: 'weekday_afternoon', kind: 'situation', label: '평일 오후', mode: 'both', query: /평일/, textHints: ['평일'] },
   { slug: 'with_kids', kind: 'situation', label: '아이와 함께', mode: 'both', query: /아이와|아이랑|아이들|아기|어린이|키즈|애들/, tagHints: ['아이와함께', '어린이'], textHints: ['아이'] },
   { slug: 'with_family', kind: 'situation', label: '가족과', mode: 'both', query: /가족|부모님/, tagHints: ['가족', '가족나들이'], textHints: ['가족', '부모님'] },
