@@ -8,14 +8,16 @@
  * 1. Primary Recommendation Card - "오늘은 여기." + 장소명 + 이유 + 방문 여부
  * 2. Action Buttons - 네이버/카카오 지도 열기 (대안보다 먼저, 카드 바로 아래)
  * 3. Secondary Options (최대 2개) - 접힌 보조 영역. 펼치면 비교할 수 있다
- * 4. "다시 고르기" / "지도로 보기" 전환 버튼
+ * 4. "조건 수정"(입력하던 문장·선택값 그대로) / "처음부터 다시"(입력·조건 비움) / "지도로 보기" 버튼
+ *
+ * 조건 수정이나 상세를 다녀와도 같은 결과로 돌아오면 스크롤 위치·대안 펼침을 이어서 보여준다.
  * 
  * 카드 탭과 "자세히 보기"는 모두 같은 장소 상세(PlaceDetail)를 연다.
  * 운영자가 이유를 적지 않은 곳은 추천 강도 배지를 달지 않고, 조건과 맞는 정보만 보여준다.
  * 고른 조건이 모두 확인된 곳이 없으면 미확인 후보를 바로 띄우지 않고, 무엇이 확인 안 됐는지 먼저 말한다.
  */
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { MapPin, ChevronDown, ChevronRight, Navigation } from 'lucide-react';
 import type { ContentMode, Location } from '../types/location';
 import type { DecisionResult } from '../utils/decisionEngine';
@@ -37,6 +39,16 @@ import {
 } from '../utils/curation';
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { RecommendBadge } from './RecommendBadge';
+import { openKakaoMap, openNaverMap } from '../utils/mapOpen';
+
+/** 결과 화면을 떠났다 돌아올 때 이어 보여줄 화면 상태. 결과 기록(viewKey)마다 따로 둔다 */
+interface ResultViewMemory {
+  scrollTop: number;
+  columnScrollTop: number;
+  showAlternatives: boolean;
+  unconfirmedOpenFor: string | null;
+}
+const viewMemory = new Map<string, ResultViewMemory>();
 
 interface DecisionResultViewProps {
   /** null이면 조건에 맞는 곳이 없다는 안내와 칩만 보여준다 */
@@ -48,8 +60,12 @@ interface DecisionResultViewProps {
   /** 문장에서 조건을 못 읽었을 때 등 결과 위 안내 */
   notice?: string | null;
   contentMode?: ContentMode;
-  /** "다시 고르기" 클릭 시 → decision 모드로 돌아감 */
-  onRetry: () => void;
+  /** 조건 수정: 문장으로 찾았으면 문장 입력으로, 하나씩 골랐으면 선택 화면으로 (값은 그대로) */
+  onEditConditions: () => void;
+  /** 처음부터 다시: 입력한 문장과 조건을 지우고 첫 화면으로 */
+  onStartOver: () => void;
+  /** 결과 기록마다 다른 값. 같은 값으로 돌아오면 스크롤·대안 펼침을 이어서 보여준다 */
+  viewKey?: string;
   /** 지도 탐색으로 돌아가기 */
   onBrowse: () => void;
   /** 장소 상세 보기 (기존 PlaceDetail 연동) */
@@ -63,16 +79,33 @@ export function DecisionResultView({
   regionOptions,
   notice,
   contentMode = 'food',
-  onRetry,
+  onEditConditions,
+  onStartOver,
+  viewKey = '',
   onBrowse,
   onOpenDetail,
 }: DecisionResultViewProps) {
+  const memory = useRef<ResultViewMemory>(
+    viewMemory.get(viewKey) ?? { scrollTop: 0, columnScrollTop: 0, showAlternatives: false, unconfirmedOpenFor: null },
+  ).current;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const columnRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    viewMemory.set(viewKey, memory);
+    if (scrollRef.current) scrollRef.current.scrollTop = memory.scrollTop;
+    if (columnRef.current) columnRef.current.scrollTop = memory.columnScrollTop;
+  }, [viewKey, memory]);
+
   const copy = getResultCopy(contentMode);
   // 지도는 넓은 화면에서만 만든다 (모바일은 지도 앱 버튼이 그 역할)
   const { isDesktop: isWide } = useBreakpoint();
   // 미확인 후보 보기는 조건이 바뀌면 다시 접는다 (새 조건에서 확인된 곳이 생길 수 있다)
   const conditionKey = JSON.stringify(conditions);
-  const [unconfirmedOpenFor, setUnconfirmedOpenFor] = useState<string | null>(null);
+  const [unconfirmedOpenFor, setUnconfirmedOpenForState] = useState<string | null>(memory.unconfirmedOpenFor);
+  const setUnconfirmedOpenFor = (value: string | null) => {
+    memory.unconfirmedOpenFor = value;
+    setUnconfirmedOpenForState(value);
+  };
   const showUnconfirmed = unconfirmedOpenFor === conditionKey;
   const onlyUnconfirmed = result !== null && result.confirmedCount === 0;
   const title = !result
@@ -86,8 +119,14 @@ export function DecisionResultView({
   return (
     <div className="ko-text fixed inset-0 z-40 flex flex-col bg-white">
       {/* 모바일: 한 줄로 스크롤. 넓은 화면(lg): 왼쪽 추천 카드는 따로 스크롤, 오른쪽은 추천 위치 지도 */}
-      <div className="min-h-0 flex-1 overflow-y-auto lg:mx-auto lg:flex lg:w-full lg:max-w-6xl lg:gap-8 lg:overflow-hidden lg:px-8">
-        <div className="mx-auto w-full max-w-lg px-4 pb-8 pt-4 md:px-6 md:pt-6 lg:mx-0 lg:w-[30rem] lg:max-w-none lg:shrink-0 lg:overflow-y-auto lg:px-0">
+      <div
+        ref={scrollRef}
+        onScroll={(event) => { memory.scrollTop = event.currentTarget.scrollTop; }}
+        className="min-h-0 flex-1 overflow-y-auto lg:mx-auto lg:flex lg:w-full lg:max-w-6xl lg:gap-8 lg:overflow-hidden lg:px-8">
+        <div
+          ref={columnRef}
+          onScroll={(event) => { memory.columnScrollTop = event.currentTarget.scrollTop; }}
+          className="mx-auto w-full max-w-lg px-4 pb-8 pt-4 md:px-6 md:pt-6 lg:mx-0 lg:w-[30rem] lg:max-w-none lg:shrink-0 lg:overflow-y-auto lg:px-0">
 
           {/* ── 헤드라인 ── */}
           <p className="mb-1 text-xs font-medium tracking-widest text-gray-400">
@@ -128,6 +167,8 @@ export function DecisionResultView({
               contentMode={contentMode}
               copy={copy}
               onOpenDetail={onOpenDetail}
+              initialShowAlternatives={memory.showAlternatives}
+              onShowAlternativesChange={(open) => { memory.showAlternatives = open; }}
             />
           ) : (
             <NoResult conditions={conditions} contentMode={contentMode} onConditionsChange={onConditionsChange} />
@@ -153,18 +194,26 @@ export function DecisionResultView({
         </div>
       </div>
 
-      {/* ── 하단 액션 바: 카드를 덮지 않도록 fixed가 아니라 레이아웃 흐름 안에 둔다 ── */}
+      {/* ── 하단 액션 바: 카드를 덮지 않도록 fixed가 아니라 레이아웃 흐름 안에 둔다.
+           조건 수정은 입력값을 그대로 가져가고, 처음부터 다시는 지운다는 걸 버튼에 적어 둔다 ── */}
       <div className="shrink-0 border-t border-gray-100 bg-white">
-        <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-6 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:max-w-6xl lg:justify-start lg:gap-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-lg items-center gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:px-6 lg:max-w-6xl lg:gap-3 lg:px-8">
           <button
-            onClick={onRetry}
-            className="rounded-xl border border-gray-200 px-5 py-3 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400"
+            onClick={onEditConditions}
+            className="min-h-[44px] shrink-0 rounded-xl border border-gray-300 px-4 text-sm font-semibold text-gray-700 transition-colors hover:border-gray-500"
           >
-            {copy.retryLabel}
+            조건 수정
+          </button>
+          <button
+            onClick={onStartOver}
+            className="flex min-h-[44px] min-w-0 flex-col items-start justify-center rounded-xl px-2 text-left transition-colors hover:bg-gray-50"
+          >
+            <span className="text-sm font-medium text-gray-600">처음부터 다시</span>
+            <span className="text-[11px] leading-tight text-gray-500">입력과 조건을 지우고 첫 화면으로</span>
           </button>
           <button
             onClick={onBrowse}
-            className="text-sm text-gray-500 transition-colors hover:text-gray-700"
+            className="ml-auto min-h-[44px] shrink-0 px-1 text-sm text-gray-500 transition-colors hover:text-gray-700"
           >
             {copy.browseLabel}
           </button>
@@ -184,12 +233,21 @@ interface ResultCardsProps {
   contentMode: ContentMode;
   copy: ReturnType<typeof getResultCopy>;
   onOpenDetail: (location: Location) => void;
+  initialShowAlternatives: boolean;
+  onShowAlternativesChange: (open: boolean) => void;
 }
 
-function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: ResultCardsProps) {
+function ResultCards({ result, conditions, contentMode, copy, onOpenDetail, initialShowAlternatives, onShowAlternativesChange }: ResultCardsProps) {
   const { primary, secondary, reasons, afterCafe } = result;
   // 화면 크기와 상관없이 추천 1곳과 지도 이동을 먼저 보여주고 대안은 접어 둔다 (넓은 화면 지도에는 대안도 찍힌다)
-  const [showAlternatives, setShowAlternatives] = useState(false);
+  // 상세나 조건 수정을 다녀오면 펼쳐 둔 상태를 그대로 이어 간다
+  const [showAlternatives, setShowAlternativesState] = useState(initialShowAlternatives);
+  const openedByUser = useRef(false);
+  const setShowAlternatives = (open: boolean) => {
+    openedByUser.current = open;
+    onShowAlternativesChange(open);
+    setShowAlternativesState(open);
+  };
 
   return (
     <>
@@ -206,12 +264,12 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: Re
       <div className="sticky bottom-0 z-10 -mx-4 mt-1 flex gap-2 bg-white px-4 pb-1 pt-2 md:-mx-6 md:px-6 lg:mx-0 lg:px-0">
         <MapButton
           label="네이버 지도"
-          onClick={() => openNaver(primary)}
+          onClick={() => openNaverMap(primary.name)}
           variant="primary"
         />
         <MapButton
           label="카카오맵"
-          onClick={() => openKakao(primary)}
+          onClick={() => openKakaoMap(primary.name)}
           variant="secondary"
         />
       </div>
@@ -245,7 +303,13 @@ function ResultCards({ result, conditions, contentMode, copy, onOpenDetail }: Re
           {showAlternatives && (
             <div
               id="decision-alternatives"
-              ref={(el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}
+              ref={(el) => {
+                // 사용자가 방금 펼쳤을 때만 보이게 내린다 (돌아와서 복원할 때는 스크롤 위치를 그대로 둔다)
+                if (el && openedByUser.current) {
+                  openedByUser.current = false;
+                  el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                }
+              }}
               className="flex flex-col gap-2 px-3 pb-3"
             >
               {secondary.map((loc) => (
@@ -286,7 +350,6 @@ function getResultCopy(contentMode: ContentMode) {
       eyebrow: 'PLACE PICK',
       title: '오늘은 이곳.',
       secondaryLabel: '대안',
-      retryLabel: '다시 고르기',
       browseLabel: '지도로 보기',
     };
   }
@@ -295,7 +358,6 @@ function getResultCopy(contentMode: ContentMode) {
     eyebrow: 'FOOD PICK',
     title: '오늘은 여기.',
     secondaryLabel: '대안',
-    retryLabel: '다시 고르기',
     browseLabel: '지도로 보기',
   };
 }
@@ -739,53 +801,4 @@ function MapButton({ label, onClick, variant }: MapButtonProps) {
       <span>{label}</span>
     </button>
   );
-}
-
-// ─────────────────────────────────────────────
-// 딥링크 유틸 (기존 PlaceDetail 패턴 재사용)
-// ─────────────────────────────────────────────
-
-/**
- * 네이버 지도 열기
- * 모바일: 앱 딥링크 시도 → 700ms 후 웹 fallback
- * PC: 웹 지도 직접 열기
- */
-function openNaver(location: Location) {
-  const isMobile = window.innerWidth < 768;
-  const query = encodeURIComponent(location.name);
-
-  if (isMobile) {
-    const appName = encodeURIComponent(window.location.origin);
-    const appLink = `nmap://search?query=${query}&appname=${appName}`;
-    const webLink = `https://map.naver.com/v5/search/${query}`;
-
-    window.location.href = appLink;
-    setTimeout(() => {
-      window.location.href = webLink;
-    }, 700);
-  } else {
-    window.open(`https://map.naver.com/v5/search/${query}`, '_blank');
-  }
-}
-
-/**
- * 카카오맵 열기
- * 모바일: 앱 딥링크 시도 → 700ms 후 웹 fallback
- * PC: 웹 지도 직접 열기
- */
-function openKakao(location: Location) {
-  const isMobile = window.innerWidth < 768;
-  const query = encodeURIComponent(location.name);
-
-  if (isMobile) {
-    const appLink = `kakaomap://search?q=${query}`;
-    const webLink = `https://map.kakao.com/link/search/${query}`;
-
-    window.location.href = appLink;
-    setTimeout(() => {
-      window.location.href = webLink;
-    }, 700);
-  } else {
-    window.open(`https://map.kakao.com/link/search/${query}`, '_blank');
-  }
 }

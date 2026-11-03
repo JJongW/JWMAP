@@ -72,4 +72,9 @@ export interface BrowseViewProps {
   /** false면 첫 화면(추천받기 중심)을, true면 이름 검색·목록·지도 탐색을 보여준다 */
   exploring?: boolean;
   onExploringChange?: (exploring: boolean) => void;
+  /** 추천 입력 문장. 결과를 다녀와도 남도록 App이 들고 있다 */
+  intentText?: string;
+  onIntentTextChange?: (text: string) => void;
+  /** 결과에서 '조건 수정'으로 첫 화면에 왔을 때 결과로 돌아가기 */
+  onCancelEdit?: () => void;
 }

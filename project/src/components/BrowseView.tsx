@@ -81,6 +81,9 @@ export function BrowseView({
   onQuickStart,
   exploring = true,
   onExploringChange,
+  intentText,
+  onIntentTextChange,
+  onCancelEdit,
 }: BrowseViewProps) {
   const { isMobile } = useBreakpoint();
   const {
@@ -200,6 +203,9 @@ export function BrowseView({
         onExplore={handleExplore}
         totalCount={totalLocationCount ?? displayedLocations.length}
         savedCount={myPlaceCount}
+        text={intentText}
+        onTextChange={onIntentTextChange}
+        onCancelEdit={onCancelEdit}
       />
     );
   }
@@ -263,6 +269,8 @@ export function BrowseView({
                   onSubmitText={onRecommendText}
                   onQuickStart={onQuickStart}
                   onContentModeChange={onContentModeChange}
+                  text={intentText}
+                  onTextChange={onIntentTextChange}
                 />
               </div>
             )}
