@@ -32,7 +32,7 @@ interface DecisionEntryViewProps {
   onDecide: (
     region: string | null,
     companion: Companion,
-    timeSlot: TimeSlot,
+    timeSlot: TimeSlot | null,
     priorityFeature: PriorityFeature,
   ) => void;
   /** 지도 탐색으로 돌아갈 때 호출 */
@@ -50,7 +50,8 @@ interface DecisionEntryViewProps {
 export interface EntryDraft {
   region: string | null;
   companion: Companion | null;
-  timeSlot: TimeSlot | null;
+  /** 'any' = 상관없어요 (시간 조건 없이). null = 아직 안 고름 */
+  timeSlot: TimeSlot | 'any' | null;
   priority: PriorityFeature | null;
 }
 
@@ -88,7 +89,7 @@ export function DecisionEntryView({
     return province && availableProvincesWithDistricts.some((p) => p.province === province) ? province : null;
   });
   const [companion, setCompanion] = useState<Companion | null>(initial?.companion ?? null);
-  const [timeSlot, setTimeSlot] = useState<TimeSlot | null>(initial?.timeSlot ?? null);
+  const [timeSlot, setTimeSlot] = useState<TimeSlot | 'any' | null>(initial?.timeSlot ?? null);
   const [priorityFeature, setPriorityFeature] = useState<PriorityFeature | null>(initial?.priority ?? null);
 
   useEffect(() => {
@@ -106,7 +107,7 @@ export function DecisionEntryView({
 
   const handleDecide = useCallback(() => {
     if (!isComplete) return;
-    onDecide(region === REGION_ANY_VALUE ? null : region, companion!, timeSlot!, priorityFeature!);
+    onDecide(region === REGION_ANY_VALUE ? null : region, companion!, timeSlot === 'any' ? null : timeSlot, priorityFeature!);
   }, [region, companion, timeSlot, priorityFeature, isComplete, onDecide]);
 
   const handleSelectRegion = useCallback((value: string) => {
@@ -243,7 +244,8 @@ export function DecisionEntryView({
               isActive={companion !== null}
             >
               <PillGroup
-                options={toOptions<TimeSlot>(labels.timeSlot)}
+                // 볼거리의 '가볍게'·'반나절'처럼 확인할 데이터가 없는 시간도 있어서, 시간 조건 없이도 고를 수 있게 한다
+                options={[...toOptions<TimeSlot>(labels.timeSlot), { value: 'any' as const, label: '상관없어요' }]}
                 accent={modeText.accent}
                 selected={timeSlot}
                 onSelect={setTimeSlot}

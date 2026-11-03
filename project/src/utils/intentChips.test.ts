@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applyTextEdit, conditionsToText, getConditionLabels, mapSearchSlots, matchRegion, parseIntentText, resolveIntent, unreadWords, EMPTY_CONDITIONS } from './intentChips';
+import { applyTextEdit, buildPlaceAliases, conditionsToText, getConditionLabels, mapSearchSlots, matchRegion, parseIntentText, resolveIntent, unreadWords, EMPTY_CONDITIONS } from './intentChips';
 
 // 장소 수가 많은 순
 const REGIONS = ['종로/중구', '강남', '홍대/합정/마포/연남', '건대/성수/왕십리', '용산/이태원/한남', '마포/홍대'];
@@ -144,5 +144,31 @@ describe('문장과 조건 칩 맞추기', () => {
     expect(parseIntentText('비 오는 날 실내 전시', REGIONS, 'space')).toMatchObject({ placeType: 'gallery', situations: ['rainy_day'], priority: 'wait_short' });
     // 맛집에서 장소 종류 없이 쓰면 '실내'는 맛집 조건이 아니라서 알린다
     expect(unreadWords('종로 실내', REGIONS)).toEqual(['실내']);
+  });
+});
+
+describe('동네·길 이름으로 지역 찾기', () => {
+  const places = [
+    { region: '종로/중구', address: '서울 중구 을지로 157' },
+    { region: '종로/중구', address: '서울 중구 을지로3가 12-1' },
+    { region: '종로/중구', address: '서울 종로구 익선동 166' },
+    { region: '종로/중구', address: '서울 종로구 익선동 34' },
+    { region: '서울 중구', address: '서울 중구 을지로 100' },
+    // 두 지역에 반씩 걸친 이름은 쓰지 않는다
+    { region: '강남', address: '서울 강남구 테헤란로 1' },
+    { region: '서초', address: '서울 서초구 테헤란로 2' },
+  ];
+  const aliases = buildPlaceAliases(places);
+
+  it('주소에 자주 나오는 길·동 이름을 그 지역으로 읽는다', () => {
+    expect(parseIntentText('을지로에서 혼자 점심', REGIONS, 'food', aliases).region).toBe('종로/중구');
+    expect(parseIntentText('을지로3가역 저녁', REGIONS, 'food', aliases).region).toBe('종로/중구');
+    expect(parseIntentText('익선동 카페', REGIONS, 'food', aliases).region).toBe('종로/중구');
+    expect(unreadWords('을지로 혼자 점심', REGIONS, 'food', aliases)).toEqual([]);
+  });
+
+  it('여러 지역에 걸친 이름이나 지역 이름이 이미 있으면 쓰지 않는다', () => {
+    expect(aliases.has('테헤란로')).toBe(false);
+    expect(parseIntentText('강남 을지로', REGIONS, 'food', aliases).region).toBe('강남');
   });
 });

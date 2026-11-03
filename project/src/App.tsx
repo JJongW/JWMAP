@@ -18,7 +18,7 @@ import { DEFAULT_FILTER_STATE, type FilterState } from './types/filter';
 import { locationApi } from './utils/supabase';
 import { decideLocations, type DecisionResult } from './utils/decisionEngine';
 import { getCuratorReason, isCuratorVisited } from './utils/curation';
-import { applyTextEdit, conditionsToText, EMPTY_CONDITIONS, inferConditionMode, parseIntentText, resolveIntent, unreadWords, type IntentConditions } from './utils/intentChips';
+import { applyTextEdit, buildPlaceAliases, conditionsToText, EMPTY_CONDITIONS, inferConditionMode, parseIntentText, resolveIntent, unreadWords, type IntentConditions } from './utils/intentChips';
 import { getLocationProvince, resolveCategoryMain } from './utils/locationHelpers';
 import { clearPlaceStates, getActivityScore, getSavedIds, getVisitedIds, recordActivity, syncPlaceStateFromRemote } from './utils/activity';
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -279,6 +279,9 @@ export default function App() {
   );
 
   /** 지역 칩·문장 해석용: 장소가 많은 지역 순 */
+  /** '을지로'·'익선동'처럼 지역 이름에 없는 동네 이름 → 지역 (장소 주소에서 모은다) */
+  const placeAliases = useMemo(() => buildPlaceAliases(locations), [locations]);
+
   const regionOptions = useMemo(() => {
     const counts = new Map<string, number>();
     locations.forEach((location) => {
@@ -556,7 +559,7 @@ export default function App() {
   const handleDecide = useCallback((
     region: string | null,
     companion: Companion,
-    timeSlot: TimeSlot,
+    timeSlot: TimeSlot | null,
     priorityFeature: PriorityFeature,
   ) => {
     // 조건 수정이면 결과 화면 칩으로 고친 다른 조건(종류 등)은 그대로 두고, 이 화면에서 고른 것만 바꾼다
@@ -577,14 +580,18 @@ export default function App() {
     recordActivity('recommend_start', undefined, { contentType: contentMode });
     setIntentText(text);
     const editing = editingSnap?.source.kind === 'text' ? { snap: editingSnap, text: editingSnap.source.text } : null;
-    const ruled = editing ? parseIntentText(text, regionOptions, editing.snap.mode) : null;
+    const ruled = editing ? parseIntentText(text, regionOptions, editing.snap.mode, placeAliases) : null;
     const { conditions: parsed, source } = editing && ruled
       ? {
-          conditions: applyTextEdit(editing.snap.conditions, parseIntentText(editing.text, regionOptions, editing.snap.mode), ruled),
+          conditions: applyTextEdit(
+            editing.snap.conditions,
+            parseIntentText(editing.text, regionOptions, editing.snap.mode, placeAliases),
+            ruled,
+          ),
           source: 'rules' as const,
         }
-      : await resolveIntent(text, regionOptions, fetch, contentMode);
-    const unread = source === 'rules' ? unreadWords(text, regionOptions, editing?.snap.mode ?? contentMode) : [];
+      : await resolveIntent(text, regionOptions, fetch, contentMode, placeAliases);
+    const unread = source === 'rules' ? unreadWords(text, regionOptions, editing?.snap.mode ?? contentMode, placeAliases) : [];
     const notice =
       text.trim() && source === 'none'
         ? '문장에서 조건을 찾지 못했어요. 아래 칩으로 직접 골라주세요.'
@@ -592,7 +599,7 @@ export default function App() {
           ? `'${unread.join("', '")}' 조건은 아직 읽지 못해서 빼고 골랐어요. 아래 칩에 있는 조건만 적용했어요.`
           : null;
     await runDecision(parsed, { kind: 'text', text }, notice, { replace: Boolean(editingSnap) });
-  }, [contentMode, regionOptions, runDecision, editingSnap]);
+  }, [contentMode, regionOptions, runDecision, editingSnap, placeAliases]);
 
   /** 입력 없이 지역·밥집·카페로 바로 시작 */
   const handleQuickStart = useCallback((partial: Partial<IntentConditions>) => {
@@ -984,11 +991,12 @@ function readNavEntry(state: unknown): NavEntry | null {
   return entry && typeof entry === 'object' && 'view' in entry ? (entry as NavEntry) : null;
 }
 
+/** 결과의 조건을 선택 화면 값으로. 시간 없이 추천받은 결과면 '상관없어요'가 골라진 상태 */
 function draftFromConditions(conditions: IntentConditions): EntryDraft {
   return {
     region: conditions.region,
     companion: conditions.companion,
-    timeSlot: conditions.timeSlot,
+    timeSlot: conditions.timeSlot ?? (conditions.companion && conditions.priority ? 'any' : null),
     priority: conditions.priority,
   };
 }
