@@ -13,7 +13,7 @@ import { recordActivity, toggleSaved, toggleVisited, getSavedIds, getVisitedIds 
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
-import { openKakaoMap, openNaverMap } from '../utils/mapOpen';
+import { mapLinkLabel, openKakaoMap, openNaverMap } from '../utils/mapOpen';
 
 interface PlaceDetailProps {
   location: Location;
@@ -157,14 +157,14 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
   const handleOpenNaver = () => {
     recordActivity('open_naver', location);
     if (searchId) searchLogApi.updateMapOpen(searchId, 'naver', location.id);
-    openNaverMap(location.name);
+    openNaverMap(location);
   };
 
   // 카카오맵 열기
   const handleOpenKakao = () => {
     recordActivity('open_kakao', location);
     if (searchId) searchLogApi.updateMapOpen(searchId, 'kakao', location.id);
-    openKakaoMap(location.name);
+    openKakaoMap(location);
   };
 
   const allTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])];
@@ -429,14 +429,14 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
             className="flex-1 py-3.5 bg-green-500 text-white font-medium rounded-xl hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
           >
             <Navigation size={18} />
-            네이버지도
+            {mapLinkLabel(location, 'naver')}
           </button>
           <button
             onClick={handleOpenKakao}
             className="flex-1 py-3.5 bg-yellow-400 text-gray-900 font-medium rounded-xl hover:bg-yellow-500 transition-colors flex items-center justify-center gap-2"
           >
             <ExternalLink size={18} />
-            카카오맵
+            {mapLinkLabel(location, 'kakao')}
           </button>
         </div>
 
@@ -598,14 +598,14 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
                 className="flex-1 py-3 bg-green-500 text-white font-medium rounded-xl hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
               >
                 <Navigation size={18} />
-                네이버지도
+                {mapLinkLabel(location, 'naver')}
               </button>
               <button
                 onClick={handleOpenKakao}
                 className="flex-1 py-3 bg-yellow-400 text-gray-900 font-medium rounded-xl hover:bg-yellow-500 transition-colors flex items-center justify-center gap-2"
               >
                 <ExternalLink size={18} />
-                카카오맵
+                {mapLinkLabel(location, 'kakao')}
               </button>
             </div>
           </div>

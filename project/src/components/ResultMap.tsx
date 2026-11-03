@@ -1,16 +1,18 @@
 /**
  * ResultMap.tsx
  *
- * 데스크톱 추천 결과 오른쪽 지도. 추천 1곳과 대안을 번호 라벨로 찍어 한 화면에 담는다.
- * 라벨을 누르면 카드와 같은 장소 상세를 연다. 모바일에서는 그리지 않는다 (지도 앱 버튼이 그 역할).
+ * 추천 결과 지도. 추천 1곳과 대안을 번호 라벨로 찍어 한 화면에 담는다.
+ * 넓은 화면은 결과 오른쪽에 늘 두고, 좁은 화면은 '지도로 보기'를 눌렀을 때만 그린다.
+ * 라벨은 카드와 같은 상태 이름(추천·일반 후보·미확인 후보)과 순서(대안 1, 2)를 쓰고, 누르면 같은 장소 상세를 연다.
  */
 
 import { useEffect, useRef } from 'react';
 import type { Location } from '../types/location';
+import { PLACE_STATUS_LABEL, type PlaceStatus } from '../utils/decisionEngine';
 
 interface ResultMapProps {
-  /** 0번이 추천 1곳, 나머지는 대안 순서. unconfirmed면 고른 조건 중 확인 안 된 것이 있는 후보 */
-  places: { location: Location; unconfirmed: boolean }[];
+  /** 0번이 첫 카드, 나머지는 대안 순서. status는 카드 배지와 같은 값 */
+  places: { location: Location; status: PlaceStatus }[];
   onOpenDetail: (location: Location) => void;
 }
 
@@ -24,7 +26,7 @@ export function ResultMap({ places, onOpenDetail }: ResultMapProps) {
   const openRef = useRef(onOpenDetail);
   openRef.current = onOpenDetail;
   const placed = places.filter(({ location }) => Number.isFinite(location.lat) && Number.isFinite(location.lon) && location.lat !== 0);
-  const key = placed.map(({ location, unconfirmed }) => `${location.id}:${unconfirmed}`).join(',');
+  const key = placed.map(({ location, status }) => `${location.id}:${status}`).join(',');
 
   useEffect(() => {
     const container = containerRef.current;
@@ -35,13 +37,16 @@ export function ResultMap({ places, onOpenDetail }: ResultMapProps) {
       level: 5,
     });
     const bounds = new kakao.maps.LatLngBounds();
-    const overlays = placed.map(({ location: place, unconfirmed }, index) => {
+    const overlays = placed.map(({ location: place, status }, index) => {
       const position = new kakao.maps.LatLng(place.lat, place.lon);
       bounds.extend(position);
       const label = document.createElement('button');
       label.type = 'button';
-      // 역할과 장소명을 '추천: 장소명'처럼 나눈다. 조건이 확인 안 된 곳은 지도에서도 '미확인 후보'로 부른다
-      const role = index === 0 ? (unconfirmed ? '미확인 후보' : '추천') : unconfirmed ? `미확인 대안 ${index}` : `대안 ${index}`;
+      // 역할과 장소명을 '추천: 장소명'처럼 나눈다. 대표 추천이 아닌 곳은 카드 배지와 같은 이름을 붙인다
+      const role =
+        index === 0
+          ? PLACE_STATUS_LABEL[status]
+          : status === 'recommended' ? `대안 ${index}` : `대안 ${index} ${PLACE_STATUS_LABEL[status]}`;
       label.textContent = `${role}: ${place.name}`;
       label.className =
         index === 0
@@ -67,7 +72,7 @@ export function ResultMap({ places, onOpenDetail }: ResultMapProps) {
   if (!hasKakaoMaps() || placed.length === 0) {
     return (
       <div className="flex h-full items-center justify-center rounded-2xl bg-gray-50 text-sm text-gray-500">
-        지도를 불러오지 못했어요. 왼쪽 지도 앱 버튼으로 위치를 확인해 주세요.
+        지도를 불러오지 못했어요. 카드 아래 지도 앱 버튼으로 위치를 확인해 주세요.
       </div>
     );
   }

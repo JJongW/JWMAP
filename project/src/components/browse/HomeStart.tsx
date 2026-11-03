@@ -14,8 +14,8 @@ import { IntentInput } from './IntentInput';
 
 /** 예시는 실제 데이터에서 추천이 나오는 문장으로 고른다 */
 const EXAMPLES: Record<ContentMode, string[]> = {
-  food: ['종로에서 둘이 저녁', '혼자 점심, 빨리 먹을 곳', '용산 카페 조용한 곳'],
-  space: ['비 오는 날 실내 전시', '둘이 가볍게 산책'],
+  food: ['종로에서 둘이 저녁', '혼자 점심, 줄 안 서는 곳', '용산 카페 조용한 곳'],
+  space: ['비 오는 날 실내 전시', '산책하기 좋은 공원'],
 };
 
 export type ExploreEntry = 'search' | 'map' | 'all' | 'saved';

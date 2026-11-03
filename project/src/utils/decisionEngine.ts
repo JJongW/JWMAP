@@ -9,7 +9,10 @@
  * 매핑 로직:
  * - Companion → 태그 필터 (혼밥, 데이트, 모임)
  * - TimeSlot → 카테고리/시간대 가중치 (점심: 밥/면, 저녁: 고기/해산물, 늦은밤: 술안주/카페)
- * - PriorityFeature → 필수 태그 조건
+ * - PriorityFeature → 태그 근거 (의미가 직접 맞는 태그만. 간접 근거는 미확인)
+ *
+ * 대표 추천은 운영자가 직접 가 보고 추천 이유를 적은 곳 중 고른 조건이 모두 확인된 곳만 된다.
+ * 그런 곳이 없으면 '일반 후보'(조건은 맞지만 운영자 이유가 없음)·'미확인 후보'를 사용자가 원할 때만 보여준다.
  */
 
 import type { Location, CategoryMain, ContentMode } from '../types/location';
@@ -31,8 +34,8 @@ function getCompanionTagKeywords(companion: Companion): string[] {
     case 'solo':
       return ['혼밥', '혼자'];
     case 'pair':
-      // '분위기'만으로는 '조용한 분위기'까지 걸려 둘이 근거로 잘못 쓰이므로 구체적인 태그만 본다
-      return ['데이트', '소개팅', '분위기좋은', '분위기 좋은'];
+      // '분위기 좋은'은 분위기 근거이지 둘이 가기 좋다는 근거가 아니라서 데이트·소개팅 태그만 본다
+      return ['데이트', '소개팅'];
     case 'group':
       return ['모임', '단체', '회식'];
   }
@@ -86,32 +89,34 @@ const TIME_CATEGORY_WEIGHT: Record<TimeSlot, Partial<Record<CategoryMain, number
 // 3. PriorityFeature → 태그 키워드 매핑
 // ─────────────────────────────────────────────
 
-/** 볼거리 우선 조건 → 볼거리 데이터에 실제로 있는 태그 키워드 (라벨: intentChips SPACE_PRIORITY_LABEL) */
-const SPACE_PRIORITY_KEYWORDS: Record<PriorityFeature, string[]> = {
-  quiet: ['조용', '차분', '한적'],
-  wait_short: ['실내'],
-  fast_serve: ['소품', '쇼룸', '서점'],
-  date_ok: ['포토', '사진'],
-  solo_ok: ['산책'],
+/**
+ * 우선 조건 → 의미가 직접 맞는 태그. 비슷해 보여도 다른 사실이면 근거로 쓰지 않는다
+ * (예: '웨이팅 적음'은 줄이 짧다는 뜻이지 음식이 빨리 나온다는 뜻이 아니다. '회전초밥'의 '회전'도 아니다).
+ * 맞는 태그가 데이터에 없는 조건은 비워 두고, 그 조건은 늘 '미확인'이 된다.
+ */
+const FOOD_PRIORITY_TAGS: Record<PriorityFeature, RegExp | null> = {
+  quiet: /조용|차분/,
+  wait_short: /웨이팅\s?(적음|없음)|대기\s?없음|바로\s?입장/,
+  fast_serve: /빨리\s?나|빠른\s?(서빙|조리)|회전\s?빠름/,
+  // '조용한 분위기'·'빈티지분위기'는 분위기의 종류일 뿐 분위기가 좋다는 말이 아니다
+  date_ok: /^분위기$|분위기\s?좋은|데이트|소개팅/,
+  solo_ok: /혼밥|혼자/,
 };
 
-/** 우선 조건 → 실제 태그 키워드 매핑. 볼거리는 같은 값이라도 뜻이 달라 키워드를 따로 쓴다 */
-function getPriorityTagKeywords(priority: PriorityFeature, mode: ContentMode = 'food'): string[] {
-  if (mode === 'space') return SPACE_PRIORITY_KEYWORDS[priority];
-  switch (priority) {
-    case 'quiet':
-      return ['조용', '차분'];
-    case 'wait_short':
-      return ['웨이팅 적음', '대기 없음', '바로입장'];
-    case 'fast_serve':
-      return ['빠른', '웨이팅 적음', '회전 빠름'];
-    case 'date_ok':
-      return ['데이트', '분위기'];
-    case 'solo_ok':
-      return ['혼밥', '혼자'];
-    default:
-      return [];
-  }
+/** 볼거리는 같은 조건 값을 다른 뜻으로 쓴다 (라벨: intentChips SPACE_PRIORITY_LABEL) */
+const SPACE_PRIORITY_TAGS: Record<PriorityFeature, RegExp | null> = {
+  quiet: /조용|차분|한적/,
+  wait_short: /실내/,
+  // 짧게 들르기·혼자 산책은 직접 말해 주는 태그가 없다 (소품샵·산책 태그는 간접 근거라 쓰지 않는다)
+  fast_serve: null,
+  date_ok: /포토|사진/,
+  solo_ok: null,
+};
+
+function judgePriority(location: Location, priority: PriorityFeature, mode: ContentMode): Judged {
+  const pattern = (mode === 'space' ? SPACE_PRIORITY_TAGS : FOOD_PRIORITY_TAGS)[priority];
+  const tag = pattern ? location.tags?.find((value) => pattern.test(value.trim())) : undefined;
+  return tag ? { status: 'match', evidence: `#${tag}` } : { status: 'unknown', evidence: null };
 }
 
 function hasTagKeyword(location: Location, keywords: string[]): boolean {
@@ -129,8 +134,8 @@ interface ScoredLocation {
   location: Location;
   score: number;
   matchedTags: string[];
-  /** 고른 조건이 모두 데이터로 확인됐는지. 미확인이 하나라도 있으면 false */
-  confirmed: boolean;
+  /** 추천 / 일반 후보 / 미확인 후보 (rankLocations에서 채운다) */
+  status: PlaceStatus;
   companion: Companion | null;
   timeSlot: TimeSlot | null;
   priorityFeature: PriorityFeature | null;
@@ -189,24 +194,18 @@ function scoreLocation(
   const matchedTags: string[] = [];
   let score = 0;
 
-  const priorityKeywords = priorityFeature ? getPriorityTagKeywords(priorityFeature, mode) : [];
-  if (priorityKeywords.length > 0 && !hasTagKeyword(location, priorityKeywords)) {
-    return null;
-  }
-  if (priorityKeywords.length > 0) {
-    score += 100; // 필수 조건 충족 가산점
-    addMatchedTag(matchedTags, priorityKeywords[0]);
-  }
-
-  // ── 누구와·시간: 불일치면 빼고, 미확인이면 '일부 조건 미확인'으로 확인된 곳 뒤에 둔다 ──
-  const judged = [
-    companion ? judgeCompanion(location, companion) : null,
-    timeSlot ? judgeTimeSlot(location, timeSlot, mode) : null,
-  ].filter((item): item is Judged => item !== null);
+  // ── 누구와·시간·우선 조건: 불일치면 빼고, 미확인이면 확인된 곳 뒤에 둔다 (조건을 몰래 빼지 않는다) ──
+  const companionJudged = companion ? judgeCompanion(location, companion) : null;
+  const priorityJudged = priorityFeature ? judgePriority(location, priorityFeature, mode) : null;
+  const judged = [companionJudged, timeSlot ? judgeTimeSlot(location, timeSlot, mode) : null, priorityJudged].filter(
+    (item): item is Judged => item !== null,
+  );
   if (judged.some((item) => item.status === 'mismatch')) return null;
-  const confirmed = judged.every((item) => item.status === 'match');
 
-  if (companion && judged[0]?.status === 'match') {
+  if (priorityJudged?.status === 'match') {
+    score += 100;
+  }
+  if (companion && companionJudged?.status === 'match') {
     score += 30;
     addMatchedTag(matchedTags, getCompanionTagKeywords(companion)[0]);
   }
@@ -252,21 +251,51 @@ function scoreLocation(
   const rating = location.rating ?? 0;
   score += Math.round((rating / 5) * 20);
 
-  return { location, score, matchedTags, confirmed, companion, timeSlot, priorityFeature };
+  return { location, score, matchedTags, status: 'recommended', companion, timeSlot, priorityFeature };
 }
 
 // ─────────────────────────────────────────────
 // 5. 메인 결정 함수
 // ─────────────────────────────────────────────
 
+/**
+ * 결과 카드·지도 라벨이 같은 말을 쓰도록 장소마다 하나의 상태로 정한다.
+ * - recommended: 운영자가 직접 가 보고 추천 이유를 적었고, 고른 조건이 모두 데이터로 확인됨
+ * - general: 고른 조건은 모두 확인됐지만 운영자 추천 이유가 없거나 직접 가 보지 않음
+ * - unconfirmed: 고른 조건 중 확인되지 않은 것이 있음 (불일치는 처음부터 뺀다)
+ */
+export type PlaceStatus = 'recommended' | 'general' | 'unconfirmed';
+
+export const PLACE_STATUS_LABEL: Record<PlaceStatus, string> = {
+  recommended: '추천',
+  general: '일반 후보',
+  unconfirmed: '미확인 후보',
+};
+
+const STATUS_ORDER: Record<PlaceStatus, number> = { recommended: 0, general: 1, unconfirmed: 2 };
+
+/** 운영자의 실제 경험이 있는 곳: 직접 방문 + 운영자가 적은 추천 이유 */
+export function hasOperatorReason(location: Location): boolean {
+  return isCuratorVisited(location) && Boolean(getCuratorReason(location));
+}
+
+export function getPlaceStatus(location: Location, conditions: IntentConditions, mode: ContentMode = 'food'): PlaceStatus {
+  if (getConditionMatches(location, conditions, mode).some((match) => match.status !== 'match')) return 'unconfirmed';
+  return hasOperatorReason(location) ? 'recommended' : 'general';
+}
+
 export interface DecisionResult {
   /**
-   * 고른 조건이 모두 확인된 곳 수. 0이면 primary·secondary는 전부 '일부 조건 미확인' 후보라
-   * 화면은 그 사실을 먼저 말하고, 사용자가 원할 때만 후보를 보여준다 (조건을 몰래 빼지 않는다)
+   * 대표 추천이 될 수 있는 곳(recommended) 수. 0이면 primary·secondary는 전부 일반·미확인 후보라
+   * 화면은 그 사실을 먼저 말하고, 사용자가 원할 때만 후보를 보여준다 (근거 없는 곳을 확정 추천하지 않는다)
    */
   confirmedCount: number;
-  /** 미확인 조건이 있는 후보 수 (불일치는 처음부터 뺀다) */
+  /** 조건은 모두 확인됐지만 운영자 추천 이유가 없는 후보 수 */
+  generalCount: number;
+  /** 확인되지 않은 조건이 있는 후보 수 */
   unconfirmedCount: number;
+  /** 보여줄 곳(primary, secondary, afterCafe)의 상태 */
+  statuses: Map<string, PlaceStatus>;
   /** 1순위 추천 */
   primary: Location;
   /** 2~3순위 보조 추천 */
@@ -293,7 +322,7 @@ export function decideLocations(
   conditions: IntentConditions,
   mode: ContentMode = 'food',
 ): DecisionResult | null {
-  const { region, companion, timeSlot, priority: priorityFeature, kind } = conditions;
+  const { region, kind } = conditions;
   const regionMatched =
     region && region.trim()
       ? (PROVINCES as readonly string[]).includes(region)
@@ -311,12 +340,13 @@ export function decideLocations(
     : kind === 'meal' ? meals
     : meals.length > 0 ? meals : cafes;
 
-  const scored = rankLocations(candidates, companion, timeSlot, priorityFeature, mode);
+  const scored = rankLocations(candidates, conditions, mode);
   if (scored.length === 0) return null;
 
-  // 상위 3개 선정 (최소 1개). 확인된 곳이 먼저, 미확인 후보는 그 뒤에
-  const confirmedCount = scored.filter((item) => item.confirmed).length;
+  // 상위 3개 선정 (최소 1개). 추천 → 일반 후보 → 미확인 후보 순
+  const countOf = (status: PlaceStatus) => scored.filter((item) => item.status === status).length;
   const top = scored.slice(0, 3);
+  const statuses = new Map(top.map((item) => [item.location.id, item.status]));
   const primary = top[0].location;
   const secondary = top.slice(1).map(s => s.location);
 
@@ -327,11 +357,26 @@ export function decideLocations(
 
   let afterCafe: Location | undefined;
   if (kind === null && candidates === meals && cafes.length > 0) {
-    // 식후 카페도 고른 우선 조건을 지키는 곳만. 없으면 조건을 빼고 고르지 않고 칸을 비운다
-    afterCafe = rankLocations(cafes, companion, null, priorityFeature, mode)[0]?.location;
+    // 식후 카페도 고른 우선 조건이 확인된 곳만. 없으면 조건을 빼고 고르지 않고 칸을 비운다 (상태 배지는 카드에 그대로)
+    const cafe = rankLocations(cafes, { ...conditions, timeSlot: null }, mode).find(
+      (item) => !conditions.priority || judgePriority(item.location, conditions.priority, mode).status === 'match',
+    );
+    if (cafe) {
+      afterCafe = cafe.location;
+      statuses.set(cafe.location.id, cafe.status);
+    }
   }
 
-  return { confirmedCount, unconfirmedCount: scored.length - confirmedCount, primary, secondary, reasons, afterCafe };
+  return {
+    confirmedCount: countOf('recommended'),
+    generalCount: countOf('general'),
+    unconfirmedCount: countOf('unconfirmed'),
+    statuses,
+    primary,
+    secondary,
+    reasons,
+    afterCafe,
+  };
 }
 
 function matchesTerms(location: Location, conditions: IntentConditions): boolean {
@@ -342,19 +387,15 @@ function matchesTerms(location: Location, conditions: IntentConditions): boolean
   return slugs.every((slug) => findTermEvidence(location, slug, operatorText) !== null);
 }
 
-/** 점수순 정렬 (동점이면 평점순). 우선 조건을 못 지키는 곳은 빠진다 */
-function rankLocations(
-  candidates: Location[],
-  companion: Companion | null,
-  timeSlot: TimeSlot | null,
-  priorityFeature: PriorityFeature | null,
-  mode: ContentMode = 'food',
-): ScoredLocation[] {
+/** 상태순(추천 → 일반 후보 → 미확인 후보), 같은 상태 안에서는 점수순 (동점이면 평점순). 불일치는 빠진다 */
+function rankLocations(candidates: Location[], conditions: IntentConditions, mode: ContentMode = 'food'): ScoredLocation[] {
+  const { companion, timeSlot, priority } = conditions;
   const scored = candidates
-    .map((loc) => scoreLocation(loc, companion, timeSlot, priorityFeature, mode))
-    .filter((item): item is ScoredLocation => item !== null);
+    .map((loc) => scoreLocation(loc, companion, timeSlot, priority, mode))
+    .filter((item): item is ScoredLocation => item !== null)
+    .map((item) => ({ ...item, status: getPlaceStatus(item.location, conditions, mode) }));
   return scored.sort((a, b) => {
-    if (a.confirmed !== b.confirmed) return a.confirmed ? -1 : 1;
+    if (a.status !== b.status) return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
     if (b.score !== a.score) return b.score - a.score;
     return (b.location.rating ?? 0) - (a.location.rating ?? 0);
   });
@@ -374,6 +415,8 @@ export interface ConditionMatch {
   text: string;
   /** 맞는 근거 (예: '#데이트', '카카오맵 영업시간'). 데이터로 확인 못 하면 null — 지어내지 않는다 */
   evidence: string | null;
+  /** 근거 이름이 조건 이름과 다를 때 왜 맞는지 (예: '실내라 비를 피할 수 있어요') */
+  note?: string;
 }
 
 function findTag(location: Location, keywords: string[]): string | null {
@@ -455,14 +498,14 @@ export function getConditionMatches(
     });
   }
 
-  // 우선 조건·종류·이유·상황은 근거가 있는 곳만 후보에 남으므로, 여기서 근거가 없으면 미확인으로 둔다
+  // 우선 조건: 의미가 직접 맞는 태그가 있을 때만 일치. 없으면 미확인 (비슷한 태그로 일치 처리하지 않는다)
   if (conditions.priority) {
-    const tag = findTag(location, getPriorityTagKeywords(conditions.priority, mode));
+    const judged = judgePriority(location, conditions.priority, mode);
     const label = labels.priority[conditions.priority];
     matches.push(
-      tag
-        ? { title: '분위기', label, status: 'match', text: label, evidence: `#${tag}` }
-        : { title: '분위기', label, status: 'unknown', text: unknownText(label), evidence: null },
+      judged.status === 'match'
+        ? { title: '우선 조건', label, status: 'match', text: label, evidence: judged.evidence }
+        : { title: '우선 조건', label, status: 'unknown', text: unknownText(label), evidence: null },
     );
   }
 
@@ -472,9 +515,11 @@ export function getConditionMatches(
     const label = termLabel(slug);
     const title = TERM_TITLE[getTerm(slug)?.kind ?? 'reason'];
     const evidence = findTermEvidence(location, slug, operatorText);
+    // '실내' 태그로 '비 오는 날'을 확인한 것처럼 이름이 다른 근거는 왜 맞는지 덧붙인다
+    const note = getTerm(slug)?.evidenceNote;
     matches.push(
       evidence
-        ? { title, label, status: 'match', text: label, evidence }
+        ? { title, label, status: 'match', text: label, evidence, ...(note && !evidence.includes(label) ? { note } : {}) }
         : { title, label, status: 'unknown', text: unknownText(label), evidence: null },
     );
   }
