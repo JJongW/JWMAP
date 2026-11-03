@@ -13,6 +13,7 @@ import { recordActivity, toggleSaved, toggleVisited, getSavedIds, getVisitedIds 
 import { PriceLevelBadge } from './PriceLevelBadge';
 import { CommunityReviews } from './CommunityReviews';
 import { AddReviewModal } from './AddReviewModal';
+import { openKakaoMap, openNaverMap } from '../utils/mapOpen';
 
 interface PlaceDetailProps {
   location: Location;
@@ -156,29 +157,14 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
   const handleOpenNaver = () => {
     recordActivity('open_naver', location);
     if (searchId) searchLogApi.updateMapOpen(searchId, 'naver', location.id);
-    const appName = encodeURIComponent(window.location.origin);
-    const query = encodeURIComponent(location.name);
-    const appLink = `nmap://search?query=${query}&appname=${appName}`;
-    const webLink = `https://map.naver.com/v5/search/${query}`;
-
-    window.location.href = appLink;
-    setTimeout(() => {
-      window.location.href = webLink;
-    }, 700);
+    openNaverMap(location.name);
   };
 
   // 카카오맵 열기
   const handleOpenKakao = () => {
     recordActivity('open_kakao', location);
     if (searchId) searchLogApi.updateMapOpen(searchId, 'kakao', location.id);
-    const query = encodeURIComponent(location.name);
-    const appLink = `kakaomap://search?q=${query}`;
-    const webLink = `https://map.kakao.com/link/search/${query}`;
-
-    window.location.href = appLink;
-    setTimeout(() => {
-      window.location.href = webLink;
-    }, 700);
+    openKakaoMap(location.name);
   };
 
   const allTags = [...new Set([...(location.tags || []), ...(location.eventTags || [])])];
@@ -470,7 +456,15 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
   // PC 레이아웃 (2컬럼)
   return (
     <div className="ko-text fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex">
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex">
+        {/* 닫기: 스크롤 영역 밖에 두어 길게 내려도 오른쪽 위에 계속 보인다 (넓은 화면에서는 오른쪽 지도 칸 위) */}
+        <button
+          onClick={onClose}
+          aria-label="닫기"
+          className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-xl bg-white/95 shadow-sm ring-1 ring-black/5 backdrop-blur transition-colors hover:bg-white"
+        >
+          <X size={20} className="text-accent/80" />
+        </button>
         {/* 왼쪽: 컨텐츠 */}
         <div className="flex-1 overflow-y-auto">
           {/* 커버 이미지 */}
@@ -483,14 +477,6 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
                 loading="lazy"
                 onError={() => setImageError(true)}
               />
-              <div className="absolute top-4 right-4 flex gap-2">
-                <button
-                  onClick={onClose}
-                  className="w-10 h-10 bg-white/90 backdrop-blur rounded-xl flex items-center justify-center hover:bg-white transition-colors"
-                >
-                  <X size={20} className="text-accent/80" />
-                </button>
-              </div>
               <div className="absolute bottom-4 left-4">
                 <span className="px-3 py-1.5 bg-point text-white text-sm font-medium rounded-lg">
                   {categoryLabel(location.categorySub || location.categoryMain) || '미분류'}
@@ -505,16 +491,10 @@ export function PlaceDetail({ location, onClose, isMobile = false, searchId, onP
               <span className="px-3 py-1.5 bg-point text-white text-sm font-medium rounded-lg">
                 {categoryLabel(location.categorySub || location.categoryMain) || '미분류'}
               </span>
-              <button
-                onClick={onClose}
-                className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-base transition-colors"
-              >
-                <X size={20} className="text-accent/80" />
-              </button>
             </div>
           )}
 
-          <div className="p-6 space-y-5">
+          <div className="p-6 pr-16 space-y-5 lg:pr-6">
             {/* 헤더 */}
             <div>
               <div className="flex items-start justify-between">

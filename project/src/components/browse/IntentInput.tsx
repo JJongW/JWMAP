@@ -3,10 +3,11 @@
  *
  * 첫 화면의 "오늘 어디 갈까요?" 입력창.
  * 문장을 입력하고 추천받기를 누르거나, 입력 없이 지역·밥집·카페·볼거리로 바로 시작한다.
+ * text/onTextChange를 주면 입력 문장을 바깥에서 들고 있어, 결과를 다녀와도 문장이 남는다.
  * examples를 주면 "이렇게 적어보세요" 예시를 보여주고, 누르면 그 문장으로 바로 추천한다.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { ContentMode } from '../../types/location';
 import type { IntentConditions } from '../../utils/intentChips';
@@ -21,6 +22,11 @@ interface IntentInputProps {
   /** 첫 화면: 입력창을 크게 */
   size?: 'md' | 'lg';
   examples?: string[];
+  /** 입력 문장 (바깥에서 들고 있을 때) */
+  text?: string;
+  onTextChange?: (text: string) => void;
+  /** 조건 수정으로 왔을 때 입력창에 바로 커서를 둔다 */
+  autoFocus?: boolean;
 }
 
 export function IntentInput({
@@ -31,8 +37,23 @@ export function IntentInput({
   onContentModeChange,
   size = 'md',
   examples,
+  text: controlledText,
+  onTextChange,
+  autoFocus = false,
 }: IntentInputProps) {
-  const [text, setText] = useState('');
+  const [localText, setLocalText] = useState('');
+  const text = controlledText ?? localText;
+  const setText = (value: string) => {
+    setLocalText(value);
+    onTextChange?.(value);
+  };
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!autoFocus || !inputRef.current) return;
+    const input = inputRef.current;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }, [autoFocus]);
   const [isResolving, setIsResolving] = useState(false);
   const [isRegionOpen, setIsRegionOpen] = useState(false);
 
@@ -60,6 +81,7 @@ export function IntentInput({
     <div className="space-y-2">
       <form onSubmit={handleSubmit} className="flex gap-2">
         <input
+          ref={inputRef}
           type="text"
           value={text}
           onChange={(event) => setText(event.target.value)}

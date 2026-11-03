@@ -2,6 +2,7 @@
  * HomeStart.tsx
  *
  * 첫 진입 화면. 새 방문자가 가장 먼저 할 일은 "조건 입력 → 추천 1곳 확인"이다.
+ * 결과에서 '조건 수정'으로 오면 입력했던 문장을 그대로 두고, 결과로 돌아가는 버튼을 위에 보여준다.
  * 이름 검색·지도·전체 목록·저장한 곳은 없애지 않고 아래 '직접 찾아보기'로 한 단계 내려 둔다.
  */
 
@@ -30,6 +31,11 @@ interface HomeStartProps {
   onExplore: (entry: ExploreEntry) => void;
   totalCount: number;
   savedCount: number;
+  /** 입력 문장 (결과를 다녀와도 남도록 App이 들고 있다) */
+  text?: string;
+  onTextChange?: (text: string) => void;
+  /** 결과에서 '조건 수정'으로 왔을 때: 고치지 않고 결과로 돌아가기 */
+  onCancelEdit?: () => void;
 }
 
 export function HomeStart({
@@ -42,6 +48,9 @@ export function HomeStart({
   onExplore,
   totalCount,
   savedCount,
+  text,
+  onTextChange,
+  onCancelEdit,
 }: HomeStartProps) {
   const accentText = contentMode === 'space' ? 'text-violet-600' : 'text-orange-700';
 
@@ -74,6 +83,19 @@ export function HomeStart({
           )}
         </div>
 
+        {onCancelEdit && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl bg-gray-50 px-3 py-2.5 lg:mt-8">
+            <p className="text-sm text-gray-700">문장을 고친 뒤 추천받기를 누르면 다시 골라 드려요.</p>
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="min-h-[40px] shrink-0 rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 hover:border-gray-500"
+            >
+              ← 결과로 돌아가기
+            </button>
+          </div>
+        )}
+
         <div className="lg:mt-16 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-16">
           <div>
             {/* ── 대표 행동: 조건 입력 → 추천 1곳 ── */}
@@ -92,6 +114,9 @@ export function HomeStart({
                 onQuickStart={onQuickStart}
                 size="lg"
                 examples={EXAMPLES[contentMode]}
+                text={text}
+                onTextChange={onTextChange}
+                autoFocus={Boolean(onCancelEdit)}
               />
             </div>
 

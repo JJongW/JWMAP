@@ -9,12 +9,15 @@
  * 2. STEP1 지역: 시/도(전국구) 먼저 표시 → 클릭 시 세부지역 펼침
  * 3. STEP2~4: 동행, 시간대, 우선조건
  * 4. CTA 버튼 - 모든 선택 완료 시 활성화
- * 5. "돌아가기" 텍스트 버튼 - 들어오기 전 화면(첫 화면 또는 직접 찾아보기)으로 복귀
+ * 5. "돌아가기" 버튼 - 들어오기 전 화면(첫 화면·직접 찾아보기·추천 결과)으로 복귀
+ *
+ * 결과에서 '조건 수정'으로 오면 고른 값이 그대로 선택돼 있고, 바꾼 항목만 바뀐다.
+ * 고르던 값은 App이 들고 있어 돌아가기 후 다시 와도 남는다.
  *
  * 디자인 톤: calm, confident, minimal (Apple/Toss-like)
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { ContentMode, Province } from '../types/location';
 import { inferProvinceFromRegion } from '../types/location';
 import type { Companion, TimeSlot, PriorityFeature } from '../types/ui';
@@ -36,6 +39,19 @@ interface DecisionEntryViewProps {
   onBrowse: () => void;
   /** 결과 없음 알림 메시지 (alert() 대체 인라인 메시지) */
   noResultMessage?: string | null;
+  /** 처음에 선택돼 있을 값 (조건 수정, 고르다 만 값) */
+  initial?: EntryDraft;
+  /** 고를 때마다 알려서 화면을 떠났다 와도 남게 한다 */
+  onDraftChange?: (draft: EntryDraft) => void;
+  /** 돌아가기 버튼 문구. 결과에서 왔으면 '결과로 돌아가기' */
+  backLabel?: string;
+}
+
+export interface EntryDraft {
+  region: string | null;
+  companion: Companion | null;
+  timeSlot: TimeSlot | null;
+  priority: PriorityFeature | null;
 }
 
 // ─────────────────────────────────────────────
@@ -60,12 +76,29 @@ export function DecisionEntryView({
   onDecide,
   onBrowse,
   noResultMessage,
+  initial,
+  onDraftChange,
+  backLabel,
 }: DecisionEntryViewProps) {
-  const [region, setRegion] = useState<string>(REGION_ANY_VALUE);
-  const [expandedProvince, setExpandedProvince] = useState<Province | null>(null);
-  const [companion, setCompanion] = useState<Companion | null>(null);
-  const [timeSlot, setTimeSlot] = useState<TimeSlot | null>(null);
-  const [priorityFeature, setPriorityFeature] = useState<PriorityFeature | null>(null);
+  const [region, setRegion] = useState<string>(initial?.region ?? REGION_ANY_VALUE);
+  // 세부지역이 골라져 있으면 그 시/도를 펼친 채로 시작해 무엇이 골라졌는지 보이게 한다
+  const [expandedProvince, setExpandedProvince] = useState<Province | null>(() => {
+    if (!initial?.region) return null;
+    const province = inferProvinceFromRegion(initial.region);
+    return province && availableProvincesWithDistricts.some((p) => p.province === province) ? province : null;
+  });
+  const [companion, setCompanion] = useState<Companion | null>(initial?.companion ?? null);
+  const [timeSlot, setTimeSlot] = useState<TimeSlot | null>(initial?.timeSlot ?? null);
+  const [priorityFeature, setPriorityFeature] = useState<PriorityFeature | null>(initial?.priority ?? null);
+
+  useEffect(() => {
+    onDraftChange?.({
+      region: region === REGION_ANY_VALUE ? null : region,
+      companion,
+      timeSlot,
+      priority: priorityFeature,
+    });
+  }, [region, companion, timeSlot, priorityFeature, onDraftChange]);
 
   const labels = getConditionLabels(contentMode);
   const isComplete = companion !== null && timeSlot !== null && priorityFeature !== null;
@@ -248,7 +281,7 @@ export function DecisionEntryView({
               onClick={onBrowse}
               className="min-h-[44px] shrink-0 rounded-2xl border border-gray-200 px-4 text-sm font-medium text-gray-600 transition-colors hover:border-gray-400"
             >
-              {modeText.browse}
+              {backLabel ?? modeText.browse}
             </button>
             <button
               onClick={handleDecide}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AddLocationModal } from './components/AddLocationModal';
-import { DecisionEntryView } from './components/DecisionEntryView';
+import { DecisionEntryView, type EntryDraft } from './components/DecisionEntryView';
 import { DecisionResultView } from './components/DecisionResultView';
 import { BrowseView } from './components/BrowseView';
 import { PlaceDetail } from './components/PlaceDetail';
@@ -61,6 +61,19 @@ export default function App() {
   /** 추천을 찾은 데이터. '비 오는 날 전시'처럼 다른 탭의 장소 종류를 물으면 그쪽에서 찾는다 */
   const [decisionMode, setDecisionMode] = useState<ContentMode>('food');
   const otherModeCache = useRef<Partial<Record<ContentMode, Location[]>>>({});
+
+  // 화면 이동 기록: 결과·조건 수정·상세를 브라우저 뒤로/앞으로와 같은 흐름으로 맞춘다
+  /** 지금 보고 있는 추천 결과 (조건 수정 중이면 그 원래 결과) */
+  const [currentSnap, setCurrentSnap] = useState<ResultSnapshot | null>(null);
+  /** 결과에서 '조건 수정'으로 온 입력 화면이면 그 결과. 돌아가기는 이 결과로 */
+  const [editingSnap, setEditingSnap] = useState<ResultSnapshot | null>(null);
+  /** 첫 화면 입력 문장. 결과를 다녀와도 남는다 ('처음부터 다시'에서만 지운다) */
+  const [intentText, setIntentText] = useState('');
+  /** 하나씩 고르기 화면에서 고르던 값 */
+  const [entryDraft, setEntryDraft] = useState<EntryDraft>(EMPTY_DRAFT);
+  /** 새로고침·외부 지도에서 돌아왔을 때 이어서 보여줄 첫 기록 */
+  const initialNav = useRef<NavEntry | null>(readNavEntry(window.history.state));
+  const applySeq = useRef(0);
 
   // 초기 데이터 로딩 상태
   const [isLoading, setIsLoading] = useState(true);
@@ -454,25 +467,87 @@ export default function App() {
   // Decision Flow 핸들러
   // ─────────────────────────────────────────────
 
+  /** 다른 탭(맛집↔볼거리) 데이터가 필요하면 한 번만 불러 둔다 */
+  const getPool = useCallback(async (mode: ContentMode) => {
+    if (mode === contentMode) return locations;
+    const pool = otherModeCache.current[mode] ?? (await locationApi.getAll(mode).catch(() => []));
+    otherModeCache.current[mode] = pool;
+    return pool;
+  }, [locations, contentMode]);
+
+  /** 기록 하나를 화면에 그대로 옮긴다. 결과는 남겨 둔 조건으로 다시 계산한다 */
+  const applyNav = useCallback(async (entry: NavEntry) => {
+    const seq = ++applySeq.current;
+    if (entry.view === 'home') {
+      setEditingSnap(null);
+      setResultDetail(null);
+      setBrowseExploring(Boolean(entry.explore));
+      setUiMode('browse');
+      return;
+    }
+    if (entry.view === 'decision') {
+      setEditingSnap(entry.editing ?? null);
+      if (entry.editing) setEntryDraft(draftFromConditions(entry.editing.conditions));
+      setResultDetail(null);
+      setUiMode('decision');
+      return;
+    }
+    if (entry.view === 'text-edit') {
+      setEditingSnap(entry.editing);
+      if (entry.editing.source.kind === 'text') setIntentText(entry.editing.source.text);
+      setResultDetail(null);
+      setBrowseExploring(false);
+      setUiMode('browse');
+      return;
+    }
+    const { snap } = entry;
+    const pool = await getPool(snap.mode);
+    if (seq !== applySeq.current) return;
+    const result = decideLocations(pool, snap.conditions, snap.mode);
+    setCurrentSnap(snap);
+    setEditingSnap(null);
+    setConditions(snap.conditions);
+    setDecisionMode(snap.mode);
+    setIntentNotice(snap.notice);
+    setDecisionResult(result);
+    if (snap.source.kind === 'text') setIntentText(snap.source.text);
+    if (snap.source.kind === 'options') setEntryDraft(draftFromConditions(snap.conditions));
+    setResultDetail(entry.detailId ? pool.find((loc) => loc.id === entry.detailId) ?? null : null);
+    setUiMode('result');
+  }, [getPool]);
+
+  /** 새 화면으로 이동 (replace면 지금 기록을 바꾼다: 조건 수정 후 다시 추천, 칩 수정) */
+  const navigate = useCallback((entry: NavEntry, replace = false) => {
+    const state = { ...(window.history.state ?? {}), [NAV_KEY]: entry };
+    if (replace) window.history.replaceState(state, '');
+    else window.history.pushState(state, '');
+    return applyNav(entry);
+  }, [applyNav]);
+
   /**
    * 조건으로 결정 엔진을 돌리고 결과 화면으로 간다.
    * 맞는 곳이 없으면 조건을 무시한 대체 결과 대신, 결과 화면에서 칩을 빼보도록 안내한다.
+   * 조건 수정 화면에서 다시 추천하면 그 기록을 새 결과로 바꿔, 뒤로가기 한 번에 직전 결과로 간다.
    */
-  const runDecision = useCallback(async (next: IntentConditions) => {
+  const runDecision = useCallback(async (
+    next: IntentConditions,
+    source: RecommendSource,
+    notice: string | null,
+    { replace = false, key }: { replace?: boolean; key?: string } = {},
+  ) => {
     const mode = inferConditionMode(next) ?? contentMode;
-    let pool = locations;
-    if (mode !== contentMode) {
-      pool = otherModeCache.current[mode] ?? (await locationApi.getAll(mode).catch(() => []));
-      otherModeCache.current[mode] = pool;
-    }
-    if (mode !== contentMode) {
-      setIntentNotice(mode === 'space' ? '고른 장소 종류에 맞춰 볼거리에서 찾았어요.' : '고른 장소 종류에 맞춰 맛집과 카페에서 찾았어요.');
-    }
-    setConditions(next);
-    setDecisionMode(mode);
-    setDecisionResult(decideLocations(pool, next, mode));
-    setUiMode('result');
-  }, [locations, contentMode]);
+    const modeNotice = mode !== contentMode
+      ? (mode === 'space' ? '고른 장소 종류에 맞춰 볼거리에서 찾았어요.' : '고른 장소 종류에 맞춰 맛집과 카페에서 찾았어요.')
+      : null;
+    const snap: ResultSnapshot = {
+      key: key ?? `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      conditions: next,
+      mode,
+      notice: modeNotice ?? notice,
+      source,
+    };
+    await navigate({ view: 'result', snap }, replace);
+  }, [contentMode, navigate]);
 
   /** 4단계 선택 완료(지역·동행·시간·우선조건) → 결정 엔진 실행 → result 모드 전환 */
   const handleDecide = useCallback((
@@ -481,73 +556,100 @@ export default function App() {
     timeSlot: TimeSlot,
     priorityFeature: PriorityFeature,
   ) => {
-    setIntentNotice(null);
-    runDecision({ ...EMPTY_CONDITIONS, region, companion, timeSlot, priority: priorityFeature });
-  }, [runDecision]);
+    // 조건 수정이면 결과 화면 칩으로 고친 다른 조건(종류 등)은 그대로 두고, 이 화면에서 고른 것만 바꾼다
+    const base = editingSnap?.conditions ?? EMPTY_CONDITIONS;
+    runDecision(
+      { ...base, region, companion, timeSlot, priority: priorityFeature },
+      { kind: 'options' },
+      null,
+      { replace: Boolean(editingSnap) },
+    );
+  }, [editingSnap, runDecision]);
 
   /** 첫 화면 "오늘 어디 갈까요?" 입력 → 조건 칩으로 해석 → 추천 */
   const handleRecommendText = useCallback(async (text: string) => {
     recordActivity('recommend_start', undefined, { contentType: contentMode });
+    setIntentText(text);
     const { conditions: parsed, source } = await resolveIntent(text, regionOptions);
     const unread = source === 'rules' ? unreadWords(text, regionOptions) : [];
-    setIntentNotice(
+    const notice =
       text.trim() && source === 'none'
         ? '문장에서 조건을 찾지 못했어요. 아래 칩으로 직접 골라주세요.'
         : unread.length
           ? `'${unread.join("', '")}' 조건은 아직 읽지 못해서 빼고 골랐어요. 아래 칩에 있는 조건만 적용했어요.`
-          : null
-    );
-    runDecision(parsed);
-  }, [contentMode, regionOptions, runDecision]);
+          : null;
+    await runDecision(parsed, { kind: 'text', text }, notice, { replace: Boolean(editingSnap) });
+  }, [contentMode, regionOptions, runDecision, editingSnap]);
 
   /** 입력 없이 지역·밥집·카페로 바로 시작 */
   const handleQuickStart = useCallback((partial: Partial<IntentConditions>) => {
     recordActivity('recommend_start', undefined, { contentType: contentMode });
-    setIntentNotice(null);
-    runDecision({ ...EMPTY_CONDITIONS, ...partial });
-  }, [contentMode, runDecision]);
+    runDecision({ ...EMPTY_CONDITIONS, ...partial }, { kind: 'quick' }, null, { replace: Boolean(editingSnap) });
+  }, [contentMode, runDecision, editingSnap]);
 
-  /** 결과 화면에서 칩을 고치면 바로 다시 추천 */
+  /** 결과 화면에서 칩을 고치면 바로 다시 추천 (같은 결과 기록을 고친다. 처음 시작한 방식은 그대로) */
   const handleConditionsChange = useCallback((next: IntentConditions) => {
-    setIntentNotice(null);
-    runDecision(next);
-  }, [runDecision]);
+    if (!currentSnap) return;
+    runDecision(next, currentSnap.source, null, { replace: true, key: currentSnap.key });
+  }, [currentSnap, runDecision]);
 
   /** 추천 결과·질문형 화면의 "지도로 보기" → 첫 화면이 아니라 지도·목록 탐색으로 */
   const handleSwitchToBrowse = useCallback(() => {
-    setBrowseExploring(true);
-    setUiMode('browse');
-    setDecisionResult(null);
-  }, []);
+    navigate({ view: 'home', explore: true });
+  }, [navigate]);
 
-  /** 질문형 화면의 "돌아가기" → 들어오기 전 화면(첫 화면이든 직접 찾아보기든)으로 */
-  const handleBackFromEntry = useCallback(() => {
-    setUiMode('browse');
-  }, []);
+  /** 첫 화면 ↔ 직접 찾아보기 전환은 지금 기록에 적어 둔다 (뒤로가기로 결과에서 돌아오면 보던 쪽으로) */
+  const handleExploringChange = useCallback((exploring: boolean) => {
+    navigate({ view: 'home', explore: exploring }, true);
+  }, [navigate]);
 
-  /** 지도 탐색 중 추천이 필요할 때 Decision 화면으로 이동 */
+  /** 질문형 화면·조건 수정 화면의 "돌아가기" → 들어오기 전 화면(첫 화면·직접 찾아보기·추천 결과)으로 */
+  const handleBack = useCallback(() => {
+    if (readNavEntry(window.history.state)?.view === 'home') {
+      // 기록 없이 들어온 경우 (새로고침 등)
+      navigate({ view: 'home' }, true);
+      return;
+    }
+    window.history.back();
+  }, [navigate]);
+
+  /** 지도 탐색·첫 화면에서 하나씩 골라서 추천받기 → Decision 화면 (고르던 값은 그대로) */
   const handleBackToDecision = useCallback(() => {
     recordActivity('recommend_start', undefined, { contentType: contentMode });
-    setUiMode('decision');
-    setDecisionResult(null);
-  }, [contentMode]);
+    navigate({ view: 'decision' });
+  }, [contentMode, navigate]);
 
-  /** result → decision 전환 (다시 고르기) */
-  const handleRetryDecision = useCallback(() => {
-    setUiMode('decision');
-    setDecisionResult(null);
-  }, []);
+  /** 결과 → 조건 수정: 문장으로 찾았으면 그 문장을, 하나씩 골랐으면 고른 값을 채운 입력 화면으로 */
+  const handleEditConditions = useCallback(() => {
+    if (!currentSnap) return;
+    navigate(
+      currentSnap.source.kind === 'text'
+        ? { view: 'text-edit', editing: currentSnap }
+        : { view: 'decision', editing: currentSnap },
+    );
+  }, [currentSnap, navigate]);
+
+  /** 결과 → 처음부터 다시: 입력 문장과 조건을 지우고 첫 화면으로 (지운다는 건 버튼에 적혀 있다) */
+  const handleStartOver = useCallback(() => {
+    setIntentText('');
+    setEntryDraft(EMPTY_DRAFT);
+    setConditions(EMPTY_CONDITIONS);
+    setIntentNotice(null);
+    navigate({ view: 'home', explore: false });
+  }, [navigate]);
 
   /** result 화면에서 장소 상세 보기 → 결과 화면 위에 해당 장소 상세를 연다 */
   const handleDecisionOpenDetail = useCallback((location: Location) => {
     recordActivity('list_click', location);
-    setResultDetail(location);
+    if (!currentSnap) return;
     // 브라우저 뒤로가기가 결과 화면이 아니라 상세만 닫도록 기록을 하나 쌓는다
-    window.history.pushState({ resultDetailId: location.id }, '');
-  }, []);
+    window.history.pushState({ ...(window.history.state ?? {}), [NAV_KEY]: { view: 'result', snap: currentSnap, detailId: location.id } }, '');
+    setResultDetail(location);
+  }, [currentSnap]);
 
   const handleCloseResultDetail = useCallback(() => {
-    if ((window.history.state as { resultDetailId?: string } | null)?.resultDetailId) {
+    const entry = readNavEntry(window.history.state);
+    if (entry?.view === 'result' && entry.detailId) {
       window.history.back(); // popstate에서 닫힌다
     } else {
       setResultDetail(null);
@@ -555,10 +657,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handlePopState = () => setResultDetail(null);
+    const handlePopState = (event: PopStateEvent) => {
+      applyNav(readNavEntry(event.state) ?? { view: 'home' });
+    };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [applyNav]);
 
   // 결과 화면을 떠나면 열려 있던 상세도 정리한다
   useEffect(() => {
@@ -612,7 +716,18 @@ export default function App() {
     setVisibleLocations(10);
     setUiMode('browse');
     setDecisionResult(null);
+    setEditingSnap(null);
+    // 새로고침·외부 지도에서 돌아온 첫 로딩이면 보던 화면을 이어 보여준다 (데이터를 받은 뒤 아래에서)
+    if (initialNav.current) return;
+    window.history.replaceState({ ...(window.history.state ?? {}), [NAV_KEY]: { view: 'home' } }, '');
   }, [contentMode, fetchLocations, refreshPlaceStateIds]);
+
+  useEffect(() => {
+    if (isLoading || locations.length === 0 || !initialNav.current) return;
+    const entry = initialNav.current;
+    initialNav.current = null;
+    applyNav(entry);
+  }, [isLoading, locations, applyNav]);
 
   // URL 쿼리 파라미터에서 locationId 확인
   // 딥링크 진입 시 decision 모드를 건너뛰고 바로 browse로 전환
@@ -629,7 +744,7 @@ export default function App() {
         setUiMode('browse');
         // URL에서 쿼리 파라미터 제거
         const newUrl = window.location.pathname;
-        window.history.replaceState({}, '', newUrl);
+        window.history.replaceState({ [NAV_KEY]: { view: 'home', explore: true } }, '', newUrl);
       }
     }
   }, [locations]);
@@ -683,10 +798,14 @@ export default function App() {
       {/* ── Decision Entry View (기본 진입 화면) ── */}
       {!isLoading && uiMode === 'decision' && (
         <DecisionEntryView
+          key={editingSnap?.key ?? 'new'}
           contentMode={contentMode}
           availableProvincesWithDistricts={availableProvincesWithDistricts}
           onDecide={handleDecide}
-          onBrowse={handleBackFromEntry}
+          onBrowse={handleBack}
+          initial={entryDraft}
+          onDraftChange={setEntryDraft}
+          backLabel={editingSnap ? '결과로 돌아가기' : undefined}
         />
       )}
 
@@ -699,7 +818,9 @@ export default function App() {
           regionOptions={regionOptions.slice(0, 20)}
           notice={intentNotice}
           contentMode={decisionMode}
-          onRetry={handleRetryDecision}
+          onEditConditions={handleEditConditions}
+          onStartOver={handleStartOver}
+          viewKey={currentSnap?.key}
           onBrowse={handleSwitchToBrowse}
           onOpenDetail={handleDecisionOpenDetail}
         />
@@ -766,7 +887,10 @@ export default function App() {
           onRecommendText={handleRecommendText}
           onQuickStart={handleQuickStart}
           exploring={browseExploring}
-          onExploringChange={setBrowseExploring}
+          onExploringChange={handleExploringChange}
+          intentText={intentText}
+          onIntentTextChange={setIntentText}
+          onCancelEdit={editingSnap ? handleBack : undefined}
         />
       )}
 
@@ -788,4 +912,45 @@ export default function App() {
       <SpeedInsights />
     </div>
   );
+}
+
+// ─────────────────────────────────────────────
+// 화면 이동 기록 (history.state)
+// ─────────────────────────────────────────────
+
+const NAV_KEY = 'oomapNav';
+
+/** 추천을 어떻게 시작했는지. 조건 수정이 어느 입력 화면으로 갈지 정한다 */
+type RecommendSource = { kind: 'text'; text: string } | { kind: 'options' } | { kind: 'quick' };
+
+/** 추천 결과 한 번. 결과 목록 대신 조건을 남겨 두고 돌아올 때 다시 계산한다 */
+interface ResultSnapshot {
+  key: string;
+  conditions: IntentConditions;
+  mode: ContentMode;
+  notice: string | null;
+  source: RecommendSource;
+}
+
+type NavEntry =
+  | { view: 'home'; explore?: boolean }
+  | { view: 'decision'; editing?: ResultSnapshot }
+  | { view: 'text-edit'; editing: ResultSnapshot }
+  | { view: 'result'; snap: ResultSnapshot; detailId?: string };
+
+const EMPTY_DRAFT: EntryDraft = { region: null, companion: null, timeSlot: null, priority: null };
+
+function readNavEntry(state: unknown): NavEntry | null {
+  if (!state || typeof state !== 'object') return null;
+  const entry = (state as Record<string, unknown>)[NAV_KEY];
+  return entry && typeof entry === 'object' && 'view' in entry ? (entry as NavEntry) : null;
+}
+
+function draftFromConditions(conditions: IntentConditions): EntryDraft {
+  return {
+    region: conditions.region,
+    companion: conditions.companion,
+    timeSlot: conditions.timeSlot,
+    priority: conditions.priority,
+  };
 }
