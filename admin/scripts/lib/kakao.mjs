@@ -108,6 +108,9 @@ export function summarize(p) {
     hours_headline: p.open_hours?.headline?.display_text ?? null,
     hours: (p.open_hours?.week_from_today?.week_periods?.[0]?.days ?? [])
       .map((d) => `${d.day_of_the_week_desc} ${d.on_days?.start_end_time_desc ?? d.off_days_desc ?? '휴무'}`),
+    // 카카오가 붙인 장소 키워드(예: 데이트코스, 혼밥)와 편의시설. 태그가 빈 곳을 채울 때 쓴다
+    keywords: (p.place_add_info?.tags ?? []).filter((t) => typeof t === 'string' && t.trim()).map((t) => t.trim()),
+    facilities: p.place_add_info?.facilities ?? null,
     review_count: p.kakaomap_review?.score_set?.review_count ?? null,
     rating: p.kakaomap_review?.score_set?.average_score ?? null,
     reviews: reviews.slice(0, 8),

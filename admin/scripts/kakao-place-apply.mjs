@@ -6,6 +6,7 @@
  *   node scripts/kakao-place-apply.mjs --apply                 # 영업 상태·카카오 ID 정리·잘못된 좌표(50km+)·영업시간/전화·리뷰·가게 사진
  *   node scripts/kakao-place-apply.mjs --apply --hide-closed   # + 폐업 의심 장소를 숨김(사이트에서 빠짐, 행은 남음)
  *   node scripts/kakao-place-apply.mjs --apply --fix-location  # + 위치가 바뀐 곳의 주소·좌표를 카카오 값으로
+ *   node scripts/kakao-place-apply.mjs --apply --fill-tags     # + 태그가 비어 있는 곳만 카카오 장소 키워드·편의시설로 채움
  *
  * 이름이 다른 곳(renamed)은 운영자가 붙인 이름일 수 있어 바꾸지 않는다.
  * 리뷰·가게 사진은 admin에서 참고용으로만 보이고 사이트에는 운영자가 고른 사진만 나간다.
@@ -21,6 +22,7 @@ const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
 const HIDE_CLOSED = args.includes('--hide-closed');
 const FIX_LOCATION = args.includes('--fix-location');
+const FILL_TAGS = args.includes('--fill-tags');
 const reportArg = args.indexOf('--report');
 const REPORT = reportArg >= 0 ? args[reportArg + 1] : path.join(REPO, 'docs/db-overhaul/kakao-place-check.json');
 const CONCURRENCY = 4;
@@ -68,8 +70,17 @@ function plan(r) {
     ...(k?.blogs ?? []).map((v) => ({ place_id: r.id, source: 'blog', external_id: v.id, excerpt: cleanText(v.excerpt), rating: null, written_at: v.written_at, source_url: v.url })),
   ].filter((v) => v.external_id && v.excerpt);
 
+  // 태그가 빈 곳만: 카카오가 붙인 장소 키워드 그대로 + 편의시설 중 '있음'으로 확인된 것. 지어낸 태그는 넣지 않는다
+  const kakaoTags = [
+    // 철 지난 행사·혜택 키워드(초복메뉴추천, 문화비소득공제)는 장소 성격이 아니라서 뺀다
+    ...(k?.keywords ?? []).filter((t) => !/소득공제|메뉴추천|이벤트|할인/.test(t)),
+    ...(k?.facilities?.is_parking === true ? ['주차 가능'] : []),
+    ...(k?.facilities?.is_pet === true ? ['반려동물 동반'] : []),
+  ];
+  const tags = FILL_TAGS && kakaoTags.length ? [...new Set(kakaoTags)] : null;
+
   const photos = (k?.store_photos ?? []).map((ph, i) => ({ place_id: r.id, source: 'official', url: ph.url, source_url: placeUrl, status: 'suggested', sort_order: 100 + i }));
-  return { patch, facts, reviews, photos, status };
+  return { patch, facts, reviews, photos, status, tags };
 }
 
 async function main() {
@@ -89,6 +100,7 @@ async function main() {
     facts: plans.reduce((n, p) => n + p.facts.length, 0),
     reviews: plans.reduce((n, p) => n + p.reviews.length, 0),
     store_photos: plans.reduce((n, p) => n + p.photos.length, 0),
+    tags_candidates: plans.filter((p) => p.tags).length,
   }));
   if (!APPLY) return;
 
@@ -103,6 +115,10 @@ async function main() {
           if (item.facts.length) await db('place_facts?on_conflict=place_id,field,source,value', 'POST', item.facts, 'resolution=ignore-duplicates,return=minimal');
           if (item.reviews.length) await db('external_reviews?on_conflict=source,external_id', 'POST', item.reviews, 'resolution=ignore-duplicates,return=minimal');
           if (item.photos.length) await db('place_photos?on_conflict=url', 'POST', item.photos, 'resolution=ignore-duplicates,return=minimal');
+          // 태그는 지금 비어 있는 행에만 쓴다 (운영자가 넣은 태그는 건드리지 않는다)
+          if (item.tags && item.r.legacy_table) {
+            await db(`${item.r.legacy_table}?id=eq.${item.r.id}&or=(tags.is.null,tags.eq.{})`, 'PATCH', { tags: item.tags });
+          }
         } catch (error) {
           failures.push(`${item.r.name}: ${error.message}`);
         }
