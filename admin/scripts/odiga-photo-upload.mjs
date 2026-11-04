@@ -53,6 +53,15 @@ const db = (pathAndQuery, init = {}) =>
     headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', ...init.headers },
   });
 
+const UPRIGHT = `
+import sys
+from PIL import Image, ImageOps
+p = sys.argv[1]
+im = Image.open(p)
+if im.getexif().get(0x0112, 1) != 1:
+    ImageOps.exif_transpose(im).save(p, 'JPEG', quality=80)
+`;
+
 /** 고르게 뽑기: 촬영 순서대로 n장을 간격을 두고 */
 function spread(list, n) {
   if (!n || list.length <= n) return list;
@@ -64,6 +73,9 @@ async function upload(photo, tmp) {
   execFileSync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '80', '-Z', '1600', photo.local_path, '--out', out], {
     stdio: 'ignore',
   });
+  // sips는 픽셀을 돌리지 않고 EXIF 회전 태그만 남긴다 → 태그를 무시하는 도구(Figma 업로드 등)에서 옆으로 누운다.
+  // 픽셀을 실제로 세우고 태그를 지운다.
+  execFileSync('/usr/bin/python3', ['-c', UPRIGHT, out], { stdio: 'ignore', cwd: tmp });
   const form = new FormData();
   form.append('file', new Blob([readFileSync(out)], { type: 'image/jpeg' }), `${photo.id}.jpg`);
   form.append('upload_preset', PRESET);
