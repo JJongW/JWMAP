@@ -6,8 +6,9 @@
 ## 제작 현황 (중복 방지)
 
 - Figma 「제작 현황」 페이지(보드 27:27)에 카드뉴스로 쓸 수 있는 장소가 지역별로 있다. 줄 이름은 place_id다.
-- **단일**은 이 장소 하나만 소개한 게시물(Template 1)을 올렸는지, **묶음**은 여러 곳을 묶은 게시물(Template 2)에 들어갔는지를 뜻한다. 사용자가 게시 후 체크한다.
-- 기획할 때 `admin/scripts/card-checklist-read.mjs --unused single|multi`로 아직 안 쓴 장소만 고른다. FIGMA_TOKEN이 필요하다.
+- **단일**은 이 장소 하나만 소개한 게시물(Template 1)을 올렸는지(체크), **묶음(회)**은 여러 곳을 묶은 게시물(Template 2)에 들어간 횟수(숫자)다. 한 장소가 여러 묶음에 들어갈 수 있다. 사용자가 게시 후 고친다.
+- 기획할 때 `admin/scripts/card-checklist-read.mjs --unused single|multi`로 아직 안 쓴 장소를 고른다. 묶음 횟수가 적은 장소가 앞에 온다.
+- 토큰은 `project/.env`의 `FIGMA_READ_TOKEN`(30일 만료)이다. 만든 날을 `FIGMA_READ_TOKEN_SET_AT`에 적는다. 엔진 daily 작업이 하루 한 번 `--check`를 돌려서, 토큰이 거부되거나 만료 5일 전이면 맥 알림으로 재생성을 요청한다.
 
 ## 색
 
