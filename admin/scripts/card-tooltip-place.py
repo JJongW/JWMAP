@@ -7,7 +7,7 @@
 카드는 3240x4050, 사진은 Figma FILL(가운데 기준으로 꽉 채워 자름)로 들어간다고 본다.
 사진 위에서 "복잡한 정도"(가장자리 세기 + 밝기 변화)를 재고, 툴팁이 덮는 곳의 복잡도가
 가장 낮은 자리를 고른다. 사진 가운데(피사체가 보통 있는 곳)는 점수를 더 나쁘게 친다.
-툴팁은 템플릿처럼 왼쪽/오른쪽 끝에 붙이거나, 본문 여백(295px) 안쪽에 둔다.
+툴팁은 본문 여백(295px) 안쪽에만 둔다. 카드 끝에 붙이면 화면 가장자리에서 가려지기 쉽다.
 결과는 JSON 한 줄: {"x":..,"y":..,"align":"left|right|inset","score":..}
 """
 import json
@@ -17,7 +17,7 @@ from PIL import Image, ImageFilter, ImageOps
 
 W, H = 3240, 4050
 MARGIN = 295           # 템플릿 본문 여백
-TOP, BOTTOM = 520, 3650  # 닉네임 아래 ~ 카드 아래 여백 위
+TOP, BOTTOM = 520, 3554  # 닉네임 아래 ~ 장소 소개 글 아래 끝 (인스타 하단 UI·손가락에 가리지 않게)
 GRID = 30              # 계산용 축소 배율 (1칸 = 30px)
 
 
@@ -62,7 +62,7 @@ def best(path, tw, th, avoid):
         return any(x < ax + aw + 60 and ax < x + tw + 60 and y < ay + ah + 60 and ay < y + th + 60
                    for ax, ay, aw, ah in avoid)
 
-    xs = {'left': [-1], 'right': [W - tw + 1], 'inset': list(range(MARGIN, W - MARGIN - tw + 1, 60))}
+    xs = {'left': [MARGIN], 'right': [W - MARGIN - tw], 'inset': list(range(MARGIN + 60, W - MARGIN - tw, 60))}
     cands = []
     for align, xl in xs.items():
         for x in xl:
