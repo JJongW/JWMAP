@@ -14,12 +14,13 @@
  *   칸 「올린 게시물 (메모)」: 글자 — 메모
  * 토큰은 project/.env 또는 admin/.env.local 의 FIGMA_READ_TOKEN (Figma 개인 토큰, file_content:read). 출력에 토큰을 찍지 않는다.
  * 개인 토큰은 30일이면 만료된다. 만든 날을 FIGMA_READ_TOKEN_SET_AT=YYYY-MM-DD 로 적어 두면 만료 5일 전부터 미리 알린다.
- * 토큰이 거부되면(401/403) 언제든 바로 알린다. 알림은 macOS 알림 센터(osascript)로 보낸다.
+ * 토큰이 거부되면(401/403) 언제든 바로 알린다. 알림은 Slack 알림 채널(lib/slack.mjs)과 macOS 알림 센터로 같이 보낸다.
  */
 import { execFileSync } from 'child_process';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { slackPost } from './lib/slack.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
@@ -74,7 +75,8 @@ const TOKEN_DAYS = 30;
 const WARN_DAYS = 5;
 const RENEW = 'Figma → Settings → Security → Personal access tokens에서 File content: Read only로 새로 만들고 project/.env의 FIGMA_READ_TOKEN을 바꿔줘 (만든 날은 FIGMA_READ_TOKEN_SET_AT).';
 
-export function notify(title, message) {
+export async function notify(title, message) {
+  await slackPost(`*${title}*\n${message}`);
   const q = (s) => JSON.stringify(String(s));
   try {
     execFileSync('/usr/bin/osascript', ['-e', `display notification ${q(message)} with title ${q(title)} sound name "Glass"`]);
@@ -118,7 +120,7 @@ async function main() {
   if (args.includes('--check')) {
     const left = daysLeft(env.FIGMA_READ_TOKEN_SET_AT);
     if (left !== null && left <= WARN_DAYS) {
-      notify('OOMAP: Figma 토큰 곧 만료', `${Math.max(left, 0)}일 남음. ${RENEW}`);
+      await notify('OOMAP: Figma 토큰 곧 만료', `${Math.max(left, 0)}일 남음. ${RENEW}`);
       console.log(`토큰 정상, 만료까지 ${left}일 → 알림 보냄`);
     } else {
       console.log(`토큰 정상 (장소 ${Object.keys(rows).length}곳 읽음${left === null ? ', 만든 날 모름' : `, 만료까지 ${left}일`})`);
@@ -136,10 +138,10 @@ async function main() {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch((error) => {
+  main().catch(async (error) => {
     console.error(error.message);
     if (error.tokenProblem) {
-      notify('OOMAP: Figma 토큰 다시 만들어줘', `제작 현황을 못 읽었어. ${RENEW}`);
+      await notify('OOMAP: Figma 토큰 다시 만들어줘', `제작 현황을 못 읽었어. ${RENEW}`);
       process.exit(2);
     }
     process.exit(1);
