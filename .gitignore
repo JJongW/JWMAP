@@ -15,3 +15,6 @@ docs/db-overhaul/kakao-place-check.json
 docs/db-overhaul/kakao-saved.json
 docs/db-overhaul/odiga-vault-intake.json
 docs/db-overhaul/review-autofix.json
+
+# Slack 봇 상태(스레드-세션 매핑)·로그
+admin/.slack-bot/
