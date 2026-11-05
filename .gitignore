@@ -18,3 +18,10 @@ docs/db-overhaul/review-autofix.json
 
 # Slack 봇 상태(스레드-세션 매핑)·로그
 admin/.slack-bot/
+
+# 내부 문서·AI 작업 규칙 (로컬 전용, 2026-11-05 사용자 지시)
+/docs/
+/CLAUDE.md
+/AGENTS.md
+.claude/
+.cursor/
