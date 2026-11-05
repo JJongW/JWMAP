@@ -47,6 +47,18 @@ export async function slackApi(method, body, token = slackEnv().SLACK_BOT_TOKEN)
   }
 }
 
+/** JSON 본문을 받지 않는 조회 메서드용 (conversations.replies 는 JSON POST면 invalid_arguments) */
+export async function slackGet(method, params, token = slackEnv().SLACK_BOT_TOKEN) {
+  if (!token) return { ok: false, error: 'no_token' };
+  try {
+    const q = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
+    const res = await fetch(`https://slack.com/api/${method}?${q}`, { headers: { Authorization: `Bearer ${token}` } });
+    return await res.json();
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+}
+
 /** Slack 한 메시지 최대 길이를 넘으면 나눈다 */
 export function splitText(text, size = 3500) {
   const out = [];
