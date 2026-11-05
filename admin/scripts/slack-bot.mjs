@@ -18,7 +18,7 @@ import { spawn } from 'child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { slackApi, slackEnv, slackPost } from './lib/slack.mjs';
+import { slackApi, slackEnv, slackGet, slackPost } from './lib/slack.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
@@ -87,9 +87,12 @@ let BOT_USER = null;
 const queue = [];
 let busy = false;
 
-async function threadText(ts) {
-  const r = await slackApi('conversations.replies', { channel: CHANNEL, ts, limit: 50 });
-  if (!r.ok) return { parentIsBot: false, text: '' };
+export async function threadText(ts) {
+  const r = await slackGet('conversations.replies', { channel: CHANNEL, ts, limit: 50 });
+  if (!r.ok) {
+    log('conversations.replies 실패', ts, r.error);
+    return { parentIsBot: false, text: '' };
+  }
   const msgs = r.messages ?? [];
   const parentIsBot = Boolean(msgs[0]?.bot_id) || msgs[0]?.user === BOT_USER;
   const text = msgs
