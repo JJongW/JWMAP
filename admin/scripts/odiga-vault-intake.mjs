@@ -4,6 +4,7 @@
  *
  *   node scripts/odiga-vault-intake.mjs                 # 드라이런: 결과 JSON만 만든다 (DB에 쓰지 않음)
  *   node scripts/odiga-vault-intake.mjs --apply         # 운영 DB에 쓴다 (service role, 021 적용 후)
+ *   node scripts/odiga-vault-intake.mjs --only 콘드,센도 --apply   # 폴더 이름에 이 말이 들어간 것만 반영 (지운 장소 폴더를 되살리지 않게)
  *   node scripts/odiga-vault-intake.mjs --refresh-pending [--apply]
  *       # 드라이브 없이, 아직 결정 안 한 검토 항목의 지역·종류를 폴더 이름에서 다시 읽고 빠진 위치를 카카오에서 채운다
  *
@@ -227,7 +228,12 @@ async function main() {
   const projectEnv = readEnv(path.join(REPO, 'project/.env'));
   const places = await fetchPlaces(projectEnv);
   if (REFRESH) return refreshPending(projectEnv, places);
-  const folders = findPlaceFolders(VAULT);
+  const only = arg('--only', '')
+    .split(',')
+    .map((s) => nfc(s.trim()))
+    .filter(Boolean);
+  const folders = findPlaceFolders(VAULT).filter(({ segs }) => !only.length || only.some((w) => nfc(segs[segs.length - 1]).includes(w)));
+  if (only.length) console.log(`--only: ${folders.length} folders (${folders.map(({ segs }) => segs[segs.length - 1]).join(', ')})`);
 
   const items = folders.map(({ full, segs, photos }) => {
     const info = describeFolder(segs);
