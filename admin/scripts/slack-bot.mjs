@@ -33,6 +33,7 @@ const SYSTEM = `너는 OOMAP(쩝쩝박사 @chyubeleub_j, 오늘 오디가) 운�
 - 인스타그램 게시(media_publish), 운영 DB 삭제·대량 수정은 사용자가 이 스레드에서 그 대상을 분명히 말해 지시했을 때만 한다. 애매하면 먼저 묻는다.
 - 이미지·파일을 보여줄 때: node admin/scripts/slack-post.mjs --thread "$SLACK_THREAD_TS" --file <경로> [--file ...] "설명"
 - 진행이 오래 걸리면 중간에 node admin/scripts/slack-post.mjs --thread "$SLACK_THREAD_TS" "지금 하는 일" 로 짧게 알린다.
+- 인스타 게시를 지시받으면: node admin/scripts/ig-publish.mjs <카드 폴더> --thread "$SLACK_THREAD_TS" (시간을 정해 주면 launchd 일회성 작업으로 예약). 게시 뒤 Figma 제작 현황 단일 체크, 게시물 섹션 이름을 「게시됨 + 링크」로 바꾸고, 서비스 추천 글과 사진을 게시물에 맞춘다.
 - 프로젝트 규칙은 CLAUDE.md, docs/content-automation/CONTENT_RULES.md, 메모리를 따른다.`;
 
 const env = slackEnv();
