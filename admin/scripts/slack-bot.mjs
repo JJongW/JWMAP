@@ -63,7 +63,9 @@ export function runClaude(prompt, { sessionId, threadTs } = {}) {
     if (sessionId) args.push('--resume', sessionId);
     const child = spawn(CLAUDE, args, {
       cwd: REPO,
-      env: { ...process.env, SLACK_THREAD_TS: threadTs ?? '' },
+      // claude.ai 커넥터는 끈다. claude.ai Figma 커넥터가 편집 권한 없는 계정으로 붙어서,
+      // 켜 두면 Figma 플러그인 MCP(ted.urssu, Full 좌석)를 가린다.
+      env: { ...process.env, SLACK_THREAD_TS: threadTs ?? '', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let out = '';
