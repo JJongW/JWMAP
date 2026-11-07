@@ -131,6 +131,8 @@ export async function getPlaceDetail(supabase: SupabaseClient, id: string): Prom
        external_reviews(id, source, source_url, excerpt)`,
     )
     .eq('id', id)
+    // 리뷰는 원문 전체라 길다. 화면에는 앞의 몇 개만 쓴다
+    .limit(40, { referencedTable: 'external_reviews' })
     .maybeSingle();
 
   if (error) {

@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 리뷰 원문 백필 진행 상태
+.reviews-backfill/

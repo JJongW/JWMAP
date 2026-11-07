@@ -29,7 +29,7 @@ const api = async (pathAndQuery, init = {}) => {
 function promptFor(items, rules) {
   const blocks = items.map((it) => {
     const reviews = (it.external_reviews ?? [])
-      .map((r) => r.excerpt.replace(/\s+/g, ' ').trim().slice(0, 220))
+      .map((r) => r.excerpt.replace(/\s+/g, ' ').trim().slice(0, 500))
       .filter(Boolean)
       .slice(0, 8);
     return JSON.stringify({
@@ -48,7 +48,7 @@ async function loadTargets() {
   const rows = [];
   for (let from = 0; ; from += 500) {
     const page = await api(
-      `place_intake?select=id,name,category_hint,region_hint,raw,external_reviews(excerpt)&status=eq.pending&order=collected_at.asc&offset=${from}&limit=500`,
+      `place_intake?select=id,name,category_hint,region_hint,raw,external_reviews(excerpt)&external_reviews.order=source.desc&external_reviews.limit=8&status=eq.pending&order=collected_at.asc&offset=${from}&limit=500`,
     );
     rows.push(...page);
     if (page.length < 500) break;

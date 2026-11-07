@@ -80,6 +80,8 @@ const INTAKE_COLUMNS = `id, source, source_key, name, province, region_hint, cat
   photos:place_photos(id, source, url, local_path, taken_at, status, is_cover),
   reviews:external_reviews(id, source, source_url, excerpt, rating)`;
 
+export const REVIEW_LIMIT = 30;
+
 /** 검토함: 먼저 들어온 순서대로. 테이블이 없으면(021 전) 빈 목록 */
 export async function getIntakeQueue(
   supabase: SupabaseClient,
@@ -96,6 +98,8 @@ export async function getIntakeQueue(
   const { data, error, count } = await query
     .order('collected_at', { ascending: true })
     .order('source_key', { ascending: true })
+    // 리뷰는 원문 전체라 길다. 목록에는 앞의 몇 개만 받는다
+    .limit(REVIEW_LIMIT, { referencedTable: 'reviews' })
     .range(from, from + perPage - 1);
 
   if (error) {

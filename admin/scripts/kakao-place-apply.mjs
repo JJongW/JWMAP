@@ -14,7 +14,7 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { cleanText } from './lib/kakao.mjs';
+import { fullReviews, reviewRows } from './lib/kakao.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
@@ -65,10 +65,8 @@ function plan(r) {
   if (k?.hours?.length) facts.push({ place_id: r.id, field: 'hours', value: { text: k.hours.join(' / ') }, source: 'kakao', source_url: placeUrl, checked_at: now });
   if (k?.phone) facts.push({ place_id: r.id, field: 'phone', value: { text: k.phone }, source: 'kakao', source_url: placeUrl, checked_at: now });
 
-  const reviews = [
-    ...(k?.reviews ?? []).map((v) => ({ place_id: r.id, source: 'kakao', external_id: v.id, excerpt: cleanText(v.excerpt), rating: v.rating, written_at: v.written_at, source_url: placeUrl })),
-    ...(k?.blogs ?? []).map((v) => ({ place_id: r.id, source: 'blog', external_id: v.id, excerpt: cleanText(v.excerpt), rating: null, written_at: v.written_at, source_url: v.url })),
-  ].filter((v) => v.external_id && v.excerpt);
+  // 드라이런 집계용 미리보기. 반영할 때는 fullReviews()로 리뷰 전부와 블로그 본문 전체를 다시 받는다
+  const reviews = reviewRows(k, { place_id: r.id }, placeUrl);
 
   // 태그가 빈 곳만: 카카오가 붙인 장소 키워드 그대로 + 편의시설 중 '있음'으로 확인된 것. 지어낸 태그는 넣지 않는다
   const kakaoTags = [
@@ -113,7 +111,10 @@ async function main() {
         try {
           await db(`places?id=eq.${item.r.id}`, 'PATCH', item.patch);
           if (item.facts.length) await db('place_facts?on_conflict=place_id,field,source,value', 'POST', item.facts, 'resolution=ignore-duplicates,return=minimal');
-          if (item.reviews.length) await db('external_reviews?on_conflict=source,external_id', 'POST', item.reviews, 'resolution=ignore-duplicates,return=minimal');
+          if (item.r.kakao && item.r.kakao_place_id) {
+            const rows = reviewRows(await fullReviews(item.r.kakao_place_id), { place_id: item.r.id }, `https://place.map.kakao.com/${item.r.kakao_place_id}`);
+            if (rows.length) await db('external_reviews?on_conflict=source,external_id', 'POST', rows, 'resolution=merge-duplicates,return=minimal');
+          }
           if (item.photos.length) await db('place_photos?on_conflict=url', 'POST', item.photos, 'resolution=ignore-duplicates,return=minimal');
           // 태그는 지금 비어 있는 행에만 쓴다 (운영자가 넣은 태그는 건드리지 않는다)
           if (item.tags && item.r.legacy_table) {
