@@ -3,6 +3,7 @@
  *   panel(id)          장소 상세 (영업 상태·주소·좌표·영업시간·가게 사진·리뷰)
  *   keywordSearch()    카카오 로컬 키워드 검색 (REST 키)
  *   checkOne(place)    DB 장소 하나를 카카오와 비교해 판정
+ *   fullReviews(id)    카카오 리뷰 전부 + 블로그 글 본문 전체 (external_reviews에 넣을 원문)
  */
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -27,8 +28,11 @@ export function readEnv(file) {
   }
 }
 export const env = readEnv(path.join(REPO, 'project/.env'));
-/** 글자 수로 자르다 생긴 반쪽 이모지(짝 없는 서로게이트)를 없앤다. 남기면 DB 저장 요청 JSON이 깨진다 */
-export const cleanText = (s, max = 300) =>
+/**
+ * 짝 없는 서로게이트(반쪽 이모지)를 없앤다. 남기면 DB 저장 요청 JSON이 깨진다.
+ * 리뷰는 원문 전체를 저장한다. max는 비정상적으로 긴 글만 막는 안전장치다.
+ */
+export const cleanText = (s, max = 50000) =>
   [...(s ?? '')].slice(0, max).join('').replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '').trim();
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const squash = (s) => (s ?? '').normalize('NFC').replace(/\(.*?\)|[\s·\-_.,]/g, '').toLowerCase();
@@ -90,7 +94,7 @@ export function summarize(p) {
   const blogs = (p.blog_review?.reviews ?? []).map((b) => ({
     id: String(b.review_id),
     excerpt: cleanText([b.title, b.contents].filter(Boolean).join(' — ')),
-    url: b.outlink ?? b.url ?? b.link ?? null,
+    url: b.origin_url ?? b.outlink ?? b.url ?? null,
     written_at: b.date?.slice(0, 10) ?? null,
   }));
   // 가게(업주)가 올린 사진만 official로 본다
@@ -118,6 +122,119 @@ export function summarize(p) {
     store_photos: storePhotos.slice(0, 12),
     updated_at: s.meta?.updated_at ?? null,
   };
+}
+
+const KAKAO_HEADERS = { pf: 'web', Referer: 'https://place.map.kakao.com/', 'User-Agent': 'Mozilla/5.0' };
+const MOBILE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+
+async function kakaoTab(url) {
+  return withRetry(async () => {
+    const res = await fetch(url, { headers: KAKAO_HEADERS });
+    if (res.status === 404 || res.status === 400) return null;
+    if (!res.ok) throw new Error(`kakao tab ${res.status}`);
+    return res.json();
+  });
+}
+
+/** 카카오맵 리뷰를 추천순으로 전부(최대 max개). panel3은 3개만 주고 글도 잘린다 */
+export async function kakaoReviewsAll(kakaoId, { max = 300, delay = 400 } = {}) {
+  const out = [];
+  let last = '';
+  while (out.length < max) {
+    const j = await kakaoTab(
+      `https://place-api.map.kakao.com/places/tab/reviews/kakaomap/${kakaoId}?order=RECOMMENDED&only_photo_review=false${last ? `&previous_last_review_id=${last}` : ''}`,
+    );
+    const page = j?.reviews ?? [];
+    for (const r of page) {
+      const excerpt = cleanText(r.contents);
+      if (excerpt) out.push({ id: String(r.review_id), excerpt, rating: r.star_rating ?? null, written_at: r.registered_at?.slice(0, 10) ?? null });
+    }
+    if (!page.length || !j.has_next) break;
+    last = page[page.length - 1].review_id;
+    await sleep(delay);
+  }
+  return out.slice(0, max);
+}
+
+/** 카카오가 모아 둔 블로그 글 목록(추천순, 최대 max개). contents는 앞부분 미리보기라 본문은 blogText()로 따로 받는다 */
+export async function blogList(kakaoId, { max = 20, delay = 400 } = {}) {
+  const out = [];
+  for (let page = 1; out.length < max; page += 1) {
+    const j = await kakaoTab(`https://place-api.map.kakao.com/places/tab/reviews/blog/${kakaoId}?order=RECOMMENDED&page=${page}`);
+    const rows = j?.reviews ?? [];
+    for (const b of rows) {
+      out.push({ id: String(b.review_id), title: b.title ?? '', preview: b.contents ?? '', url: b.origin_url ?? null, written_at: b.registered_at?.slice(0, 10) ?? null });
+    }
+    if (rows.length < (j?.requested_page_size ?? 10)) break;
+    await sleep(delay);
+  }
+  return out.slice(0, max);
+}
+
+const decode = (s) =>
+  s.replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/&amp;/g, '&');
+
+/** HTML 조각 → 줄바꿈을 살린 글 */
+export function htmlToText(html) {
+  return decode(
+    html
+      .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, '')
+      .replace(/<br\s*\/?>|<\/p>|<\/div>|<\/li>/g, '\n')
+      .replace(/<[^>]+>/g, ''),
+  )
+    .replace(/[ \t\u200b\u00a0]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
+/** 네이버 블로그 글 본문 전체. 네이버가 아니거나 못 읽으면 null */
+export async function blogText(url) {
+  const m = url?.match(/blog\.naver\.com\/([^/?#]+)\/(\d+)/) ?? url?.match(/blogId=([^&]+).*logNo=(\d+)/);
+  if (!m) return null;
+  try {
+    return await withRetry(async () => {
+      const res = await fetch(`https://m.blog.naver.com/PostView.naver?blogId=${m[1]}&logNo=${m[2]}`, { headers: { 'User-Agent': MOBILE_UA } });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`naver blog ${res.status}`);
+      const html = await res.text();
+      // 스마트에디터 ONE 본문(se-main-container), 옛 에디터 본문(post-view / postViewArea)
+      const start = ['se-main-container', 'id="postViewArea"', 'class="post_ct'].map((k) => html.indexOf(k)).find((i) => i >= 0);
+      if (start == null) return null;
+      const from = html.lastIndexOf('<', start);
+      const endAt = ['<div class="post_footer', 'class="wrap_postdata', '<div id="post_footer'].map((k) => html.indexOf(k, start)).filter((i) => i > 0);
+      const text = htmlToText(html.slice(from, endAt.length ? Math.min(...endAt) : start + 300000))
+        .split('\n').filter((line) => !['이 블로그의 체크인', '이 장소의 다른 글', '지도 데이터', '© NAVER Corp.'].includes(line.trim())).join('\n');
+      return text || null;
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * external_reviews에 넣을 원문 전체.
+ *   reviews: 카카오맵 리뷰 전부 (글 전체)
+ *   blogs:   블로그 글. 네이버 블로그는 제목 + 본문 전체, 다른 블로그는 제목 + 카카오 미리보기
+ */
+export async function fullReviews(kakaoId, { maxKakao = 300, maxBlogs = 20, delay = 600 } = {}) {
+  const reviews = await kakaoReviewsAll(kakaoId, { max: maxKakao, delay });
+  const blogs = [];
+  for (const b of await blogList(kakaoId, { max: maxBlogs, delay })) {
+    const body = await blogText(b.url);
+    blogs.push({ id: b.id, url: b.url, written_at: b.written_at, full: Boolean(body), excerpt: cleanText([b.title, body ?? b.preview].filter(Boolean).join('\n\n')) });
+    await sleep(delay);
+  }
+  return { reviews, blogs };
+}
+
+/** fullReviews/summarize 결과 → external_reviews 행. extra는 place_id·intake_id 등 */
+export function reviewRows(k, extra, placeUrl) {
+  return [
+    ...(k?.reviews ?? []).map((v) => ({ ...extra, source: 'kakao', external_id: v.id, excerpt: cleanText(v.excerpt), rating: v.rating, written_at: v.written_at, source_url: placeUrl })),
+    ...(k?.blogs ?? []).map((v) => ({ ...extra, source: 'blog', external_id: v.id, excerpt: cleanText(v.excerpt), rating: null, written_at: v.written_at, source_url: v.url })),
+  ].filter((r) => r.excerpt);
 }
 
 export function judge(place, k) {

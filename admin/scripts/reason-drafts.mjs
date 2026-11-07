@@ -36,7 +36,7 @@ function promptFor(items) {
     // 카카오 리뷰를 먼저, 블로그는 뒤에 (블로그는 협찬 글이 섞여 있어 보조로)
     const reviews = [...it.external_reviews]
       .sort((a, b) => (a.source === 'kakao' ? 0 : 1) - (b.source === 'kakao' ? 0 : 1))
-      .map((r) => r.excerpt.replace(/\s+/g, ' ').trim().slice(0, 220))
+      .map((r) => r.excerpt.replace(/\s+/g, ' ').trim().slice(0, 500))
       .filter(Boolean)
       .slice(0, 10);
     return JSON.stringify({
@@ -56,7 +56,7 @@ async function loadTargets() {
   for (let from = 0; ; from += 500) {
     const page = await api(
       `places?select=id,name,region,category_main,category_sub,recommendations(status),external_reviews(source,excerpt),source_notes(classified_as,raw_text)` +
-        `&visit_status=eq.visited&order=id&offset=${from}&limit=500`,
+        `&external_reviews.order=source.desc&external_reviews.limit=20&visit_status=eq.visited&order=id&offset=${from}&limit=500`,
     );
     rows.push(...page);
     if (page.length < 500) break;

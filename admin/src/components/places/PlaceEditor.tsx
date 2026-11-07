@@ -433,8 +433,17 @@ export function PlaceEditor({ place, terms }: Props) {
               <ul className="space-y-1.5">
                 {place.external_reviews.slice(0, 8).map((review) => (
                   <li key={review.id} className="rounded-lg border border-gray-100 p-2 text-sm">
-                    <span className="mr-1 text-[10px] font-semibold text-muted-foreground">{review.source}</span>
-                    {review.excerpt}
+                    <details className="group">
+                      <summary className="line-clamp-4 cursor-pointer list-none whitespace-pre-line group-open:line-clamp-none">
+                        <span className="mr-1 text-[10px] font-semibold text-muted-foreground">{review.source}</span>
+                        {review.excerpt}
+                      </summary>
+                      {review.source_url && (
+                        <a href={review.source_url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-orange-600 hover:underline">
+                          원문 보기
+                        </a>
+                      )}
+                    </details>
                   </li>
                 ))}
               </ul>

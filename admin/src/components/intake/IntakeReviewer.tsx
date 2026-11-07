@@ -19,6 +19,7 @@ import {
   SPACE_HINT,
   type IntakeDecision,
   type IntakeItem,
+  REVIEW_LIMIT,
 } from '@/lib/queries/intake';
 import { decideIntake, searchPlaces, setPhotoStatus } from '@/app/intake/actions';
 
@@ -266,7 +267,8 @@ export function IntakeReviewer({ items: initialItems, total }: Props) {
           {/* 수집한 리뷰 */}
           <div>
             <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              <MessageSquareQuote className="h-3 w-3" /> 다른 곳의 리뷰 {item.reviews.length}개
+              <MessageSquareQuote className="h-3 w-3" /> 다른 곳의 리뷰 {item.reviews.length}
+              {item.reviews.length >= REVIEW_LIMIT ? '개 이상' : '개'}
             </p>
             {item.reviews.length === 0 ? (
               <p className="mt-1 text-xs text-muted-foreground">아직 수집하지 않았어요.</p>
@@ -274,8 +276,17 @@ export function IntakeReviewer({ items: initialItems, total }: Props) {
               <ul className="mt-2 space-y-1.5">
                 {item.reviews.slice(0, 6).map((review) => (
                   <li key={review.id} className="rounded-lg border border-gray-100 p-2 text-sm">
-                    <span className="mr-1 text-[10px] font-semibold text-muted-foreground">{review.source}</span>
-                    {review.excerpt}
+                    <details className="group">
+                      <summary className="line-clamp-4 cursor-pointer list-none whitespace-pre-line group-open:line-clamp-none">
+                        <span className="mr-1 text-[10px] font-semibold text-muted-foreground">{review.source}</span>
+                        {review.excerpt}
+                      </summary>
+                      {review.source_url && (
+                        <a href={review.source_url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-orange-600 hover:underline">
+                          원문 보기
+                        </a>
+                      )}
+                    </details>
                   </li>
                 ))}
               </ul>
