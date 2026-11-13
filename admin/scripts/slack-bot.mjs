@@ -53,17 +53,22 @@ const state = loadState();
 function saveState() {
   mkdirSync(STATE_DIR, { recursive: true });
   state.seen = state.seen.slice(-500);
+  // 7일 이상 된 스레드 세션 매핑 제거
+  const cutoff = Date.now() / 1000 - 7 * 86400;
+  for (const ts of Object.keys(state.threads)) {
+    if (parseFloat(ts) < cutoff) delete state.threads[ts];
+  }
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 1));
 }
 
 /** Claude CLI 한 번 실행 → { text, sessionId } */
 export function runClaude(prompt, { sessionId, threadTs } = {}) {
   return new Promise((resolve) => {
-    const args = ['-p', prompt, '--output-format', 'json', '--permission-mode', 'auto', '--append-system-prompt', SYSTEM];
+    const args = ['-p', prompt, '--output-format', 'json', '--permission-mode', 'bypassPermissions', '--append-system-prompt', SYSTEM];
     if (sessionId) args.push('--resume', sessionId);
     const child = spawn(CLAUDE, args, {
       cwd: REPO,
-      // claude.ai 커넥터는 끈다. claude.ai Figma 커넥터가 편집 권한 없는 계정으로 붙어서,
+      // claude.ai 커넥터는 끈다. claude.ai Figma 커넥터가 편집 권한 없는 계정(View 시트)으로 붙어서,
       // 켜 두면 Figma 플러그인 MCP(ted.urssu, Full 좌석)를 가린다.
       env: { ...process.env, SLACK_THREAD_TS: threadTs ?? '', ENABLE_CLAUDEAI_MCP_SERVERS: 'false' },
       stdio: ['ignore', 'pipe', 'pipe'],
